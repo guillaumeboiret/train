@@ -74,6 +74,7 @@ function doorLeafGeo(pts, s, y0, y1, w, out = 0.012, thick = 0.06){
   return g;
 }
 const LIV = { grey:'#b9bec4', greyDark:'#8d939a', carmine:'#7a1224', glass:'#1c2530', roof:'#6f767d', door:'#20262c' };
+const PAX_COL = [0x3b5bdb, 0xc23b3b, 0x2f8f5b, 0xe0a030, 0x555c66, 0xd6d0c4, 0x7b3fa0, 0x1f6f8b];   // clothes, shared by the platform crowd and the seated passengers
 
 /* ---- power car body (shared geometry + texture) */
 const PC = (() => {
@@ -126,6 +127,38 @@ function buildPowerCarBody(parent, cx, dir, mk, withCoupler = true){   // mk: ma
 const PC_INTERNALS = ['frame', 'cab', 'bogies', 'motors', 'transformer', 'converter4q', 'inverters', 'control', 'roofResistors', 'cooling', 'compressor', 'auxConverter', 'battery', 'vcb'];
 const pcHosts = [];                          // {ig, clones:{id:group}} per equipped power car
 const pcShells = { mats:[], meshes:[] };     // their body shells, so the shell opacity control covers every power car
+const trShells = { mats:[], meshes:[] };     // trailer skins (body, ends, gangways, doors): the shell control fades them too and reveals the interiors
+const DECK = { lo:0.92, up:2.3 };            // floor heights of the two decks (the painted windows sit at 1.65..2.35 and 3.0..3.75)
+const SEAT_GEO = (() => {                    // cushion + backrest facing +x, origin on the floor at the seat centre, 0.44 wide
+  const s = new THREE.Shape(); s.moveTo(-0.22, 0.28); s.lineTo(0.22, 0.28); s.lineTo(0.22, 0.42); s.lineTo(-0.12, 0.42); s.lineTo(-0.12, 0.95); s.lineTo(-0.22, 0.95); s.closePath();
+  const g = new THREE.ExtrudeGeometry(s, { depth:0.44, bevelEnabled:false }); g.translate(0, 0, -0.22); return g;
+})();
+const SEAT_COL = [new THREE.Color(0x7a2233), new THREE.Color(0x24506b)];   // first class burgundy, second class blue
+/* Duplex interior, drawn only while the shell control fades the skin: two decks of 2+2 seats, a stair at the door end, seated passengers in 85 % of the seats (instanced) */
+function buildInterior(parent, mk, firstCar){
+  const g = new THREE.Group(); g.visible = false; parent.add(g);
+  const floorM = mk(0x3a3f46, { roughness:0.9 }), pos = [];
+  TGV.TRAILERS.forEach(([xr, L], i) => {
+    g.add(box(L - 3.6, 0.08, 2.85, floorM, xr + 3.4 + (L - 3.6) / 2, DECK.up, 0));       // upper floor, open over the vestibule and the stair
+    const st = box(1.95, 0.06, 0.9, floorM, xr + 2.55, (DECK.lo + DECK.up) / 2, -0.9); st.rotation.z = Math.atan2(DECK.up - DECK.lo, 1.7); g.add(st);
+    const cls = (firstCar + i) % 10 <= 3 ? 0 : 1;                                        // cars 1..3 (11..13) are first class
+    for (const y of [DECK.lo, DECK.up]) for (let x = xr + 4.0; x < xr + L - 0.9; x += 0.9) for (const z of [-0.95, -0.48, 0.48, 0.95]) pos.push([x, y, z, cls]);
+  });
+  const seats = new THREE.InstancedMesh(SEAT_GEO, mk(0xffffff, { roughness:0.85 }), pos.length);
+  const bodies = new THREE.InstancedMesh(new THREE.CapsuleGeometry(0.17, 0.35, 2, 6), mk(0xffffff, { roughness:0.8 }), pos.length);
+  const heads = new THREE.InstancedMesh(new THREE.SphereGeometry(0.12, 7, 5), mk(0xd9b48f, { roughness:0.7 }), pos.length);
+  const q = new THREE.Quaternion(), col = new THREE.Color(); let n = 0;
+  pos.forEach(([x, y, z, cls], i) => {
+    _m4.compose(_p.set(x, y, z), q, _s.setScalar(1)); seats.setMatrixAt(i, _m4); seats.setColorAt(i, SEAT_COL[cls]);
+    const k = ((i * 2654435761) >>> 0) % 100 < 85 ? 1 : 0; n += k;                       // fixed pseudo-random occupancy
+    _m4.compose(_p.set(x + 0.04, y + 0.77, z), q, _s.setScalar(k)); bodies.setMatrixAt(i, _m4);
+    col.setHex(PAX_COL[(i * 7 + (i >> 3)) % PAX_COL.length]); bodies.setColorAt(i, col);
+    _m4.compose(_p.set(x + 0.04, y + 1.19, z), q, _s.setScalar(k)); heads.setMatrixAt(i, _m4);
+  });
+  for (const m of [seats, bodies, heads]){ m.frustumCulled = false; m.castShadow = m.receiveShadow = false; g.add(m); }
+  g.userData.seats = pos.length; g.userData.pax = n;
+  return g;
+}
 function equipPowerCar(pc, pantoX){
   for (const ax of axles) ax.userData.axle = 1;          // tags survive clone(): the copies' wheels and rotors turn with the train
   for (const r of motorRotors) r.userData.rotor = 1;
@@ -204,22 +237,24 @@ function buildSet(opts){
   // opts: {mk, groups:{power, trailers, jacobs, doors, roof}, withFront, firstCar}
   const { mk, groups:G, withFront, firstCar, internals = false } = opts;   // internals: full copy of the lead car's equipment
   const set = { doors:[], hatches:[], lamps:{}, pantos:[] };
-  const bodyM = mk(0xffffff, { map:TR.tex, roughness:0.45, metalness:0.2 }), endM = mk(0x2b3238, { roughness:0.85 });
+  const bodyM = mk(0xffffff, { map:TR.tex, roughness:0.45, metalness:0.2 }), endM = mk(0x2b3238, { roughness:0.85 }), capM = mk(0x2b3238, { roughness:0.85 });
   const bellowsM = mk(0x23272c, { roughness:0.95 }), doorM = mk(0xaeb4ba, { roughness:0.5, metalness:0.25, side:THREE.DoubleSide }), glassM = mk(0x1c2530, { roughness:0.25, metalness:0.1 });
+  const skin = m => { trShells.meshes.push(m); return m; };   // what the shell control fades: body, ends, gangways, doors (the underframe stays)
+  trShells.mats.push(bodyM, capM, bellowsM, doorM, glassM);
   const trailerRear = [];
   TGV.TRAILERS.forEach(([xr, L], i) => {
     const g = new THREE.Group(); g.position.x = xr;
-    const b = new THREE.Mesh(TR.geo[L].body, bodyM); b.castShadow = true; b.receiveShadow = true; g.add(b);
-    const cr = new THREE.Mesh(TR.geo[L].capRear, endM), cf = new THREE.Mesh(TR.geo[L].capFront, endM); cf.position.x = 0; g.add(cr, cf);
+    const b = new THREE.Mesh(TR.geo[L].body, bodyM); b.castShadow = true; b.receiveShadow = true; g.add(skin(b));
+    const cr = new THREE.Mesh(TR.geo[L].capRear, capM), cf = new THREE.Mesh(TR.geo[L].capFront, capM); cf.position.x = 0; g.add(skin(cr), skin(cf));
     g.add(box(L - 1.0, 0.16, 2.6, endM, L / 2, 0.83, 0));                                 // underframe
     g.add(box(L - 3.0, 0.5, 2.9, endM, L / 2, 0.55, 0));                                  // low floor tanks/equipment
-    if (i < TGV.TRAILERS.length - 1) g.add(box(0.5, 3.3, 2.5, bellowsM, -0.25, 2.5, 0));   // gangway bellows over the Jacobs bogie
+    if (i < TGV.TRAILERS.length - 1) g.add(skin(box(0.5, 3.3, 2.5, bellowsM, -0.25, 2.5, 0)));   // gangway bellows over the Jacobs bogie
     G.trailers.add(g); trailerRear.push(xr);
     // plug-sliding door at the -x end of each trailer, both sides; only +z (platform) leaves animate
     [1, -1].forEach(s => {
       const d = new THREE.Group(); d.position.set(xr + 1.65, 0, 0);
-      const leaf = new THREE.Mesh(TR.leaf[s > 0 ? 'p' : 'n'], doorM); leaf.castShadow = true; d.add(leaf);
-      d.add(box(0.8, 0.6, 0.02, glassM, 0, 2.0, s * (zAtY(TR.pts, 2.0) + 0.022)));        // door window, level with the lower deck
+      const leaf = new THREE.Mesh(TR.leaf[s > 0 ? 'p' : 'n'], doorM); leaf.castShadow = true; d.add(skin(leaf));
+      d.add(skin(box(0.8, 0.6, 0.02, glassM, 0, 2.0, s * (zAtY(TR.pts, 2.0) + 0.022))));  // door window, level with the lower deck
       G.doors.add(d); set.doors.push({ g:d, s, x0:xr + 1.65, z0:0 });
       const num = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.25), new THREE.MeshBasicMaterial({ map:carNumber(firstCar + i), side:THREE.DoubleSide }));
       num.position.set(xr + 2.75, 3.3, s * (zAtY(TR.pts, 3.3) + 0.012)); if (s < 0) num.rotation.y = Math.PI; G.trailers.add(num);
@@ -230,7 +265,7 @@ function buildSet(opts){
   for (let i = 0; i < TGV.TRAILERS.length - 1; i++) tgvBogie(G.jacobs, TGV.TRAILERS[i][0] - 0.25, mk, 3.0, true);
   tgvBogie(G.jacobs, -161.0, mk, 3.0, false);
   // rear power car (nose toward -x) + its pantograph; the front car is the loco shell (set 1) or built here (set 2)
-  G.trailers.add(box(0.6, 3.3, 2.5, bellowsM, -9.9, 2.5, 0)); G.trailers.add(box(0.6, 3.3, 2.5, bellowsM, -164.2, 2.5, 0));   // gangways to both power cars
+  G.trailers.add(skin(box(0.6, 3.3, 2.5, bellowsM, -9.9, 2.5, 0))); G.trailers.add(skin(box(0.6, 3.3, 2.5, bellowsM, -164.2, 2.5, 0)));   // gangways to both power cars
   const rear = buildPowerCarBody(G.power, TGV.REAR_PC, -1, mk);
   set.hatches.push(rear.hatch); set.lamps.rear = { hl:rear.hl, tl:rear.tl };
   if (internals) equipPowerCar(rear, -2); else [TGV.REAR_PC - 6, TGV.REAR_PC + 6].forEach(x => tgvBogie(G.power, x, mk, 3.0, false));
@@ -254,6 +289,7 @@ function buildSet(opts){
   G.roof.add(cable([[xA, 4.62, 0.25], [xA - 0.25, 4.6, 0.25], [xA - 0.4, 4.5, 0.15]], 0.03, lineM));   // to the rear panto base
   G.roof.add(cable([[-9.8, 4.62, 0.25], [-8.6, 4.58, 0.3], [-7.4, 4.5, 0.3]], 0.03, lineM));                                                  // down to the front car roof
   G.roof.add(cable([[-7.4, 4.5, 0.3], [-1.0, 4.55, 0.32], [3.6, 4.55, 0.32], [4.4, 4.5, 0.3]], 0.03, lineM));                                 // to the VCB
+  set.interior = buildInterior(G.trailers, mk, firstCar);
   return set;
 }
 
@@ -280,7 +316,7 @@ definePart('coupler', g => { tgvFrontHatch = buildNoseCoupler(g, mat); });
   const set2 = buildSet({ mk:pmat, groups:G2, withFront:true, firstCar:11, internals:true });
   set2.group = s2; tgvSets.push(set2);
 }
-pantoHook = f => { if (S.mode !== 'tgv') return false; posePanto(tgvSets[0].pantos[0], f); return true; };
+pantoHook = f => { if (S.mode !== 'tgv') return false; posePanto(tgvSets[0].pantos[0], f); posePanto(panto, 0); return true; };   // single set under 25 kV: the rear pantograph feeds the roof line, the leading one stays folded
 
 /* ---- station: a platform on the camera side sized to the formation (200 m single set, 400 m double), letters A..P */
 const station = new THREE.Group(); world.add(station);   // posed on the line at the nearest station by updateRoute
@@ -320,7 +356,7 @@ function letterTex(ch){
 }
 
 /* ---- passengers: instanced capsules that wait, alight and board through the platform-side doors */
-const PAX_N = 96, PAX_COL = [0x3b5bdb, 0xc23b3b, 0x2f8f5b, 0xe0a030, 0x555c66, 0xd6d0c4, 0x7b3fa0, 0x1f6f8b];
+const PAX_N = 256;
 const paxBody = new THREE.InstancedMesh(new THREE.CapsuleGeometry(0.19, 0.55, 3, 8), pmat(0xffffff, { roughness:0.8 }), PAX_N);
 const paxHead = new THREE.InstancedMesh(new THREE.SphereGeometry(0.13, 10, 8), pmat(0xd9b48f, { roughness:0.7 }), PAX_N);
 paxBody.castShadow = true; paxBody.frustumCulled = false; paxHead.frustumCulled = false;
@@ -331,7 +367,7 @@ function makeCrowd(){
   pax.length = 0;
   const doors = [];
   for (let s = 0; s < S.sets; s++) TGV.TRAILERS.forEach(([xr]) => doors.push(xr + 1.65 + (s ? TGV.SET2_X : 0) - TGV.PLAT_FRONT));
-  const per = doors.length > 8 ? 2 : 3, col = new THREE.Color();
+  const per = doors.length > 8 ? 7 : 14, col = new THREE.Color();   // waiting + alighting per door, within PAX_N
   doors.forEach(dx => {
     for (let i = 0; i < per; i++) pax.push({ st:'wait', x:dx + (Math.random() - 0.5) * 7, z:3.0 + Math.random() * 2.8, tx:0, tz:0, door:dx, delay:3.5 + i * 0.9 + Math.random() * 0.5, ph:0, sp:1.0 + Math.random() * 0.3 });
     for (let i = 0; i < per; i++) pax.push({ st:'in', x:dx, z:1.95, tx:dx + (Math.random() - 0.5) * 9, tz:7.7, door:dx, delay:0.4 + i * 0.7, ph:0, sp:1.0 + Math.random() * 0.3 });

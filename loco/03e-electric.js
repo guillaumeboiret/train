@@ -35,7 +35,7 @@ definePart('pantograph', g => {
 });
 let pantoHook = null;   // the TGV pack poses the rear power cars' pantographs instead (returns true when it did)
 function setPanto(f){
-  if (pantoHook && pantoHook(f)){ posePanto(panto, 0); return; }
+  if (pantoHook && pantoHook(f)) return;   // the hook also decides what the lead car's own pantograph does
   posePanto(panto, f);
 }
 

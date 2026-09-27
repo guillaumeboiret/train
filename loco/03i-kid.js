@@ -261,7 +261,7 @@ try { if (localStorage.getItem('kid.mute') === '1') kidMute(true); } catch (e) {
 document.addEventListener('pointerdown', e => { if (!$('kidMenu').hidden && !e.target.closest('#kidMenu,#kidGear')){ $('kidMenu').hidden = true; $('kidGear').setAttribute('aria-expanded', 'false'); } });
 
 /* ---- hooks into the engine: both pantographs of the first TGV set follow the switch; the driver camera looks the way we go */
-pantoHook = f => { if (S.mode !== 'tgv') return false; for (const p of tgvSets[0].pantos) posePanto(p, f); return true; };
+pantoHook = f => { if (S.mode !== 'tgv') return false; for (const p of tgvSets[0].pantos) posePanto(p, f); posePanto(panto, f); return true; };   // kid mode: the front pantograph rises too, so the ⚡ button shows on the car the child looks at
 const _kv1 = new THREE.Vector3(), _kv2 = new THREE.Vector3();
 frameHook = () => {
   if (S.mode !== 'diesel' && S.battery && S.lineOn && S.panto && !S.vcb) S.vcb = true;   // the child only handles the pantograph: the line breaker follows it

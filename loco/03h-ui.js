@@ -267,7 +267,7 @@ function setShell(level){
   shellLevel = level;
   $('shellSeg').querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(+b.dataset.shell === level)));
   const p = S.mode === 'tgv' ? parts.tgvShell : parts.shell;
-  for (const m of S.mode === 'tgv' ? [...p.mats, ...pcShells.mats] : p.mats){
+  for (const m of S.mode === 'tgv' ? [...p.mats, ...pcShells.mats, ...trShells.mats] : p.mats){
     if (!m.userData.orig) m.userData.orig = { transparent:m.transparent, opacity:m.opacity, depthWrite:m.depthWrite };
     const o = m.userData.orig;
     if (level >= 1){ m.transparent = o.transparent; m.opacity = o.opacity; m.depthWrite = o.depthWrite; }
@@ -275,7 +275,8 @@ function setShell(level){
     m.needsUpdate = true;
   }
   p.group.traverse(o => { if (o.isMesh) o.castShadow = level >= 1; });
-  for (const o of pcShells.meshes){ o.castShadow = level >= 1; o.visible = level > 0; }
+  for (const o of [...pcShells.meshes, ...trShells.meshes]){ o.castShadow = level >= 1; o.visible = level > 0; }
+  for (const set of tgvSets) set.interior.visible = level < 1;   // seats and passengers are only drawn once the skin lets them show
   applyVisibility(p);
 }
 const CUT_EXT = { x:[0, 10.4], y:[2.9, 2.9], z:[0, 1.75] };   // center, half extent along the cut axis
