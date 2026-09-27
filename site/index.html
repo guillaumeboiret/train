@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Trains</title>
+<meta name="description" content="Le vrai tracé Bordeaux Paris en 3D : conduire un TGV, comprendre une locomotive, jouer aux aiguillages.">
+<link rel="icon" href="/favicon.svg">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Sans:wght@400;500&display=swap">
+<style>
+:root{
+  color-scheme:dark;
+  --bg:#11171d; --card:#18212b; --line:#273342; --fg:#e8edf2; --mute:#95a3b2; --accent:#e0a030; --carmine:#b3263d;
+}
+*{ box-sizing:border-box; }
+html, body{ margin:0; background:var(--bg); color:var(--fg); font:16px/1.5 'IBM Plex Sans', system-ui, sans-serif; }
+main{ max-width:920px; margin:0 auto; padding:56px 16px calc(32px + env(safe-area-inset-bottom, 0px)); }
+h1{ font:700 64px/0.95 'Barlow Condensed', system-ui, sans-serif; letter-spacing:0.01em; margin:0; }
+h1 span{ color:var(--accent); }
+.sub{ color:var(--mute); margin:12px 0 36px; max-width:560px; }
+.grid{ display:grid; gap:14px; grid-template-columns:repeat(auto-fit, minmax(250px, 1fr)); }
+a.card{ display:flex; flex-direction:column; gap:6px; text-decoration:none; color:inherit; background:var(--card); border:1px solid var(--line); border-radius:16px; padding:22px 20px 20px; transition:border-color 0.15s, transform 0.15s; }
+a.card:hover, a.card:focus-visible{ border-color:var(--accent); transform:translateY(-2px); outline:none; }
+a.card.kid{ border-color:var(--carmine); }
+.ico{ font-size:40px; line-height:1; }
+h2{ font:700 28px/1.05 'Barlow Condensed', system-ui, sans-serif; margin:10px 0 0; }
+p{ margin:0; }
+.en{ color:var(--mute); font-size:14px; }
+.go{ margin-top:auto; padding-top:12px; color:var(--accent); font-weight:500; font-size:14px; }
+footer{ margin-top:44px; color:var(--mute); font-size:13px; line-height:1.6; }
+footer a{ color:var(--mute); }
+@media (max-width:480px){ main{ padding-top:36px; } h1{ font-size:52px; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>Trains <span>Bordeaux ⇄ Paris</span></h1>
+  <p class="sub">Le vrai tracé de la ligne, 538 km, en 3D dans le navigateur.<br><span class="en">The real line, 538 km, in 3D in your browser.</span></p>
+  <div class="grid">
+    <a class="card kid" href="/conducteur/">
+      <div class="ico">🚄</div>
+      <h2>Conducteur de train</h2>
+      <p>Pour les enfants : un levier, un klaxon, les gares, les passagers.</p>
+      <p class="en">For kids: one lever, a horn, stations and passengers.</p>
+      <span class="go">Conduire →</span>
+    </a>
+    <a class="card" href="/locomotive/">
+      <div class="ico">⚙️</div>
+      <h2>Anatomie d'une locomotive</h2>
+      <p>Diesel, électrique, TGV Duplex : chaque pièce et chaque flux d'énergie.</p>
+      <p class="en">Diesel, electric, TGV Duplex: every part, every energy flow.</p>
+      <span class="go">Explorer →</span>
+    </a>
+    <a class="card" href="/aiguillages/">
+      <div class="ico">🔀</div>
+      <h2>Aiguillages</h2>
+      <p>Jeu de logique : envoie chaque train sur la bonne voie, 10 niveaux.</p>
+      <p class="en">Logic game: route every train to the right track, 10 levels.</p>
+      <span class="go">Jouer →</span>
+    </a>
+  </div>
+  <footer>
+    <a href="https://github.com/guillaumeboiret/train-3d">Code source</a> (MIT) · Voies et gares © contributeurs <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> (ODbL) · Relief : Terrain Tiles (Mapzen, AWS)
+  </footer>
+</main>
+</body>
+</html>

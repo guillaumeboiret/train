@@ -9,3 +9,4 @@ route/tiles/
 route/rails*.json
 route/route_debug.json
 route/*.log
+site/public/
