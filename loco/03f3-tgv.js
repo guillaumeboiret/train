@@ -86,6 +86,10 @@ const PC = (() => {
   }
   const geo = loftGeo(rings), body = rings[0].pts, L = TGV.PC_TIP - TGV.PC_REAR;
   const ux = x => (x - TGV.PC_REAR) / L;
+  const windows = (c, W, H) => {   // windshield across the nose top + cab side windows: painted on the livery, cut out of the body on cars with a cab
+    c.beginPath(); c.moveTo(ux(9.3) * W, H * 0.40); c.lineTo(ux(10.75) * W, H * 0.455); c.lineTo(ux(10.75) * W, H * 0.545); c.lineTo(ux(9.3) * W, H * 0.60); c.closePath(); c.fill();
+    [1, -1].forEach(s => { const a = vAtY(body, 3.55, s) * H, b = vAtY(body, 2.75, s) * H; c.fillRect(ux(7.6) * W, Math.min(a, b), (ux(9.4) - ux(7.6)) * W, Math.abs(b - a)); });
+  };
   const tex = canvasTex(2048, 512, (c, W, H) => {
     c.fillStyle = LIV.grey; c.fillRect(0, 0, W, H);
     const band = (y0, y1, col) => [1, -1].forEach(s => { const a = vAtY(body, y0, s) * H, b = vAtY(body, y1, s) * H; c.fillStyle = col; c.fillRect(0, Math.min(a, b), ux(TGV.PC_NOSE0 + 1.6) * W, Math.abs(b - a)); });
@@ -93,23 +97,27 @@ const PC = (() => {
     band(4.05, yTop, LIV.roof);                                                          // roof
     c.fillStyle = LIV.roof; c.fillRect(0, H * 0.44, ux(TGV.PC_NOSE0 + 0.8) * W, H * 0.12);
     c.fillStyle = LIV.carmine; c.fillRect(ux(TGV.PC_NOSE0 + 1.2) * W, 0, W, H);          // carmine nose
-    c.fillStyle = LIV.glass;                                                             // windshield across the nose top
-    c.beginPath(); c.moveTo(ux(9.3) * W, H * 0.40); c.lineTo(ux(10.75) * W, H * 0.455); c.lineTo(ux(10.75) * W, H * 0.545); c.lineTo(ux(9.3) * W, H * 0.60); c.closePath(); c.fill();
-    [1, -1].forEach(s => {                                                               // cab side windows + louvres
-      const a = vAtY(body, 3.55, s) * H, b = vAtY(body, 2.75, s) * H; c.fillStyle = LIV.glass; c.fillRect(ux(7.6) * W, Math.min(a, b), (ux(9.4) - ux(7.6)) * W, Math.abs(b - a));
+    c.fillStyle = LIV.glass; windows(c, W, H);
+    [1, -1].forEach(s => {                                                               // louvres
+      const a = vAtY(body, 3.55, s) * H, b = vAtY(body, 2.75, s) * H;
       c.fillStyle = LIV.greyDark; for (let i = 0; i < 6; i++) c.fillRect(ux(-8.4 + i * 2.7) * W, Math.min(a, b), (ux(1.6) - ux(0)) * W, Math.abs(b - a) * 0.8);
     });
     c.fillStyle = 'rgba(0,0,0,0.35)'; c.fillRect(0, 0, ux(TGV.PC_REAR + 0.25) * W, H);   // rear end shading
   });
-  return { geo, tex, rings, yBot, yTop };
+  const mask = (bg, fg) => { const t = canvasTex(1024, 256, (c, W, H) => { c.fillStyle = bg; c.fillRect(0, 0, W, H); c.fillStyle = fg; windows(c, W, H); }); t.colorSpace = THREE.NoColorSpace; return t; };
+  return { geo, tex, alpha:mask('#fff', '#000'), glassAlpha:mask('#000', '#fff'), rings, yBot, yTop };
 })();
-function buildPowerCarBody(parent, cx, dir, mk, withCoupler = true){   // mk: material factory (mat or pmat); dir +1 nose toward +x
+function buildPowerCarBody(parent, cx, dir, mk, withCoupler = true, cabin = false){   // mk: material factory (mat or pmat); dir +1 nose toward +x; cabin: windows cut out onto a fitted cab
   const g = new THREE.Group(); g.position.x = cx; if (dir < 0) g.rotation.y = Math.PI;
-  const bm = mk(0xffffff, { map:PC.tex, roughness:0.45, metalness:0.2 });
+  const bm = mk(0xffffff, Object.assign({ map:PC.tex, roughness:0.45, metalness:0.2 }, cabin ? { alphaMap:PC.alpha, alphaTest:0.5, side:THREE.DoubleSide } : {}));
   const bodyM = new THREE.Mesh(PC.geo.body, bm); bodyM.castShadow = true; bodyM.receiveShadow = true; g.add(bodyM);
   const capM = mk(0x6d1020, { roughness:0.5 }), rearM = mk(0x2b3238, { roughness:0.8 });
   const cf = new THREE.Mesh(PC.geo.capFront, capM), cr = new THREE.Mesh(PC.geo.capRear, rearM); cf.castShadow = cr.castShadow = true; g.add(cf, cr);
   const shell = { mats:[bm, capM, rearM], meshes:[bodyM, cf, cr] };   // what the shell opacity control drives on a plain power car
+  if (cabin){   // tinted glass in the openings, seen from outside only (front faces point out)
+    const gm = mk(0x1c2530, { alphaMap:PC.glassAlpha, transparent:true, opacity:0.45, roughness:0.1, metalness:0.3, depthWrite:false, alphaTest:0.01, side:THREE.FrontSide });
+    const gl = new THREE.Mesh(PC.geo.body, gm); g.add(gl); shell.mats.push(gm); shell.meshes.push(gl);
+  }
   const lamp = (w, h, d, m, x, y, z) => { const b = box(w, h, d, m, x, y, z); g.add(b); shell.meshes.push(b); };
   // lamps: white heads and red tails, driven per power car by updateTgv (only the true train ends light up)
   const hl = mk(0xfff1c0, { emissive:0xfff1c0, emissiveIntensity:0, roughness:0.3 });
@@ -134,30 +142,29 @@ const SEAT_GEO = (() => {                    // cushion + backrest facing +x, or
   const g = new THREE.ExtrudeGeometry(s, { depth:0.44, bevelEnabled:false }); g.translate(0, 0, -0.22); return g;
 })();
 const SEAT_COL = [new THREE.Color(0x7a2233), new THREE.Color(0x24506b)];   // first class burgundy, second class blue
-/* Duplex interior, drawn only while the shell control fades the skin: two decks of 2+2 seats, a stair at the door end, seated passengers in 85 % of the seats (instanced) */
-function buildInterior(parent, mk, firstCar){
+/* Duplex coach interior, drawn only while the shell control fades the skin: two decks of 2+2 seats and a stair at the door
+   end. One group per coach, so the curve code carries each coach with its own car. One passenger slot per seat (instanced):
+   seated, empty, or walking between the seat and the platform-side door (see the passenger block below). */
+const SKIN = [0xf1c9a5, 0xe0ac7e, 0xc68a5a, 0x9c6a43, 0x6e4a2f, 0xf6d7bd];
+const PAX_BODY_GEO = new THREE.CapsuleGeometry(0.17, 0.35, 2, 6), PAX_HEAD_GEO = new THREE.SphereGeometry(0.12, 7, 5);
+const Q0 = new THREE.Quaternion(), _pc = new THREE.Color();
+const hash32 = i => { i = Math.imul(i ^ (i >>> 16), 0x45d9f3b); i = Math.imul(i ^ (i >>> 16), 0x45d9f3b); return (i ^ (i >>> 16)) >>> 0; };
+function buildCoach(parent, cm, xr, L, carNo){
   const g = new THREE.Group(); g.visible = false; parent.add(g);
-  const floorM = mk(0x3a3f46, { roughness:0.9 }), pos = [];
-  TGV.TRAILERS.forEach(([xr, L], i) => {
-    g.add(box(L - 3.6, 0.08, 2.85, floorM, xr + 3.4 + (L - 3.6) / 2, DECK.up, 0));       // upper floor, open over the vestibule and the stair
-    const st = box(1.95, 0.06, 0.9, floorM, xr + 2.55, (DECK.lo + DECK.up) / 2, -0.9); st.rotation.z = Math.atan2(DECK.up - DECK.lo, 1.7); g.add(st);
-    const cls = (firstCar + i) % 10 <= 3 ? 0 : 1;                                        // cars 1..3 (11..13) are first class
-    for (const y of [DECK.lo, DECK.up]) for (let x = xr + 4.0; x < xr + L - 0.9; x += 0.9) for (const z of [-0.95, -0.48, 0.48, 0.95]) pos.push([x, y, z, cls]);
-  });
-  const seats = new THREE.InstancedMesh(SEAT_GEO, mk(0xffffff, { roughness:0.85 }), pos.length);
-  const bodies = new THREE.InstancedMesh(new THREE.CapsuleGeometry(0.17, 0.35, 2, 6), mk(0xffffff, { roughness:0.8 }), pos.length);
-  const heads = new THREE.InstancedMesh(new THREE.SphereGeometry(0.12, 7, 5), mk(0xd9b48f, { roughness:0.7 }), pos.length);
-  const q = new THREE.Quaternion(), col = new THREE.Color(); let n = 0;
-  pos.forEach(([x, y, z, cls], i) => {
-    _m4.compose(_p.set(x, y, z), q, _s.setScalar(1)); seats.setMatrixAt(i, _m4); seats.setColorAt(i, SEAT_COL[cls]);
-    const k = ((i * 2654435761) >>> 0) % 100 < 85 ? 1 : 0; n += k;                       // fixed pseudo-random occupancy
-    _m4.compose(_p.set(x + 0.04, y + 0.77, z), q, _s.setScalar(k)); bodies.setMatrixAt(i, _m4);
-    col.setHex(PAX_COL[(i * 7 + (i >> 3)) % PAX_COL.length]); bodies.setColorAt(i, col);
-    _m4.compose(_p.set(x + 0.04, y + 1.19, z), q, _s.setScalar(k)); heads.setMatrixAt(i, _m4);
-  });
+  g.add(box(L - 3.6, 0.08, 2.85, cm.floor, xr + 3.4 + (L - 3.6) / 2, DECK.up, 0));    // upper floor, open over the vestibule and the stair
+  const st = box(2.19, 0.06, 0.9, cm.floor, xr + 2.7, (DECK.lo + DECK.up) / 2 - 0.03, -0.9); st.rotation.z = Math.atan2(DECK.up - DECK.lo, 1.7); g.add(st);   // stair: vestibule (xr+1.85) up to the upper deck (xr+3.55)
+  const seat = [], deck = [];
+  for (const [d, y] of [[0, DECK.lo], [1, DECK.up]]) for (let x = xr + 4.0; x < xr + L - 0.9; x += 0.9) for (const z of [-0.95, -0.48, 0.48, 0.95]){ seat.push(x, y, z); deck.push(d); }
+  const n = deck.length, cls = carNo % 10 <= 3 ? 0 : 1;                                 // cars 1..3 (11..13) are first class
+  const seats = new THREE.InstancedMesh(SEAT_GEO, cm.seat, n), bodies = new THREE.InstancedMesh(PAX_BODY_GEO, cm.body, n), heads = new THREE.InstancedMesh(PAX_HEAD_GEO, cm.head, n);
+  const c = { g, id:carNo, xr, L, n, seat:new Float32Array(seat), deck:new Uint8Array(deck), occ:new Uint8Array(n), colB:new Uint32Array(n), colH:new Uint32Array(n),
+              bodies, heads, paths:[], walk:[], crowd:[[], []], dirty:false, colDirty:false };
+  for (let i = 0; i < n; i++){
+    _m4.compose(_p.set(seat[3 * i], seat[3 * i + 1], seat[3 * i + 2]), Q0, _s.setScalar(1)); seats.setMatrixAt(i, _m4); seats.setColorAt(i, SEAT_COL[cls]);
+  }
   for (const m of [seats, bodies, heads]){ m.frustumCulled = false; m.castShadow = m.receiveShadow = false; g.add(m); }
-  g.userData.seats = pos.length; g.userData.pax = n;
-  return g;
+  paxSeed(c);
+  return c;
 }
 function equipPowerCar(pc, pantoX){
   for (const ax of axles) ax.userData.axle = 1;          // tags survive clone(): the copies' wheels and rotors turn with the train
@@ -166,11 +173,13 @@ function equipPowerCar(pc, pantoX){
   const clones = {};
   for (const id of PC_INTERNALS){
     const c = parts[id].group.clone(); c.position.set(0, 0, 0); ig.add(c); clones[id] = c;
-    c.traverse(o => { if (o.userData.axle) axles.push(o); else if (o.userData.rotor) motorRotors.push(o); });
+    c.traverse(o => { if (o.userData.axle) axles.push(o); else if (o.userData.rotor) motorRotors.push(o); else if (o.userData.lever) cabLevers.push(o); });
   }
+  clones.cab.getObjectByName('cabLoco').visible = false; clones.cab.getObjectByName('cabTgv').visible = true;
+  const driver = clones.cab.getObjectByName('driver'); driver.visible = false;   // shown only in the leading cab
   // HV lead from the pantograph base to the circuit breaker (on the lead car it belongs to the pantograph part)
   ig.add(cable(pantoX < 0 ? [[-1.6, 4.6, 0.25], [1.5, 4.55, 0.35], [4.35, 4.55, 0.3]] : [[2.0, 4.58, 0.5], [3.4, 4.5, 0.6], [4.35, 4.55, 0.3]], 0.03, pmat(pal.copper)));
-  pcHosts.push({ ig, clones });
+  pcHosts.push({ ig, clones, driver });
   pcShells.mats.push(...pc.shell.mats); pcShells.meshes.push(...pc.shell.meshes);
 }
 function buildNoseCoupler(g, mk){   // nose hatch (two leaves hinged on their outer edges) + Scharfenberg coupler behind it
@@ -239,8 +248,10 @@ function buildSet(opts){
   const set = { doors:[], hatches:[], lamps:{}, pantos:[] };
   const bodyM = mk(0xffffff, { map:TR.tex, roughness:0.45, metalness:0.2 }), endM = mk(0x2b3238, { roughness:0.85 }), capM = mk(0x2b3238, { roughness:0.85 });
   const bellowsM = mk(0x23272c, { roughness:0.95 }), doorM = mk(0xaeb4ba, { roughness:0.5, metalness:0.25, side:THREE.DoubleSide }), glassM = mk(0x1c2530, { roughness:0.25, metalness:0.1 });
-  const skin = m => { trShells.meshes.push(m); return m; };   // what the shell control fades: body, ends, gangways, doors (the underframe stays)
-  trShells.mats.push(bodyM, capM, bellowsM, doorM, glassM);
+  const skin = m => { if (internals) trShells.meshes.push(m); return m; };   // what the shell control fades: body, ends, gangways, doors (the underframe stays); the other trains stay opaque
+  if (internals) trShells.mats.push(bodyM, capM, bellowsM, doorM, glassM);
+  set.coaches = [];
+  const coachM = internals ? { floor:mk(0x3a3f46, { roughness:0.9 }), seat:mk(0xffffff, { roughness:0.85 }), body:mk(0xffffff, { roughness:0.8 }), head:mk(0xffffff, { roughness:0.7 }) } : null;
   const trailerRear = [];
   TGV.TRAILERS.forEach(([xr, L], i) => {
     const g = new THREE.Group(); g.position.x = xr;
@@ -259,6 +270,7 @@ function buildSet(opts){
       const num = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.25), new THREE.MeshBasicMaterial({ map:carNumber(firstCar + i), side:THREE.DoubleSide }));
       num.position.set(xr + 2.75, 3.3, s * (zAtY(TR.pts, 3.3) + 0.012)); if (s < 0) num.rotation.y = Math.PI; G.trailers.add(num);
     });
+    if (internals) set.coaches.push(buildCoach(G.trailers, coachM, xr, L, firstCar + i));
   });
   // bogies: end bogies + 7 Jacobs at the articulations
   tgvBogie(G.jacobs, -13.0, mk, 3.0, false);
@@ -266,14 +278,14 @@ function buildSet(opts){
   tgvBogie(G.jacobs, -161.0, mk, 3.0, false);
   // rear power car (nose toward -x) + its pantograph; the front car is the loco shell (set 1) or built here (set 2)
   G.trailers.add(skin(box(0.6, 3.3, 2.5, bellowsM, -9.9, 2.5, 0))); G.trailers.add(skin(box(0.6, 3.3, 2.5, bellowsM, -164.2, 2.5, 0)));   // gangways to both power cars
-  const rear = buildPowerCarBody(G.power, TGV.REAR_PC, -1, mk);
+  const rear = buildPowerCarBody(G.power, TGV.REAR_PC, -1, mk, true, internals);
   set.hatches.push(rear.hatch); set.lamps.rear = { hl:rear.hl, tl:rear.tl };
   if (internals) equipPowerCar(rear, -2); else [TGV.REAR_PC - 6, TGV.REAR_PC + 6].forEach(x => tgvBogie(G.power, x, mk, 3.0, false));
   const pm = mk(pal.panto, { metalness:0.6, roughness:0.35 }), im = mk(pal.insulator, { roughness:0.5 }), cm = mk(0x2a2a2a, { roughness:0.9 });
   const pg = new THREE.Group(); pg.position.x = TGV.REAR_PC + 2.0; pg.rotation.y = Math.PI;   // panto knee points backward like the loco's
   G.power.add(pg); const rp = buildPanto(pg, 0, pm, im, cm); set.pantos.push(rp);
   if (withFront){
-    const front = buildPowerCarBody(G.power, 0, 1, mk);
+    const front = buildPowerCarBody(G.power, 0, 1, mk, true, internals);
     set.hatches.push(front.hatch); set.lamps.front = { hl:front.hl, tl:front.tl };
     if (internals) equipPowerCar(front, 2); else [-6, 6].forEach(x => tgvBogie(G.power, x, mk, 3.0, false));
     const fg = new THREE.Group(); fg.position.x = 2.0; G.power.add(fg); set.pantos.push(buildPanto(fg, 0, pm, im, cm));
@@ -289,7 +301,6 @@ function buildSet(opts){
   G.roof.add(cable([[xA, 4.62, 0.25], [xA - 0.25, 4.6, 0.25], [xA - 0.4, 4.5, 0.15]], 0.03, lineM));   // to the rear panto base
   G.roof.add(cable([[-9.8, 4.62, 0.25], [-8.6, 4.58, 0.3], [-7.4, 4.5, 0.3]], 0.03, lineM));                                                  // down to the front car roof
   G.roof.add(cable([[-7.4, 4.5, 0.3], [-1.0, 4.55, 0.32], [3.6, 4.55, 0.32], [4.4, 4.5, 0.3]], 0.03, lineM));                                 // to the VCB
-  set.interior = buildInterior(G.trailers, mk, firstCar);
   return set;
 }
 
@@ -297,7 +308,7 @@ function buildSet(opts){
 const tgvTrain = new THREE.Group(); tgvTrain.name = 'tgvTrain'; scene.add(tgvTrain);
 const tgvSets = [];
 let tgvFrontHatch = null, tgvFrontLamps = null;
-definePart('tgvShell', g => { const b = buildPowerCarBody(g, 0, 1, mat, false); tgvFrontLamps = { hl:b.hl, tl:b.tl }; });
+definePart('tgvShell', g => { const b = buildPowerCarBody(g, 0, 1, mat, false, true); tgvFrontLamps = { hl:b.hl, tl:b.tl }; });
 definePart('coupler', g => { tgvFrontHatch = buildNoseCoupler(g, mat); });
 {
   const ids = ['powerCars', 'roofLine', 'trailers', 'jacobs', 'doors'], G = {};
@@ -355,52 +366,250 @@ function letterTex(ch){
   station.add(b);
 }
 
-/* ---- passengers: instanced capsules that wait, alight and board through the platform-side doors */
-const PAX_N = 256;
-const paxBody = new THREE.InstancedMesh(new THREE.CapsuleGeometry(0.19, 0.55, 3, 8), pmat(0xffffff, { roughness:0.8 }), PAX_N);
-const paxHead = new THREE.InstancedMesh(new THREE.SphereGeometry(0.13, 10, 8), pmat(0xd9b48f, { roughness:0.7 }), PAX_N);
-paxBody.castShadow = true; paxBody.frustumCulled = false; paxHead.frustumCulled = false;
-station.add(paxBody, paxHead);
-const pax = [];                       // {st: wait|in|alight|board|gone, x, z, tx, tz, door, delay, ph, sp}
-let paxPhase = 'idle', paxT = 0;
-function makeCrowd(){
-  pax.length = 0;
-  const doors = [];
-  for (let s = 0; s < S.sets; s++) TGV.TRAILERS.forEach(([xr]) => doors.push(xr + 1.65 + (s ? TGV.SET2_X : 0) - TGV.PLAT_FRONT));
-  const per = doors.length > 8 ? 7 : 14, col = new THREE.Color();   // waiting + alighting per door, within PAX_N
-  doors.forEach(dx => {
-    for (let i = 0; i < per; i++) pax.push({ st:'wait', x:dx + (Math.random() - 0.5) * 7, z:3.0 + Math.random() * 2.8, tx:0, tz:0, door:dx, delay:3.5 + i * 0.9 + Math.random() * 0.5, ph:0, sp:1.0 + Math.random() * 0.3 });
-    for (let i = 0; i < per; i++) pax.push({ st:'in', x:dx, z:1.95, tx:dx + (Math.random() - 0.5) * 9, tz:7.7, door:dx, delay:0.4 + i * 0.7, ph:0, sp:1.0 + Math.random() * 0.3 });
-  });
-  pax.forEach((p, i) => { col.setHex(PAX_COL[(i * 7 + (i >> 3)) % PAX_COL.length]); paxBody.setColorAt(i, col); });
-  paxBody.instanceColor.needsUpdate = true;
-  paxPhase = 'idle';
+/* ---- passengers. Seated ones live in the coaches (one slot per seat, buildCoach); the platform crowd is one instanced pool
+   under the station. Doors open at a stop: alighters leave their seats, queue at the door and step down onto the platform,
+   then walk to the nearest stair; then the crowd boards and walks to free seats. Lane 0 of a doorway serves the upper deck
+   (its -x half), lane 1 the lower deck. At the terminus everyone gets off and the train fills again; the doors wait for the
+   last passenger (a close request is deferred until then, not refused). */
+const POOL_N = 3072;
+const pool = {
+  body:new THREE.InstancedMesh(new THREE.CapsuleGeometry(0.19, 0.55, 2, 6), pmat(0xffffff, { roughness:0.8 }), POOL_N),
+  head:new THREE.InstancedMesh(new THREE.SphereGeometry(0.13, 7, 5), pmat(0xffffff, { roughness:0.7 }), POOL_N),
+  a:new Array(POOL_N).fill(null), lo:0, hi:-1, dirty:false, colDirty:false,
+};
+{
+  _m4.makeScale(0, 0, 0); _pc.setRGB(1, 1, 1);
+  for (let j = 0; j < POOL_N; j++){ pool.body.setMatrixAt(j, _m4); pool.head.setMatrixAt(j, _m4); pool.body.setColorAt(j, _pc); pool.head.setColorAt(j, _pc); }
+  pool.body.castShadow = true; pool.body.frustumCulled = pool.head.frustumCulled = false; pool.body.count = pool.head.count = 0;
+  station.add(pool.body, pool.head);
+}
+const _pw = new THREE.Vector3(), _pw2 = new THREE.Vector3();
+const PX = { phase:'idle', t:0, plan:'mid', h:0.55, visited:null, hold:false, closeWhenDone:false, crowdSt:null, rebuild:true, list:[] };
+
+function mkPath(P){ const C = [0]; for (let k = 3; k < P.length; k += 3) C.push(C[C.length - 1] + Math.hypot(P[k] - P[k - 3], P[k + 1] - P[k - 2], P[k + 2] - P[k - 1])); return { P, C, len:C[C.length - 1] }; }
+function pathAt(p, s, out){   // point at arc length s along a polyline path
+  const C = p.C, P = p.P; let k = 1; while (k < C.length - 1 && C[k] < s) k++;
+  const u = C[k] > C[k - 1] ? Math.min(1, Math.max(0, (s - C[k - 1]) / (C[k] - C[k - 1]))) : 1, i = 3 * (k - 1);
+  return out.set(P[i] + (P[i + 3] - P[i]) * u, P[i + 1] + (P[i + 4] - P[i + 1]) * u, P[i + 2] + (P[i + 5] - P[i + 2]) * u);
+}
+function seatPath(c, i){   // seat -> step out -> aisle -> (upper deck: stair down) -> doorway, set-local
+  if (c.paths[i]) return c.paths[i];
+  const x = c.seat[3 * i], y = c.seat[3 * i + 1], z = c.seat[3 * i + 2], xr = c.xr, lo = DECK.lo, up = DECK.up;
+  return c.paths[i] = mkPath(c.deck[i]
+    ? [x, y, z, x + 0.42, y, z, x + 0.42, y, 0, xr + 3.75, up, 0, xr + 3.55, up, -0.9, xr + 1.85, lo, -0.9, xr + 1.35, lo, -0.4, xr + 1.35, lo, 1.25]
+    : [x, y, z, x + 0.42, y, z, x + 0.42, y, 0, xr + 2.2, lo, 0, xr + 1.95, lo, 0.35, xr + 1.95, lo, 1.25]);
+}
+function poseSeat(c, i, on){
+  const x = c.seat[3 * i] + 0.04, y = c.seat[3 * i + 1], z = c.seat[3 * i + 2], k = on ? 1 : 0;
+  _m4.compose(_p.set(x, y + 0.72, z), Q0, _s.setScalar(k)); c.bodies.setMatrixAt(i, _m4);
+  _m4.compose(_p.set(x, y + 1.12, z), Q0, _s.setScalar(k)); c.heads.setMatrixAt(i, _m4);
+  c.dirty = true;
+}
+function poseWalker(c, w){   // walking in the coach: stands up over the first step out of the seat, then walks upright
+  const p = w.p, u = Math.min(1, w.s / p.C[1]), x0 = c.seat[3 * w.i] + 0.04, y0 = c.seat[3 * w.i + 1], z0 = c.seat[3 * w.i + 2];
+  pathAt(p, w.s, _pw); const bob = u >= 1 ? Math.abs(Math.sin(w.ph)) * 0.04 : 0;
+  _m4.compose(_p.set(x0 + (_pw.x - x0) * u, y0 + 0.72 + (_pw.y + 0.465 + bob - y0 - 0.72) * u, z0 + (_pw.z - z0) * u), Q0, _s.set(1 + 0.12 * u, 1 + 0.35 * u, 1 + 0.12 * u)); c.bodies.setMatrixAt(w.i, _m4);
+  _m4.compose(_p.set(x0 + (_pw.x - x0) * u, y0 + 1.12 + (_pw.y + 1.05 + bob - y0 - 1.12) * u, z0 + (_pw.z - z0) * u), Q0, _s.setScalar(1 + 0.08 * u)); c.heads.setMatrixAt(w.i, _m4);
+  c.dirty = true;
+}
+function paxSeed(c){   // the passengers a coach starts with: 60% of the seats, the same people every time
+  for (let i = 0; i < c.n; i++){
+    const h = hash32(c.id * 1000 + i); c.colB[i] = PAX_COL[h % PAX_COL.length]; c.colH[i] = SKIN[(h >>> 8) % SKIN.length];
+    c.bodies.setColorAt(i, _pc.setHex(c.colB[i])); c.heads.setColorAt(i, _pc.setHex(c.colH[i]));
+    c.occ[i] = hash32(c.id * 7919 + i) % 100 < 60 ? 1 : 0; poseSeat(c, i, c.occ[i] === 1);   // occ: 0 free, 1 seated, 2 getting off, 3 taken by someone getting on
+  }
+  c.colDirty = true;
+}
+function freeSeat(c, deck){   // a random free seat on that deck, or -1
+  let n = 0, pick = -1;
+  for (let i = 0; i < c.n; i++) if (c.occ[i] === 0 && c.deck[i] === deck && Math.random() * ++n < 1) pick = i;
+  return pick;
+}
+
+// platform pool: agents {j, st: wait|board|back|alight, x,y,z, home hx,hz, path, s, v, ph, colours, c, lane, e, seat}
+function poseAgent(a, bob){
+  _m4.compose(_p.set(a.x, a.y + 0.465 + bob, a.z), Q0, _s.setScalar(1)); pool.body.setMatrixAt(a.j, _m4);
+  _m4.compose(_p.set(a.x, a.y + 1.05 + bob, a.z), Q0, _s.setScalar(1)); pool.head.setMatrixAt(a.j, _m4);
+  pool.dirty = true;
+}
+function poolSpawn(x, y, z, st, colB, colH){
+  let j = pool.lo; while (j < POOL_N && pool.a[j]) j++;
+  if (j >= POOL_N) return null;
+  const a = { j, st, x, y, z, hx:x, hz:z, path:null, s:0, v:1.15 + Math.random() * 0.3, ph:Math.random() * 6, colB, colH, c:null, lane:0, e:null, seat:-1 };
+  pool.a[j] = a; pool.lo = j + 1; pool.hi = Math.max(pool.hi, j);
+  pool.body.setColorAt(j, _pc.setHex(colB)); pool.head.setColorAt(j, _pc.setHex(colH)); pool.colDirty = true;
+  poseAgent(a, 0);
+  return a;
+}
+function poolFree(a){
+  pool.a[a.j] = null; pool.lo = Math.min(pool.lo, a.j); a.st = 'gone'; a.path = null;
+  _m4.makeScale(0, 0, 0); pool.body.setMatrixAt(a.j, _m4); pool.head.setMatrixAt(a.j, _m4); pool.dirty = true;
+  while (pool.hi >= 0 && !pool.a[pool.hi]) pool.hi--;
+}
+function poolClear(){ for (let j = 0; j <= pool.hi; j++) if (pool.a[j]) poolFree(pool.a[j]); pool.lo = 0; }
+function agentGo(a, st, P){ a.st = st; a.path = mkPath(P); a.s = 0; }
+
+function stationPlan(st){
+  const A = ROUTE.stations, first = st === A[0], last = st === A[A.length - 1];
+  return (first && S.dir < 0) || (last && S.dir > 0) ? 'terminus' : (first && S.dir > 0) || (last && S.dir < 0) ? 'origin' : 'mid';
+}
+function buildCrowd(st){   // people waiting on the platform, in two files beside each doorway (one per lane)
+  poolClear(); PX.crowdSt = st.id; PX.rebuild = false;
+  const plan = stationPlan(st);
+  tgvSets.forEach((set, k) => { for (const c of set.coaches){
+    c.crowd[0].length = c.crowd[1].length = 0;
+    if (k >= S.sets) continue;
+    let seated = 0; for (let i = 0; i < c.n; i++) if (c.occ[i] === 1) seated++;
+    const want = plan === 'terminus' ? 0.7 * c.n : plan === 'origin' ? Math.max(6, 0.85 * c.n - seated) : Math.max(0, 0.8 * c.n - 0.75 * seated);
+    const per = Math.min(42, Math.round(want / 2)), nd = c.xr + 1.65 + (k ? TGV.SET2_X : 0) - TGV.PLAT_FRONT;
+    for (let l = 0; l < 2; l++) for (let j = 0; j < per; j++){
+      const h = hash32((Math.random() * 1e9) | 0), col = Math.floor(j / 3);
+      const a = poolSpawn(nd + (l ? 1 : -1) * (1.0 + 0.55 * col) + (Math.random() - 0.5) * 0.2, 0.55, [2.45, 2.95, 3.45][j % 3] + (Math.random() - 0.5) * 0.1, 'wait', PAX_COL[h % PAX_COL.length], SKIN[(h >>> 8) % SKIN.length]);
+      if (a){ a.c = c; a.lane = l; c.crowd[l].push(a); }
+    }
+  } });
+}
+function paxActivate(){   // doors open at a standstill: who gets off, who is waiting, per doorway at the platform
+  const st = nearestStation(), plan = stationPlan(st);
+  const share = PX.visited === st.id ? 0 : plan === 'terminus' ? 1 : plan === 'origin' ? 0 : 0.25;
+  Object.assign(PX, { phase:'exchange', t:0, plan, h:plan === 'terminus' ? 0.42 : 0.55, hold:false, closeWhenDone:false });
+  PX.list.length = 0;
+  const Lp = S.sets === 2 ? 400 : 200, t0 = 3.2 * (1 - S.doorsF) + 0.6;
+  station.updateWorldMatrix(true, false);
+  for (let k = 0; k < S.sets; k++) for (const c of tgvSets[k].coaches){
+    c.g.updateWorldMatrix(true, false);
+    const T = [1.35, 1.95].map(dx => station.worldToLocal(c.g.localToWorld(new THREE.Vector3(c.xr + dx, DECK.lo, 1.25))));
+    if (Math.abs(T[0].z - 1.25) > 0.4 || T[0].x > -1 || T[0].x < -Lp + 1) continue;   // this doorway is not along the platform
+    const e = { c, T, L:[0, 1].map(() => ({ outs:[], wait:[], last:-9 , full:false })), boardT:-1, boarding:0, done:false };
+    for (let i = 0; i < c.n; i++) if (c.occ[i] === 1 && Math.random() < share){
+      c.occ[i] = 2; e.L[c.deck[i] ? 0 : 1].outs.push({ i, p:seatPath(c, i), s:0, v:1.25 * (0.9 + 0.2 * Math.random()), ph:Math.random() * 6, rel:0 });
+    }
+    e.L.forEach((ln, l) => {
+      ln.outs.sort((a, b) => a.p.len - b.p.len);
+      ln.outs.forEach((w, j) => { w.rel = Math.max(0, t0 + j * PX.h - w.p.len / w.v); });   // reach the door one after the other as it opens
+      const d = a => Math.hypot(a.x - T[l].x, a.z - T[l].z);
+      ln.wait = c.crowd[l].filter(a => a.st === 'wait').sort((a, b) => d(a) - d(b));
+    });
+    PX.list.push(e);
+  }
+  if (PX.list.length) PX.visited = st.id;   // a second stop at the same platform lets nobody off
+}
+function alightPath(e, l){   // doorway -> step down -> out of the door area -> nearest stair head -> down into it
+  const T = e.T[l], dx = (e.T[0].x + e.T[1].x) / 2, Lp = S.sets === 2 ? 400 : 200;
+  let sx = -30; for (let x = -30; x > -Lp + 20; x -= 60) if (Math.abs(x - dx) < Math.abs(sx - dx)) sx = x;
+  const k = Math.sign(dx - sx) || 1, side = l ? 0.35 : -0.35, zj = 4.9 + 0.4 * (l ? k : -k);
+  return [T.x, T.y, T.z, T.x, T.y, T.z + 0.37, T.x, 0.55, T.z + 0.7, dx + side, 0.55, 2.7, dx + side, 0.55, 4.0, sx + k * 2.25, 0.55, zj, sx + k * 0.6, -0.75, 4.9];
+}
+function paxExchange(dt){
+  PX.t += dt;
+  if (S.speed > 0.3 || S.coupling < 0 || !S.doors){ paxAbort(); return; }
+  const t = PX.t, h = PX.h, open = S.doorsF > 0.9;
+  PX.hold = PX.plan === 'terminus' && t < 90;   // at the terminus the doors wait for everyone (90 s at most)
+  if (!PX.hold && PX.closeWhenDone && PX.plan === 'terminus'){ PX.closeWhenDone = false; S.doors = false; syncControls(); return; }
+  let all = true;
+  for (const e of PX.list){
+    if (e.done) continue;
+    const c = e.c;
+    let outs = 0;
+    e.L.forEach((ln, l) => {
+      ln.outs.sort((a, b) => (a.p.len - a.s) - (b.p.len - b.s));   // queue order: nearest the door first
+      let ahead = -0.45;
+      for (const w of ln.outs){
+        if (t < w.rel) continue;                                     // still seated
+        const s = Math.min(w.p.len, w.s + w.v * dt, Math.max(w.s, w.p.len - (ahead + 0.45)));
+        if (s !== w.s){ w.s = s; w.ph += dt * 9; poseWalker(c, w); }
+        ahead = w.p.len - w.s;
+      }
+      const w0 = ln.outs[0];
+      if (w0 && w0.s >= w0.p.len && open && t - ln.last >= h){   // step out onto the platform
+        const a = poolSpawn(e.T[l].x, e.T[l].y, e.T[l].z, 'alight', c.colB[w0.i], c.colH[w0.i]);
+        if (a) agentGo(a, 'alight', alightPath(e, l));
+        c.occ[w0.i] = 0; poseSeat(c, w0.i, false); ln.outs.shift(); ln.last = t;
+      }
+      outs += ln.outs.length;
+    });
+    if (!outs && e.boardT < 0 && open) e.boardT = t + 1.6;
+    if (e.boardT >= 0 && t >= e.boardT && open) e.L.forEach((ln, l) => {
+      if (ln.full || !ln.wait.length || t - ln.last < h) return;
+      const i = freeSeat(c, l ? 0 : 1);
+      if (i < 0){ ln.full = true; return; }
+      const a = ln.wait.shift(), T = e.T[l];
+      c.occ[i] = 3; a.seat = i; a.e = e; e.boarding++; ln.last = t;
+      agentGo(a, 'board', [a.x, a.y, a.z, T.x, 0.55, T.z + 0.75, T.x, T.y, T.z + 0.37, T.x, T.y, T.z]);
+    });
+    e.done = !outs && e.boardT >= 0 && e.boarding === 0 && e.L.every(ln => ln.full || !ln.wait.length);
+    if (!e.done) all = false;
+  }
+  if (all){
+    PX.phase = 'done'; PX.hold = false;
+    if (PX.closeWhenDone){ PX.closeWhenDone = false; S.doors = false; syncControls(); }
+  }
+}
+function paxAbort(){   // doors closing or the train moving: whoever is inside goes back to a seat, the platform steps back
+  for (const e of PX.list) for (const ln of e.L){
+    for (const w of ln.outs){ if (w.s <= 0){ e.c.occ[w.i] = 1; poseSeat(e.c, w.i, true); } else { e.c.occ[w.i] = 3; e.c.walk.push(w); } }
+    ln.outs.length = 0;
+  }
+  for (let j = 0; j <= pool.hi; j++){
+    const a = pool.a[j];
+    if (a && a.st === 'board'){ a.e.c.occ[a.seat] = 0; a.e.boarding--; a.seat = -1; agentGo(a, 'back', [a.x, a.y, a.z, a.hx, 0.55, a.hz]); }
+  }
+  PX.list.length = 0; PX.phase = 'idle'; PX.hold = false; PX.closeWhenDone = false;
+}
+function enterCoach(a){   // a boarding agent reaches the doorway: the coach slot takes over and walks to the seat
+  const e = a.e, c = e.c, i = a.seat;
+  c.colB[i] = a.colB; c.colH[i] = a.colH; c.bodies.setColorAt(i, _pc.setHex(a.colB)); c.heads.setColorAt(i, _pc.setHex(a.colH)); c.colDirty = true;
+  const p = seatPath(c, i), w = { i, p, s:p.len, v:a.v, ph:a.ph };
+  c.walk.push(w); poseWalker(c, w);
+  e.boarding--;
+  const q = c.crowd[a.lane], k = q.indexOf(a); if (k >= 0) q.splice(k, 1);
+  poolFree(a);
+}
+function walkCoaches(dt){   // people walking in to their seat (or back to it)
+  for (const set of tgvSets) for (const c of set.coaches) for (let k = c.walk.length - 1; k >= 0; k--){
+    const w = c.walk[k]; w.s -= w.v * dt; w.ph += dt * 9;
+    if (w.s <= 0){ c.occ[w.i] = 1; poseSeat(c, w.i, true); c.walk.splice(k, 1); } else poseWalker(c, w);
+  }
+}
+function walkPool(dt){
+  for (let j = 0; j <= pool.hi; j++){
+    const a = pool.a[j]; if (!a || !a.path) continue;
+    a.s = Math.min(a.path.len, a.s + a.v * dt); a.ph += dt * 9;
+    pathAt(a.path, a.s, _pw2); a.x = _pw2.x; a.y = _pw2.y; a.z = _pw2.z;
+    if (a.s >= a.path.len){
+      a.path = null;
+      if (a.st === 'alight'){ poolFree(a); continue; }
+      if (a.st === 'board'){ enterCoach(a); continue; }
+      a.st = 'wait';
+    }
+    poseAgent(a, a.path ? Math.abs(Math.sin(a.ph)) * 0.05 : 0);
+  }
 }
 function updatePax(dt){
-  const active = S.atStation && S.doorsF > 0.9;
-  if (active){ if (paxPhase === 'idle'){ paxPhase = 'exchange'; paxT = 0; } paxT += dt; }
-  else if (paxPhase === 'exchange') paxPhase = 'done';
-  if (paxPhase === 'done' && !S.atStation && Math.abs(stationOffset()) > 30) makeCrowd();
-  let i = 0;
-  for (const p of pax){
-    if (paxPhase === 'exchange' && paxT > p.delay){
-      if (p.st === 'in') p.st = 'alight';
-      else if (p.st === 'wait' && active){ p.st = 'board'; p.tx = p.door; p.tz = 1.95; }
-    }
-    if (p.st === 'board' && !active) p.st = 'wait';                       // doors closed: missed it, keeps waiting
-    if (p.st === 'alight' || p.st === 'board'){
-      const dx = p.tx - p.x, dz = p.tz - p.z, d = Math.hypot(dx, dz), step = p.sp * dt;
-      if (d <= step){ p.x = p.tx; p.z = p.tz; p.st = 'gone'; }
-      else { p.x += dx / d * step; p.z += dz / d * step; p.ph += dt * 9; }
-    }
-    const vis = p.st === 'wait' || p.st === 'alight' || p.st === 'board', k = vis ? 1 : 0;
-    const bob = vis && p.st !== 'wait' ? Math.abs(Math.sin(p.ph)) * 0.05 : 0;
-    _m4.compose(_p.set(p.x, 1.02 + bob, p.z), _q, _s.setScalar(k)); paxBody.setMatrixAt(i, _m4);
-    _m4.compose(_p.set(p.x, 1.6 + bob, p.z), _q, _s.setScalar(k)); paxHead.setMatrixAt(i, _m4);
-    i++;
+  const st = nearestStation();
+  if (PX.phase !== 'exchange' && (PX.rebuild || st.id !== PX.crowdSt)) buildCrowd(st);
+  if (PX.phase === 'done' && S.speed > 0.3) PX.phase = 'idle';
+  if (PX.phase === 'idle' && S.doors && S.speed < 0.05 && S.coupling >= 0) paxActivate();
+  if (PX.phase === 'exchange') paxExchange(dt);
+  walkPool(dt); walkCoaches(dt);
+  pool.body.count = pool.head.count = pool.hi + 1;
+  if (pool.dirty && pool.hi >= 0) for (const m of [pool.body, pool.head]){ const a = m.instanceMatrix; a.clearUpdateRanges(); a.addUpdateRange(0, (pool.hi + 1) * 16); a.needsUpdate = true; }   // upload the live part only
+  pool.dirty = false;
+  if (pool.colDirty){ pool.body.instanceColor.needsUpdate = pool.head.instanceColor.needsUpdate = true; pool.colDirty = false; }
+  for (const set of tgvSets) for (const c of set.coaches){
+    if (c.dirty){ c.bodies.instanceMatrix.needsUpdate = c.heads.instanceMatrix.needsUpdate = true; c.dirty = false; }
+    if (c.colDirty){ c.bodies.instanceColor.needsUpdate = c.heads.instanceColor.needsUpdate = true; c.colDirty = false; }
   }
-  for (; i < PAX_N; i++){ _m4.makeScale(0, 0, 0); paxBody.setMatrixAt(i, _m4); paxHead.setMatrixAt(i, _m4); }
-  paxBody.instanceMatrix.needsUpdate = true; paxHead.instanceMatrix.needsUpdate = true;
+}
+function paxHolding(){ return PX.phase === 'exchange' && PX.hold; }
+function paxResolve(reset = false){   // settle everyone at once (teleport, reset, mode switch): walkers sit down or are gone, the crowd is rebuilt
+  for (const set of tgvSets) for (const c of set.coaches){
+    c.walk.length = 0; c.crowd[0].length = c.crowd[1].length = 0;
+    if (reset){ paxSeed(c); continue; }
+    for (let i = 0; i < c.n; i++){ const o = c.occ[i]; if (o >= 2){ c.occ[i] = o === 2 ? 0 : 1; } poseSeat(c, i, c.occ[i] === 1); }
+  }
+  poolClear(); PX.list.length = 0;
+  Object.assign(PX, { phase:'idle', hold:false, closeWhenDone:false, rebuild:true, visited:null });
 }
 
 /* ---- cameras for the long train (functions: they depend on the formation) */
@@ -414,10 +623,12 @@ Object.assign(CAMS, {
 
 /* ---- per-frame update (tgv mode only) + mode switch hook */
 let tgvShadow = '';
+const tgvDriver = parts.cab.group.getObjectByName('driver');
 function setTgvVisible(on){
-  tgvTrain.visible = on; paxBody.visible = paxHead.visible = on;
+  tgvTrain.visible = on; pool.body.visible = pool.head.visible = on;
+  parts.cab.group.getObjectByName('cabLoco').visible = !on; parts.cab.group.getObjectByName('cabTgv').visible = on;   // the lead car's cab: loco desk or TGV desk with its driver
   if (!on){ platVariant[1].visible = true; platVariant[2].visible = false; setShadowBox(-82, 14, 2048); tgvShadow = ''; return; }
-  if (!pax.length) makeCrowd();
+  paxResolve();
 }
 function updateTgv(dt){
   const s1 = tgvSets[0], s2 = tgvSets[1], bat = S.battery ? 1 : 0;
@@ -441,5 +652,7 @@ function updateTgv(dt){
   const f = S.doorsF, k1 = Math.min(1, f / 0.3), k2 = Math.max(0, (f - 0.3) / 0.7);
   for (const set of tgvSets) for (const d of set.doors){ if (d.s < 0) continue; d.g.position.z = d.z0 + 0.13 * k1; d.g.position.x = d.x0 + 1.35 * k2; }
   for (const h of pcHosts) for (const id in h.clones) h.clones[id].visible = parts[id].group.visible;   // copies follow the part toggles
+  tgvDriver.visible = S.dir > 0;   // the driver sits in the leading cab
+  for (const h of pcHosts) h.driver.visible = S.dir < 0 && h === (wide ? pcHosts[1] : pcHosts[0]);
   updatePax(dt);
 }

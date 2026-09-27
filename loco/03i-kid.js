@@ -4,12 +4,12 @@
 const KID_T = {
   fr:{ title:"Conducteur de train", diesel:"Diesel", electric:"Électrique", tgv:"TGV", stop:"Stop", horn:"Klaxon", lever:"Manette", station:"Prochaine gare",
        back:"Retour à Bordeaux", auto:"Pilote auto…", doors:"Portes", cam:"Caméra", wx:"Météo", xray:"Rayons X", hint:"Pousse la manette pour partir !",
-       hint_doors:"Ferme les portes… et c'est parti !", hint_end:"Terminus ! Appuie sur 🔄 pour faire demi-tour.", hint_stopped:"Le train doit être arrêté.",
+       hint_doors:"Ferme les portes… et c'est parti !", hint_pax:"Attends, tout le monde descend !", hint_end:"Terminus ! Appuie sur 🔄 pour faire demi-tour.", hint_stopped:"Le train doit être arrêté.",
        terminus:"Terminus", next:"Prochaine gare", full:"Version complète ↗", game:"Jeu des aiguillages ↗", lang:"Langue",
        panto:"Pantographe", dir_par:"Vers Paris", dir_bdx:"Vers Bordeaux", turn:"Demi-tour", hint_panto:"Lève le pantographe !", hint_wait:"Le pantographe monte…", sound:"Son" },
   en:{ title:"Train driver", diesel:"Diesel", electric:"Electric", tgv:"TGV", stop:"Stop", horn:"Horn", lever:"Lever", station:"Next station",
        back:"Back to Bordeaux", auto:"Autopilot…", doors:"Doors", cam:"Camera", wx:"Weather", xray:"X-ray", hint:"Push the lever to go!",
-       hint_doors:"Closing the doors… off we go!", hint_end:"End of the line! Press 🔄 to turn around.", hint_stopped:"The train must be stopped first.",
+       hint_doors:"Closing the doors… off we go!", hint_pax:"Wait, everyone is getting off!", hint_end:"End of the line! Press 🔄 to turn around.", hint_stopped:"The train must be stopped first.",
        terminus:"Terminus", next:"Next station", full:"Full version ↗", game:"Switch game ↗", lang:"Language",
        panto:"Pantograph", dir_par:"To Paris", dir_bdx:"To Bordeaux", turn:"Turn around", hint_panto:"Raise the pantograph!", hint_wait:"Pantograph rising…", sound:"Sound" },
 };
@@ -17,7 +17,7 @@ const kt = k => KID_T[S.lang][k] ?? k;
 const KID_WX = [['sun', '☀️'], ['cloud', '☁️'], ['rain', '🌧️'], ['dusk', '🌆']];
 const KID_CAMS = ['overview', 'driver', 'side', 'train', 'far'];   // one tap: next view
 Object.assign(CAMS, {
-  driver: () => S.mode === 'tgv' ? [[9.8, 4.6, 0], [60, 2.0, 0]] : [[10.3, 4.0, 0], [60, 2.4, 0]],   // just above the windshield, looking down the line (inside the cab the shell hides everything)
+  driver: () => S.mode === 'tgv' ? [[7.45, 3.45, 0.5], [60, 2.9, 0.1]] : [[10.3, 4.0, 0], [60, 2.4, 0]],   // TGV: in the cab over the driver's shoulder, through the windshield; loco: just above its windshield
   train: () => S.mode === 'tgv' ? [[-60, 40, 150], [-85, 2, 0]] : [[-28, 9, 14], [6, 2.5, 0]],       // the whole train: a 200 m TGV from the side, a loco chased from behind
 });
 // toy physics per train: top speed in about a minute, STOP in well under one; the explainer keeps the real numbers (all 1)
@@ -163,10 +163,13 @@ function kidLever(v){
   manual(); kidPower();
   S.notch = v; S.brake = v === 0 ? 4 : 0;
   if (v > 0){
-    if (S.doorsF > 0.02) kidToast('hint_doors', 3000);
-    else if (S.mode !== 'diesel' && !S.panto) kidToast('hint_panto', 3000);
-    else if (S.mode !== 'diesel' && !S.lineOn) kidToast('hint_wait', 3000);
-    S.doors = false;
+    if (paxHolding()){ kidToast('hint_pax', 3000); PX.closeWhenDone = true; }   // terminus: the doors close by themselves once everyone is through
+    else {
+      if (S.doorsF > 0.02) kidToast('hint_doors', 3000);
+      else if (S.mode !== 'diesel' && !S.panto) kidToast('hint_panto', 3000);
+      else if (S.mode !== 'diesel' && !S.lineOn) kidToast('hint_wait', 3000);
+      S.doors = false;
+    }
     if (kidAtEnd()) kidToast('hint_end', 5000);
   }
   syncControls();
@@ -188,7 +191,8 @@ function kidTurn(){                                  // stopped train: face the 
 function kidStation(){
   const st = nextStation(0);
   if (!st){ kidTurn(); return; }                     // terminus: turn around
-  manual(); kidPower(true); S.doors = false;
+  manual(); kidPower(true);
+  if (paxHolding()){ kidToast('hint_pax', 3000); PX.closeWhenDone = true; } else S.doors = false;
   const mark = st.s - TGV.PLAT_FRONT;
   if ((mark - S.dist) * S.dir > 5500) jumpTo(mark - 5000 * S.dir);   // skip the long straight bits, keep the speed
   S.stopS = mark; S.autoStop = true; S.autoDoors = S.mode === 'tgv'; syncControls();
@@ -196,6 +200,7 @@ function kidStation(){
 function kidDoors(){
   if (S.mode !== 'tgv') return;
   if (S.speed > 0.1){ kidToast('hint_stopped', 2500); return; }
+  if (S.doors && paxHolding()){ kidToast('hint_pax', 3000); PX.closeWhenDone = true; return; }
   S.doors = !S.doors; syncControls();
 }
 let camIdx = 0, wxIdx = 0;
@@ -267,7 +272,8 @@ frameHook = () => {
   if (S.mode !== 'diesel' && S.battery && S.lineOn && S.panto && !S.vcb) S.vcb = true;   // the child only handles the pantograph: the line breaker follows it
   if (KID_CAMS[camIdx] !== 'driver' || S.dir > 0) return;   // toward Bordeaux the cab is at the far end of the train: the camera rides there, looking back down the line
   const t = tailLen(), tgv = S.mode === 'tgv';
-  orbit.flyTo(curveLocal(-t + 1.5, tgv ? 4.6 : 4.0, 0, _kv1), curveLocal(-t - 50, tgv ? 2.0 : 2.4, 0, _kv2));
+  if (tgv) orbit.flyTo(curveLocal(-t + 3.85, 3.45, -0.5, _kv1), curveLocal(-t - 48.7, 2.9, -0.1, _kv2));   // the rear cab, mirrored: same seat as the forward view
+  else orbit.flyTo(curveLocal(-t + 1.5, 4.0, 0, _kv1), curveLocal(-t - 50, 2.4, 0, _kv2));
 };
 
 /* ---- start: a TGV at Bordeaux, powered up, body opaque, ready to go */

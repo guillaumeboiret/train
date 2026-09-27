@@ -29,7 +29,7 @@ function resetSim(){
     dist:ROUTE.stations[0].s - TGV.PLAT_FRONT, stopS:ROUTE.stations[0].s - TGV.PLAT_FRONT, dir:1, timeScale:1, holdN:0, track:0, trackF:0 });
   trk.from = trk.to = 0; trk.s0 = -1e9;
   S.vMaxEff = Math.min(specNow().vMax, ROUTE.lineLimit(S.dist) / 3.6);
-  setPanto(0); syncControls();
+  setPanto(0); paxResolve(true); syncControls();
 }
 function setMode(mode){
   S.mode = mode; document.body.dataset.mode = mode;
@@ -183,8 +183,8 @@ function applyStepState(id){
     case 't6': { ensureLive(); S.doors = false; S.coupling = 0; S.set2Off = S.sets === 2 ? 0 : -40; S.dir = 1;
       const st = ROUTE.stations.find(x => x.s - TGV.PLAT_FRONT - S.dist > 700) || ROUTE.stations[ROUTE.stations.length - 1];
       S.stopS = st.s - TGV.PLAT_FRONT; S.dist = S.stopS - 600; S.speed = 30; S.notch = 0; S.brake = 0; S.atStation = false; S.autoStop = true; S.autoDoors = true;
-      trk.from = trk.to = 0; trk.s0 = -1e9; break; }
-    case 't7': ensureLive(); S.autoStop = false; S.autoDoors = false; if (!S.atStation){ S.speed = 0; S.notch = 0; S.brake = 0; S.dist = nearestStation().s - TGV.PLAT_FRONT; S.stopS = S.dist; S.atStation = true; } if (S.sets === 1 && S.coupling === 0) S.coupling = 1; break;
+      trk.from = trk.to = 0; trk.s0 = -1e9; paxResolve(); break; }
+    case 't7': ensureLive(); S.autoStop = false; S.autoDoors = false; if (!S.atStation){ S.speed = 0; S.notch = 0; S.brake = 0; S.dist = nearestStation().s - TGV.PLAT_FRONT; S.stopS = S.dist; S.atStation = true; paxResolve(); } if (S.sets === 1 && S.coupling === 0) S.coupling = 1; break;
     case 't8': ensureLive(); S.doors = false; S.autoStop = false; S.autoDoors = false; S.notch = 5; S.brake = 0; break;
   }
   syncControls();
@@ -233,7 +233,7 @@ function syncTgvControls(){
   $('setsSeg').querySelectorAll('button').forEach(b => { b.setAttribute('aria-pressed', String(+b.dataset.sets === S.sets)); b.disabled = !canSets; });
   $('setsHint').textContent = t(S.coupling > 0 ? 'coupling' : S.coupling < 0 ? 'uncoupling' : 'sets_hint');
   $('swDoors').checked = S.doors; $('swDoors').disabled = S.speed > 0.1;
-  $('doorsVal').textContent = t(S.doorsF > 0.5 ? 'doors_open' : 'doors_closed');
+  $('doorsVal').textContent = t(paxHolding() ? 'doors_pax' : S.doorsF > 0.5 ? 'doors_open' : 'doors_closed');
   $('stationVal').textContent = S.autoStop ? t('station_running') : S.atStation ? t('station_at') : '';
   $('btnStation').disabled = S.autoStop;
 }
@@ -246,7 +246,11 @@ $('setsSeg').addEventListener('click', e => {
   S.coupling = want === 2 ? 1 : -1;
   syncControls();
 });
-$('swDoors').addEventListener('change', e => { manual(); if (S.speed > 0.1){ e.target.checked = S.doors; return; } S.doors = e.target.checked; syncControls(); });
+$('swDoors').addEventListener('change', e => {
+  manual(); if (S.speed > 0.1){ e.target.checked = S.doors; return; }
+  if (!e.target.checked && paxHolding()){ PX.closeWhenDone = true; e.target.checked = true; syncControls(); return; }   // terminus: they close once the last passenger is through
+  S.doors = e.target.checked; syncControls();
+});
 $('btnStation').addEventListener('click', () => {
   const st = nextStation(); if (!st){ syncControls(); return; }   // terminus: nothing ahead
   manual(); ensureLive(); S.doors = false; S.stopS = st.s - TGV.PLAT_FRONT; S.autoStop = true; S.autoDoors = true; syncControls();
@@ -268,15 +272,15 @@ function setShell(level){
   $('shellSeg').querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(+b.dataset.shell === level)));
   const p = S.mode === 'tgv' ? parts.tgvShell : parts.shell;
   for (const m of S.mode === 'tgv' ? [...p.mats, ...pcShells.mats, ...trShells.mats] : p.mats){
-    if (!m.userData.orig) m.userData.orig = { transparent:m.transparent, opacity:m.opacity, depthWrite:m.depthWrite };
+    if (!m.userData.orig) m.userData.orig = { transparent:m.transparent, opacity:m.opacity, depthWrite:m.depthWrite, alphaTest:m.alphaTest };
     const o = m.userData.orig;
-    if (level >= 1){ m.transparent = o.transparent; m.opacity = o.opacity; m.depthWrite = o.depthWrite; }
-    else { m.transparent = true; m.opacity = Math.min(o.opacity, level); m.depthWrite = false; }
+    if (level >= 1){ m.transparent = o.transparent; m.opacity = o.opacity; m.depthWrite = o.depthWrite; m.alphaTest = o.alphaTest; }
+    else { m.transparent = true; m.opacity = Math.min(o.opacity, level); m.depthWrite = false; m.alphaTest = Math.min(o.alphaTest, level * 0.5); }   // cut-out windows: the test must stay under the faded opacity
     m.needsUpdate = true;
   }
   p.group.traverse(o => { if (o.isMesh) o.castShadow = level >= 1; });
   for (const o of [...pcShells.meshes, ...trShells.meshes]){ o.castShadow = level >= 1; o.visible = level > 0; }
-  for (const set of tgvSets) set.interior.visible = level < 1;   // seats and passengers are only drawn once the skin lets them show
+  for (const set of tgvSets) for (const c of set.coaches) c.g.visible = level < 1;   // seats and passengers are only drawn once the skin lets them show
   applyVisibility(p);
 }
 const CUT_EXT = { x:[0, 10.4], y:[2.9, 2.9], z:[0, 1.75] };   // center, half extent along the cut axis
@@ -391,7 +395,7 @@ function jumpTo(s, stop = false){
   manual(); S.autoStop = false; S.autoDoors = false; S.coupling = 0;
   S.dist = clamp(s, 8 + tailLen(), ROUTE.L - 15.5);
   if (stop){ S.speed = 0; S.notch = 0; S.brake = 0; }
-  S.stopS = S.dist; trk.from = trk.to; trk.s0 = -1e9;
+  S.stopS = S.dist; trk.from = trk.to; trk.s0 = -1e9; paxResolve();
   S.atStation = S.speed < 0.05 && Math.abs(stationOffset()) < 2; if (!S.atStation) S.doors = false;
   for (const o of opp){ o.active = false; o.group.visible = false; }
   syncControls(); updateHud();
@@ -500,4 +504,4 @@ resize();
 setShell(0.18); setCut('none'); setExplode(0);
 setMode('diesel');
 requestAnimationFrame(loop);
-window.locoDebug = { S, simulate, animate, updateFlows, updateGauges, orbit, renderer, scene, camera, goStep, setMode, setCut, setExplode, setShell, select, parts, TGV, tgvSets, station, updateTgv, syncControls, tick:window.tick, ROUTE, horn, chunks, requestTrack, trk, opp, parked, cars, curveLocal, updateHud, jumpToStation, jumpTo, setWeather, pcHosts, pcShells, flowObjs, landmarks, flyPreset, SND };
+window.locoDebug = { S, simulate, animate, updateFlows, updateGauges, orbit, renderer, scene, camera, goStep, setMode, setCut, setExplode, setShell, select, parts, TGV, tgvSets, station, updateTgv, syncControls, tick:window.tick, ROUTE, horn, chunks, requestTrack, trk, opp, parked, cars, curveLocal, updateHud, jumpToStation, jumpTo, setWeather, pcHosts, pcShells, flowObjs, landmarks, flyPreset, SND, PX, pool, paxResolve, paxHolding };

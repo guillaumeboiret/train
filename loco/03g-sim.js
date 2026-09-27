@@ -117,7 +117,7 @@ function simulateStep(dt){
   const v = S.speed;
   let F = 0, Fb = 0, Fair = 0, Fe = 0;
   let pAvail = srcOK ? sp.pMax * S.throttleN * (S.mode === 'diesel' ? 0.15 + 0.85 * S.rpmN : 1) : 0;
-  if (S.mode === 'tgv' && (S.doorsF > 0.02 || S.coupling !== 0)) pAvail = 0;   // traction interlock: doors not closed and locked, or a coupling manoeuvre
+  if (S.mode === 'tgv' && (S.doors || S.doorsF > 0.02 || S.coupling !== 0)) pAvail = 0;   // traction interlock: doors commanded open or not closed and locked, or a coupling manoeuvre
   if (pAvail > 0) F = Math.min(sp.fAdh * Math.min(1, S.throttleN * 1.5 + 0.1), pAvail / Math.max(v, 1.5));
   S.powerN = clamp(pAvail / sp.pMax, 0, 1);
   const brakeSrc = S.mode === 'diesel' ? S.engine === 'running' : (S.dcV > 1000 || S.mode === 'tgv');
@@ -205,7 +205,7 @@ function animate(dt){
     else if (f.kind === 'aux') sp = S.vcb ? 10 : 0;
     if (sp) f.obj.rotation.y += sp * dt;
   }
-  cabLever.rotation.z = -(S.notch / 8) * 0.6 + (S.brake / 8) * 0.4;
+  for (const l of cabLevers) l.rotation.z = -(S.notch / 8) * 0.6 + (S.brake / 8) * 0.4;
   for (const m of lampMats){ if (m.userData.hl) continue; m.emissiveIntensity = approach(m.emissiveIntensity, S.battery ? m.userData.lamp : 0, dt * 4); }
   for (const k in gridMats){ const m = gridMats[k]; if (m.userData.hl) continue; m.emissiveIntensity = S.gridHeat * 3; }
   const rate = S.mode === 'diesel' && S.rpm > 0 ? 22 + 90 * S.fuel : 0;

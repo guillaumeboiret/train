@@ -1,7 +1,8 @@
 
 /* ------------------------------------------------ shared animated handles */
 const axles = [], motorRotors = [], roofFans = [], lampMats = [];
-let turboWheel = null, altRotor = null, compPulley = null, cabLever = null;
+let turboWheel = null, altRotor = null, compPulley = null;
+const cabLevers = [];   // every throttle lever (loco cab, TGV cabs and their copies), posed from the notch and the brake
 const gridMats = {};
 const panto = {};
 const WHEEL_R = 0.5;
@@ -72,22 +73,58 @@ definePart('shell', g => {
 });
 
 /* ------------------------------------------------------------- cab interior */
+/* Two fit-outs in the same part: the loco cab (diesel, electric) and the TGV cab (raised floor, wide desk under the
+   windshield, driver in the middle). setTgvVisible shows one or the other; the TGV power cars' copies show the TGV one. */
 definePart('cab', g => {
   const dm = mat(pal.dark, { roughness:0.8 }), sm = mat(pal.steel);
-  g.add(box(2.7, 0.05, 2.85, mat(0x2b3138, { roughness:0.9 }), 8.2, 1.68, 0));        // floor
-  g.add(box(0.55, 0.5, 2.5, dm, 9.15, 2.7, 0));                                        // desk
-  g.add(box(0.5, 0.05, 2.4, sm, 9.15, 2.96, 0));
   const scr = mat(0x9fd8ff, { emissive:0x7fc8ff, emissiveIntensity:0, roughness:0.2 });
   scr.userData.lamp = 1.2; lampMats.push(scr);
-  [-0.55, 0.15].forEach(z => { const s = box(0.03, 0.34, 0.5, scr, 9.0, 3.2, z); s.rotation.z = 0.25; g.add(s); });
-  // throttle lever (rotates with the notch)
-  const lever = new THREE.Group(); lever.position.set(9.05, 2.99, 0.7);
-  lever.add(box(0.04, 0.32, 0.04, sm, 0, 0.16, 0)); lever.add(box(0.1, 0.08, 0.08, mat(pal.red), 0, 0.32, 0));
-  g.add(lever); cabLever = lever;
+  const lever = (x, y, z) => {   // throttle lever (rotates with the notch)
+    const l = new THREE.Group(); l.position.set(x, y, z); l.userData.lever = 1;
+    l.add(box(0.04, 0.32, 0.04, sm, 0, 0.16, 0)); l.add(box(0.1, 0.08, 0.08, mat(pal.red), 0, 0.32, 0));
+    cabLevers.push(l); return l;
+  };
+  const a = new THREE.Group(); a.name = 'cabLoco'; g.add(a);
+  a.add(box(2.7, 0.05, 2.85, mat(0x2b3138, { roughness:0.9 }), 8.2, 1.68, 0));        // floor
+  a.add(box(0.55, 0.5, 2.5, dm, 9.15, 2.7, 0));                                        // desk
+  a.add(box(0.5, 0.05, 2.4, sm, 9.15, 2.96, 0));
+  [-0.55, 0.15].forEach(z => { const s = box(0.03, 0.34, 0.5, scr, 9.0, 3.2, z); s.rotation.z = 0.25; a.add(s); });
+  a.add(lever(9.05, 2.99, 0.7));
   // seat
-  g.add(box(0.5, 0.08, 0.5, dm, 8.2, 2.35, 0.55)); g.add(box(0.08, 0.6, 0.5, dm, 7.95, 2.65, 0.55)); g.add(cyl(0.05, 0.6, sm, 'y', 8.2, 2.0, 0.55));
+  a.add(box(0.5, 0.08, 0.5, dm, 8.2, 2.35, 0.55)); a.add(box(0.08, 0.6, 0.5, dm, 7.95, 2.65, 0.55)); a.add(cyl(0.05, 0.6, sm, 'y', 8.2, 2.0, 0.55));
   // rear cabinet
-  g.add(box(0.3, 1.9, 1.2, mat(pal.cabinet), 7.0, 2.65, -0.7));
+  a.add(box(0.3, 1.9, 1.2, mat(pal.cabinet), 7.0, 2.65, -0.7));
+  // TGV cab: the nose narrows fast, so everything sits between x 6.9 and 9.5, the driver's eyes level with the windshield
+  const b = new THREE.Group(); b.name = 'cabTgv'; b.visible = false; g.add(b);
+  const panel = mat(0x3b434c, { roughness:0.7 });
+  b.add(box(2.6, 0.34, 2.5, mat(0x2b3138, { roughness:0.9 }), 8.2, 1.83, 0));        // raised floor, top at 2.0
+  b.add(box(0.6, 0.85, 2.2, dm, 9.15, 2.425, 0));                                      // desk
+  { const t = box(0.5, 0.05, 2.2, panel, 9.1, 2.9, 0); t.rotation.z = 0.35; b.add(t); }   // sloped top panel
+  [-0.45, 0, 0.45].forEach(z => { const s = box(0.03, 0.3, 0.4, scr, 9.05, 3.08, z); s.rotation.z = 0.25; b.add(s); });
+  b.add(box(0.4, 0.8, 0.3, dm, 8.75, 2.45, -0.42));                                    // side console with the combined traction/brake lever
+  b.add(lever(8.75, 2.85, -0.42));
+  b.add(box(0.5, 0.08, 0.5, dm, 8.15, 2.48, 0)); b.add(box(0.08, 0.65, 0.5, dm, 7.87, 2.85, 0)); b.add(cyl(0.05, 0.44, sm, 'y', 8.15, 2.22, 0));   // seat
+  b.add(box(0.08, 1.8, 2.5, panel, 6.95, 2.9, 0));                                     // back wall of the cab
+  // the driver, facing the line (only the one in the leading cab is shown)
+  const d = new THREE.Group(); d.name = 'driver'; b.add(d);
+  const suit = mat(0x1f2d4a, { roughness:0.8 }), skin = mat(0xd9b48f, { roughness:0.7 }), shoe = mat(0x15181c, { roughness:0.6 });
+  const limb = (p, q, r, m) => {
+    const A = new THREE.Vector3(...p), B = new THREE.Vector3(...q), len = A.distanceTo(B);
+    const c = new THREE.Mesh(new THREE.CylinderGeometry(r, r, len, 8), m); c.castShadow = true;
+    c.position.copy(A).add(B).multiplyScalar(0.5); c.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), B.sub(A).normalize());
+    return c;
+  };
+  { const t = new THREE.Mesh(new THREE.CapsuleGeometry(0.18, 0.32, 4, 10), suit); t.position.set(8.17, 2.89, 0); t.castShadow = true; d.add(t); }
+  { const h = new THREE.Mesh(new THREE.SphereGeometry(0.12, 14, 10), skin); h.position.set(8.2, 3.4, 0); h.castShadow = true; d.add(h); }
+  d.add(cyl(0.125, 0.07, suit, 'y', 8.19, 3.5, 0, 16)); d.add(box(0.13, 0.015, 0.2, suit, 8.33, 3.475, 0));   // cap and visor
+  [-0.1, 0.1].forEach(z => {
+    d.add(box(0.44, 0.14, 0.14, suit, 8.4, 2.62, z));                                  // thigh
+    d.add(box(0.13, 0.6, 0.13, suit, 8.64, 2.31, z));                                  // shin
+    d.add(box(0.24, 0.08, 0.11, shoe, 8.7, 2.04, z));                                  // shoe
+  });
+  const arm = (sh, el, ha) => { d.add(limb(sh, el, 0.055, suit)); d.add(limb(el, ha, 0.05, suit)); const h = new THREE.Mesh(new THREE.SphereGeometry(0.055, 8, 6), skin); h.position.set(...ha); d.add(h); };
+  arm([8.17, 3.16, -0.22], [8.4, 2.9, -0.34], [8.72, 3.12, -0.42]);                     // left hand on the lever
+  arm([8.17, 3.16, 0.22], [8.42, 2.85, 0.3], [8.85, 2.97, 0.3]);                        // right hand on the desk
 });
 
 /* ---------------------------------------------------------- bogies */
