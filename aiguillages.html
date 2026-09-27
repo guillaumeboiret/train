@@ -1,0 +1,1056 @@
+<title>Aiguillages</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  color-scheme:dark;
+  --bg:#11171d; --canvas:#1a2330; --grass:#3b5236; --grass-2:#46603f;
+  --panel:rgba(26,34,43,.92); --panel-solid:#1a222b; --panel-2:#222d38; --line:#31404e;
+  --ink:#e7ecf1; --muted:#8e9ca9; --accent:#f28c28; --accent-ink:#1b1206;
+  --ok:#43c977; --warn:#f2c53d; --bad:#ff5f45;
+  --font-display:"Barlow Condensed","Arial Narrow",Arial,sans-serif;
+  --font-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --font-mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+@media (prefers-color-scheme: light){
+  :root:not([data-theme="dark"]){
+    color-scheme:light;
+    --bg:#e9ecef; --canvas:#dfe5ea; --grass:#8fb07a; --grass-2:#9dbb88;
+    --panel:rgba(255,255,255,.93); --panel-solid:#ffffff; --panel-2:#f1f4f7; --line:#d3d9df;
+    --ink:#172029; --muted:#5d6b78; --accent:#dd761b; --accent-ink:#1b1206;
+  }
+}
+:root[data-theme="light"]{
+  color-scheme:light;
+  --bg:#e9ecef; --canvas:#dfe5ea; --grass:#8fb07a; --grass-2:#9dbb88;
+  --panel:rgba(255,255,255,.93); --panel-solid:#ffffff; --panel-2:#f1f4f7; --line:#d3d9df;
+  --ink:#172029; --muted:#5d6b78; --accent:#dd761b; --accent-ink:#1b1206;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 var(--font-body);overflow:hidden;-webkit-font-smoothing:antialiased}
+button,input{font:inherit;color:inherit}
+button:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+#app{height:100%;display:flex;flex-direction:column}
+.topbar{display:flex;align-items:center;gap:12px;padding:8px 16px;border-bottom:1px solid var(--line);background:var(--panel-solid);flex:0 0 auto;min-height:54px;flex-wrap:wrap}
+.brand{font-family:var(--font-display);font-weight:600;font-size:22px;letter-spacing:.02em;text-transform:uppercase;line-height:1;white-space:nowrap}
+.brand small{display:block;font:500 11px/1.2 var(--font-body);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-top:4px}
+.lvl{display:flex;align-items:baseline;gap:8px;font-family:var(--font-display);font-size:19px;font-weight:600;letter-spacing:.02em;white-space:nowrap}
+.lvl .num{font-family:var(--font-mono);font-size:13px;color:var(--accent);font-weight:500}
+.spacer{flex:1}
+.controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.btn{background:var(--panel-2);border:1px solid var(--line);border-radius:6px;padding:7px 11px;cursor:pointer;font-weight:500;font-size:12.5px;letter-spacing:.02em;white-space:nowrap;color:var(--ink);text-decoration:none;display:inline-flex;align-items:center;gap:6px;line-height:1.2}
+.btn:hover{border-color:var(--muted)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:transparent;font-weight:600}
+.btn[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:transparent;font-weight:600}
+.btn.link{color:var(--muted)}
+.btn.link .short{display:none}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:6px;overflow:hidden;background:var(--panel-2)}
+.seg button{background:transparent;border:0;padding:7px 10px;cursor:pointer;color:var(--muted);font-weight:500;font-size:12.5px;letter-spacing:.02em;white-space:nowrap}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);font-weight:600}
+.seg button:focus-visible{outline-offset:-2px}
+.stage{position:relative;flex:1;min-height:0;overflow:hidden;background:var(--canvas)}
+#c3d{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;cursor:grab}
+#c3d.dragging{cursor:grabbing}
+#c3d.pick{cursor:pointer}
+#labels{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.lbl{position:absolute;left:0;top:0;will-change:transform;white-space:nowrap}
+.lbl.st{transform:translate(-50%,-50%);font:700 15px/1 var(--font-display);letter-spacing:.04em;color:var(--ink);background:var(--panel);border:1.5px solid var(--line);width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.25)}
+.lbl.tr{transform:translate(-50%,-100%);font:700 13px/1 var(--font-display);letter-spacing:.04em;color:#fff;padding:5px 8px;border-radius:12px;box-shadow:0 2px 6px rgba(0,0,0,.3);border:1.5px solid rgba(255,255,255,.55)}
+.lbl.tr.stopped{opacity:.75}
+.lbl.tr .s{font:600 10px/1 var(--font-body);opacity:.9;margin-left:4px;letter-spacing:.06em}
+.callout{position:absolute;left:0;top:0;transform:translate(-50%,calc(-100% - 22px));max-width:280px;background:var(--panel-solid);color:var(--ink);border:1px solid var(--accent);border-radius:10px;padding:10px 12px;font-size:13px;line-height:1.4;box-shadow:0 8px 24px rgba(0,0,0,.35);pointer-events:none;white-space:normal}
+.callout::after{content:"";position:absolute;left:50%;top:100%;width:2px;height:22px;margin-left:-1px;background:var(--accent)}
+.callout .k{display:block;font:600 10.5px/1 var(--font-body);letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-bottom:5px}
+.status{position:absolute;right:14px;top:12px;display:flex;gap:8px;pointer-events:none}
+.status .chip{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:7px 11px;font:600 12.5px/1 var(--font-body);color:var(--ink);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+.status .chip b{font-family:var(--font-mono);font-weight:500;color:var(--accent)}
+.hint{position:absolute;left:14px;right:14px;bottom:12px;margin:0 auto;max-width:720px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 14px;font-size:13px;line-height:1.45;color:var(--ink);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);pointer-events:none}
+.hint .k{font:600 10.5px/1 var(--font-body);letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-right:8px}
+.banner{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;gap:6px;animation:bnr 1.9s ease forwards}
+.banner .n{font:500 14px/1 var(--font-mono);letter-spacing:.14em;text-transform:uppercase;color:var(--accent);text-shadow:0 1px 6px rgba(0,0,0,.5)}
+.banner .t{font:700 46px/1 var(--font-display);letter-spacing:.02em;color:#fff;text-shadow:0 2px 14px rgba(0,0,0,.55)}
+@keyframes bnr{0%{opacity:0;transform:translateY(8px)}12%{opacity:1;transform:none}80%{opacity:1}100%{opacity:0}}
+.modal{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(6,10,14,.45);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);padding:16px}
+.modal[hidden]{display:none}
+.card{background:var(--panel-solid);border:1px solid var(--line);border-radius:14px;padding:22px 24px;width:min(440px,100%);box-shadow:0 20px 60px rgba(0,0,0,.45)}
+.card.wide{width:min(620px,100%)}
+.card h2{font:700 30px/1.05 var(--font-display);letter-spacing:.01em;margin:0 0 8px}
+.card h2.ok{color:var(--ok)}
+.card h2.bad{color:var(--bad)}
+.card p{margin:0 0 16px;color:var(--muted);font-size:14px}
+.row{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.levels{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin:6px 0 16px}
+.levels button{background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:10px 6px 9px;cursor:pointer;text-align:center;display:flex;flex-direction:column;align-items:center;gap:4px;min-height:64px}
+.levels button .n{font:700 22px/1 var(--font-display);color:var(--ink)}
+.levels button .t{font:500 10.5px/1.2 var(--font-body);color:var(--muted)}
+.levels button.done .n{color:var(--ok)}
+.levels button.done .n::after{content:" ✓"}
+.levels button[aria-current="true"]{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.levels button:hover{border-color:var(--muted)}
+.kbd{font:500 11px/1 var(--font-mono);border:1px solid var(--line);border-radius:4px;padding:2px 5px;color:var(--muted)}
+@media (max-width:840px){
+  .hint{font-size:12px;padding:8px 12px}
+  .callout{max-width:220px;font-size:12px}
+  .status{top:8px;right:8px}
+  .status .chip{padding:6px 9px;font-size:12px}
+}
+@media (max-width:640px){
+  .topbar{gap:6px 10px;padding:6px 12px;min-height:0}
+  .brand{font-size:17px}
+  .brand small{display:none}
+  .lvl{font-size:16px}
+  .btn,.seg button{padding:5px 8px;font-size:12px}
+  .btn.link .full{display:none}
+  .btn.link .short{display:inline}
+  .levels{grid-template-columns:repeat(5,1fr);gap:6px}
+  .levels button .t{display:none}
+  .banner .t{font-size:32px}
+}
+</style>
+<div id="app">
+  <header class="topbar">
+    <div class="brand">Aiguillages<small data-i18n="sub">Le jeu des aiguillages</small></div>
+    <div class="lvl"><span class="num" id="lvlNum">01</span><span id="lvlName"></span></div>
+    <div class="spacer"></div>
+    <div class="controls">
+      <button type="button" class="btn" id="btnLevels" data-i18n="levels">Niveaux</button>
+      <button type="button" class="btn" id="btnRestart" data-i18n="restart">Recommencer</button>
+      <button type="button" class="btn" id="btnPause" aria-pressed="false" data-i18n="pause">Pause</button>
+      <div class="seg" id="speedSeg" role="group" aria-label="Vitesse">
+        <button type="button" data-speed="1" aria-pressed="true">×1</button>
+        <button type="button" data-speed="2" aria-pressed="false">×2</button>
+      </div>
+      <a class="btn link" href="https://claude.ai/artifact/EMVu67YYfT7DzW8UozZAj6" target="_blank" rel="noopener"><span class="full" data-i18n="loco">Anatomie d'une locomotive ↗</span><span class="short" data-i18n="locoShort">Locomotive ↗</span></a>
+      <div class="seg" id="langSeg" role="group" aria-label="Langue">
+        <button type="button" data-lang="fr" aria-pressed="true">FR</button>
+        <button type="button" data-lang="en" aria-pressed="false">EN</button>
+      </div>
+    </div>
+  </header>
+  <main class="stage" id="stage">
+    <canvas id="c3d" aria-label="Plan des voies"></canvas>
+    <div id="labels"></div>
+    <div class="status" id="status" aria-live="polite"></div>
+    <div class="hint" id="hint"></div>
+    <div id="bannerHost"></div>
+    <div class="modal" id="modal" hidden role="dialog" aria-modal="true">
+      <div class="card"><h2 id="mTitle"></h2><p id="mText"></p><div class="row" id="mBtns"></div></div>
+    </div>
+    <div class="modal" id="levelsModal" hidden role="dialog" aria-modal="true">
+      <div class="card wide">
+        <h2 data-i18n="chooseLevel">Choisir un niveau</h2>
+        <div class="levels" id="levelsGrid"></div>
+        <div class="row"><button type="button" class="btn" id="btnCloseLevels" data-i18n="close">Fermer</button></div>
+      </div>
+    </div>
+  </main>
+</div>
+<script type="module">
+/* ============================================================ track graph (pure, no THREE) */
+const SP = 3;   // spacing between parallel tracks
+const TL = 6;   // length of a turnout S-curve
+const nkey = (x, y) => (Math.round(x * 100) / 100) + ',' + (Math.round(y * 100) / 100);
+const norm2 = (v) => { const l = Math.hypot(v[0], v[1]) || 1; return [v[0] / l, v[1] / l]; };
+
+function makeCurve(kind, p){
+  const N = kind === 'L' ? 1 : 48;
+  const pts = [];
+  for (let i = 0; i <= N; i++){
+    const t = i / N;
+    if (kind === 'L') pts.push([p[0][0] + (p[1][0] - p[0][0]) * t, p[0][1] + (p[1][1] - p[0][1]) * t]);
+    else {
+      const mt = 1 - t, a = mt * mt * mt, b = 3 * mt * mt * t, c = 3 * mt * t * t, d = t * t * t;
+      pts.push([a * p[0][0] + b * p[1][0] + c * p[2][0] + d * p[3][0], a * p[0][1] + b * p[1][1] + c * p[2][1] + d * p[3][1]]);
+    }
+  }
+  const cum = [0];
+  for (let i = 1; i < pts.length; i++) cum.push(cum[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
+  const len = cum[cum.length - 1];
+  function at(s){
+    s = Math.max(0, Math.min(len, s));
+    let lo = 0, hi = cum.length - 1;
+    while (hi - lo > 1){ const m = (lo + hi) >> 1; if (cum[m] <= s) lo = m; else hi = m; }
+    const seg = cum[hi] - cum[lo] || 1, f = (s - cum[lo]) / seg;
+    return [pts[lo][0] + (pts[hi][0] - pts[lo][0]) * f, pts[lo][1] + (pts[hi][1] - pts[lo][1]) * f,
+            (pts[hi][0] - pts[lo][0]) / seg, (pts[hi][1] - pts[lo][1]) / seg];
+  }
+  return { kind, p, pts, cum, len, at };
+}
+
+function outTangent(e, nodeId){
+  const c = e.curve;
+  if (e.a === nodeId){ const q = c.at(Math.min(0.5, c.len)); return norm2([q[0] - c.pts[0][0], q[1] - c.pts[0][1]]); }
+  const q = c.at(Math.max(c.len - 0.5, 0)), last = c.pts[c.pts.length - 1];
+  return norm2([q[0] - last[0], q[1] - last[1]]);
+}
+
+function buildTrack(spec){
+  let segs = [];
+  for (const t of spec.tracks){
+    if (t[0] === 'L') segs.push({ kind: 'L', p: [[t[1], t[2]], [t[3], t[4]]] });
+    else if (t[0] === 'T'){ const x = t[1], y = t[2], dir = t[3], side = t[4], L = t[5] || TL, g = t[6] || SP;
+      segs.push({ kind: 'B', p: [[x, y], [x + dir * L / 2, y], [x + dir * L / 2, y + side * g], [x + dir * L, y + side * g]] }); }
+    else if (t[0] === 'C') segs.push({ kind: 'B', p: [[t[1], t[2]], [t[3], t[4]], [t[5], t[6]], [t[7], t[8]]] });
+  }
+  const endpoints = [];
+  for (const s of segs) endpoints.push(s.p[0], s.p[s.p.length - 1]);
+  let changed = true;
+  while (changed){
+    changed = false;
+    const out = [];
+    for (const s of segs){
+      if (s.kind !== 'L'){ out.push(s); continue; }
+      const [A, B] = s.p, dx = B[0] - A[0], dy = B[1] - A[1], L2 = dx * dx + dy * dy;
+      let split = null;
+      for (const P of endpoints){
+        const t = ((P[0] - A[0]) * dx + (P[1] - A[1]) * dy) / L2;
+        if (t <= 1e-6 || t >= 1 - 1e-6) continue;
+        if (Math.hypot(A[0] + dx * t - P[0], A[1] + dy * t - P[1]) < 1e-6){ split = [A[0] + dx * t, A[1] + dy * t]; break; }
+      }
+      if (split){ out.push({ kind: 'L', p: [A, split] }, { kind: 'L', p: [split, B] }); changed = true; }
+      else out.push(s);
+    }
+    segs = out;
+  }
+  const nodes = new Map(), edges = [], problems = [];
+  const getNode = (P) => { const k = nkey(P[0], P[1]); if (!nodes.has(k)) nodes.set(k, { id: k, x: P[0], y: P[1], edges: [], kind: 'through', station: null, toe: -1, branches: null, state: 0 }); return nodes.get(k); };
+  segs.forEach((s, i) => {
+    const a = getNode(s.p[0]), b = getNode(s.p[s.p.length - 1]);
+    if (a === b){ problems.push('degenerate segment at ' + a.id); return; }
+    edges.push({ id: i, a: a.id, b: b.id, curve: makeCurve(s.kind, s.p) });
+    a.edges.push(i); b.edges.push(i);
+  });
+  for (const n of nodes.values()){
+    if (n.edges.length === 1) n.kind = 'terminal';
+    else if (n.edges.length === 2) n.kind = 'through';
+    else if (n.edges.length === 3){
+      n.kind = 'switch';
+      const tg = n.edges.map(id => outTangent(edges[id], n.id));
+      let best = -1, bestScore = -Infinity;
+      for (let i = 0; i < 3; i++){
+        const j = (i + 1) % 3, k = (i + 2) % 3;
+        const score = -(tg[i][0] * (tg[j][0] + tg[k][0]) + tg[i][1] * (tg[j][1] + tg[k][1])) + (tg[j][0] * tg[k][0] + tg[j][1] * tg[k][1]);
+        if (score > bestScore){ bestScore = score; best = i; }
+      }
+      if (bestScore < 1.2) problems.push('ambiguous switch at ' + n.id + ' score ' + bestScore.toFixed(2));
+      n.toe = n.edges[best];
+      const tt = tg[best];
+      const br = n.edges.filter(id => id !== n.toe);
+      const align = (id) => { const t = outTangent(edges[id], n.id); return -(t[0] * tt[0] + t[1] * tt[1]); };
+      br.sort((p, q) => align(q) - align(p));
+      n.branches = br;
+    } else { n.kind = 'bad'; problems.push('node ' + n.id + ' has ' + n.edges.length + ' edges'); }
+  }
+  for (const st of spec.stations || []){
+    const n = nodes.get(nkey(st.at[0], st.at[1]));
+    if (!n){ problems.push('station ' + st.l + ' not on a node'); continue; }
+    if (n.kind !== 'terminal') problems.push('station ' + st.l + ' not at a terminal');
+    n.station = { letter: st.l, role: 'station' };
+  }
+  const byLetter = (l) => [...nodes.values()].find(n => n.station && n.station.letter === l);
+  for (const tr of spec.trains || []){
+    const from = byLetter(tr.from), to = byLetter(tr.to);
+    if (!from) problems.push('train from unknown station ' + tr.from); else from.station.role = 'portal';
+    if (!to) problems.push('train to unknown station ' + tr.to);
+  }
+  for (const [k, v] of Object.entries(spec.switches || {})){
+    const n = nodes.get(k);
+    if (!n || n.kind !== 'switch') problems.push('switch spec ' + k + ' is not a switch'); else n.state = v;
+  }
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const e of edges) for (const p of e.curve.pts){ minX = Math.min(minX, p[0]); maxX = Math.max(maxX, p[0]); minY = Math.min(minY, p[1]); maxY = Math.max(maxY, p[1]); }
+  return { nodes, edges, problems, bounds: { minX, minY, maxX, maxY }, byLetter };
+}
+
+/* ------------------------------------------------------------ movement */
+function edgePos(track, edgeId, dir, s){
+  const c = track.edges[edgeId].curve;
+  if (dir > 0) return c.at(s);
+  const q = c.at(c.len - s);
+  return [q[0], q[1], -q[2], -q[3]];
+}
+function nextEdge(node, fromEdgeId){
+  if (node.kind === 'terminal') return { edge: null, flipped: -1 };
+  if (node.kind === 'through') return { edge: node.edges[0] === fromEdgeId ? node.edges[1] : node.edges[0], flipped: -1 };
+  if (node.kind === 'switch'){
+    if (fromEdgeId === node.toe) return { edge: node.branches[node.state], flipped: -1 };
+    const idx = node.branches.indexOf(fromEdgeId);
+    return { edge: node.toe, flipped: idx !== node.state ? idx : -1 };
+  }
+  return { edge: null, flipped: -1 };
+}
+function placeTrain(track, tr, node, s){
+  const e = track.edges[node.edges[0]];
+  tr.edge = e.id; tr.dir = e.a === node.id ? 1 : -1; tr.s = s;
+  tr.route = [{ edge: tr.edge, dir: tr.dir }];
+}
+function advanceTrain(track, tr, ds){
+  const events = [];
+  let guard = 0;
+  while (ds > 0 && guard++ < 50){
+    const e = track.edges[tr.edge];
+    const remain = e.curve.len - tr.s;
+    if (ds < remain){ tr.s += ds; break; }
+    ds -= remain;
+    const endNode = track.nodes.get(tr.dir > 0 ? e.b : e.a);
+    const nx = nextEdge(endNode, tr.edge);
+    if (nx.flipped >= 0){ endNode.state = nx.flipped; events.push({ type: 'flip', node: endNode }); }
+    if (nx.edge == null){ tr.s = e.curve.len; events.push({ type: 'end', node: endNode }); break; }
+    const ne = track.edges[nx.edge];
+    tr.edge = nx.edge; tr.dir = ne.a === endNode.id ? 1 : -1; tr.s = 0;
+    tr.route.push({ edge: tr.edge, dir: tr.dir });
+    events.push({ type: 'node', node: endNode });
+  }
+  return events;
+}
+function posBehind(track, tr, back){
+  let s = tr.s;
+  for (let i = tr.route.length - 1; i >= 0; i--){
+    const r = tr.route[i];
+    if (back <= s){ const p = edgePos(track, r.edge, r.dir, s - back); p[4] = false; return p; }
+    back -= s;
+    if (i > 0) s = track.edges[tr.route[i - 1].edge].curve.len;
+  }
+  const r0 = tr.route[0], p = edgePos(track, r0.edge, r0.dir, 0);
+  return [p[0] - p[2] * back, p[1] - p[3] * back, p[2], p[3], true];
+}
+function distanceAhead(track, tr, node){ // distance from head to a node along the deterministic path (or Infinity)
+  let d = 0, edge = tr.edge, dir = tr.dir, s = tr.s, guard = 0;
+  while (guard++ < 30){
+    const e = track.edges[edge];
+    d += e.curve.len - s;
+    const endNode = track.nodes.get(dir > 0 ? e.b : e.a);
+    if (endNode === node) return d;
+    const nx = nextEdge(endNode, edge);
+    if (nx.edge == null) return Infinity;
+    const ne = track.edges[nx.edge];
+    edge = nx.edge; dir = ne.a === endNode.id ? 1 : -1; s = 0;
+  }
+  return Infinity;
+}
+/* reachability under switch semantics (for level validation and hints) */
+function reachableTerminals(track, fromNode){
+  const e0 = track.edges[fromNode.edges[0]];
+  const start = e0.id + ':' + (e0.a === fromNode.id ? 1 : -1);
+  const seen = new Set([start]), stack = [start], out = new Set();
+  while (stack.length){
+    const [eid, dir] = stack.pop().split(':').map(Number);
+    const e = track.edges[eid];
+    const endNode = track.nodes.get(dir > 0 ? e.b : e.a);
+    let nexts = [];
+    if (endNode.kind === 'terminal'){ out.add(endNode.id); continue; }
+    if (endNode.kind === 'through') nexts = [endNode.edges[0] === eid ? endNode.edges[1] : endNode.edges[0]];
+    else if (endNode.kind === 'switch') nexts = eid === endNode.toe ? endNode.branches.slice() : [endNode.toe];
+    for (const n of nexts){
+      const ne = track.edges[n], nd = ne.a === endNode.id ? 1 : -1, k = n + ':' + nd;
+      if (!seen.has(k)){ seen.add(k); stack.push(k); }
+    }
+  }
+  return out;
+}
+/* ============================================================ levels */
+const LEVELS = [
+  { name: { fr: 'Premier aiguillage', en: 'First switch' }, speed: 2.6,
+    hint: { fr: 'Touche un train pour le faire partir ou l\'arrêter. Touche un aiguillage pour changer sa direction.',
+            en: 'Tap a train to start or stop it. Tap a switch to change its direction.' },
+    tracks: [['L', 0, 0, 30, 0], ['T', 10, 0, 1, 1], ['L', 16, 3, 30, 3]],
+    stations: [{ l: 'A', at: [0, 0] }, { l: 'C', at: [30, 0] }, { l: 'B', at: [30, 3] }],
+    trains: [{ from: 'A', to: 'B', t0: 0, go: false }],
+    switches: { '10,0': 0 },
+    tutorial: [
+      { anchor: 'switch:10,0', done: (g) => g.track.nodes.get('10,0').state === 1,
+        fr: 'Cet aiguillage envoie les trains vers C. Touche-le pour l\'orienter vers B.',
+        en: 'This switch sends trains to C. Tap it to point it toward B.' },
+      { anchor: 'train:0', done: (g) => g.trains[0].go,
+        fr: 'Ton train doit aller en B (sa lettre). Touche-le pour le faire partir.',
+        en: 'Your train must reach B (its letter). Tap it to start it.' },
+      { anchor: 'train:0', done: (g) => g.trains[0].state !== 'run',
+        fr: 'Touche un train en marche pour l\'arrêter, et encore pour repartir. Utile quand deux trains se croisent.',
+        en: 'Tap a moving train to stop it, and again to restart it. Handy when two trains cross.' },
+    ] },
+  { name: { fr: 'Deux aiguillages', en: 'Two switches' }, speed: 3,
+    hint: { fr: 'Deux aiguillages à régler avant l\'arrivée. Arrête le train si tu as besoin de temps.',
+            en: 'Two switches to set before arrival. Stop the train if you need time.' },
+    tracks: [['L', 0, 3, 32, 3], ['T', 8, 3, 1, -1], ['L', 14, 0, 32, 0], ['T', 18, 3, 1, 1], ['L', 24, 6, 32, 6]],
+    stations: [{ l: 'A', at: [0, 3] }, { l: 'B', at: [32, 0] }, { l: 'C', at: [32, 3] }, { l: 'D', at: [32, 6] }],
+    trains: [{ from: 'A', to: 'D', t0: 0, go: true }],
+    switches: { '8,3': 1, '18,3': 0 } },
+  { name: { fr: 'La jonction', en: 'The junction' }, speed: 3.2,
+    hint: { fr: 'Un train qui arrive par une branche traverse l\'aiguillage et le fait basculer de son côté. Le dernier aiguillage doit changer entre les deux trains.',
+            en: 'A train arriving from a branch runs through the switch and flips it to its side. The last switch must change between the two trains.' },
+    tracks: [['L', 0, 0, 36, 0], ['L', 0, 6, 10, 6], ['C', 10, 6, 16, 6, 16, 0, 22, 0], ['T', 26, 0, 1, 1], ['L', 32, 3, 36, 3]],
+    stations: [{ l: 'A', at: [0, 0] }, { l: 'B', at: [0, 6] }, { l: 'C', at: [36, 0] }, { l: 'D', at: [36, 3] }],
+    trains: [{ from: 'A', to: 'D', t0: 0, go: true }, { from: 'B', to: 'C', t0: 4, go: true }],
+    switches: { '26,0': 0 } },
+  { name: { fr: 'Le croisement', en: 'The crossover' }, speed: 3.4,
+    hint: { fr: 'Les deux trains doivent changer de voie. Laisse passer le premier avant de lancer le second.',
+            en: 'Both trains must change tracks. Let the first one through before starting the second.' },
+    tracks: [['L', 0, 0, 36, 0], ['L', 0, 3, 36, 3], ['T', 10, 0, 1, 1], ['T', 20, 3, 1, -1]],
+    stations: [{ l: 'A', at: [0, 0] }, { l: 'B', at: [0, 3] }, { l: 'C', at: [36, 0] }, { l: 'D', at: [36, 3] }],
+    trains: [{ from: 'A', to: 'D', t0: 0, go: false }, { from: 'B', to: 'C', t0: 0, go: true }],
+    switches: { '10,0': 0, '20,3': 0 } },
+  { name: { fr: 'La voie d\'évitement', en: 'The passing loop' }, speed: 3.4,
+    hint: { fr: 'Deux trains face à face sur une seule voie. Gare l\'un d\'eux dans la voie d\'évitement et arrête-le pendant que l\'autre passe.',
+            en: 'Two trains head-on on a single track. Park one in the passing loop and stop it while the other goes by.' },
+    tracks: [['L', 0, 0, 6, 0], ['T', 6, 0, -1, 1], ['L', 6, 0, 34, 0], ['L', 34, 0, 40, 0], ['T', 34, 0, 1, 1],
+             ['T', 14, 0, 1, 1], ['L', 20, 3, 26, 3], ['T', 26, 3, 1, -1]],
+    stations: [{ l: 'A', at: [0, 0] }, { l: 'C', at: [0, 3] }, { l: 'B', at: [40, 0] }, { l: 'D', at: [40, 3] }],
+    trains: [{ from: 'A', to: 'D', t0: 0, go: true }, { from: 'B', to: 'C', t0: 0, go: true }],
+    switches: { '6,0': 0, '14,0': 0, '32,0': 0, '34,0': 0 } },
+  { name: { fr: 'Le triage', en: 'The yard' }, speed: 3.4,
+    hint: { fr: 'Trois trains à 5 secondes d\'écart, trois destinations différentes. Prépare l\'aiguillage suivant dès qu\'un train est passé.',
+            en: 'Three trains 5 seconds apart, three different destinations. Set the next switch as soon as a train has passed.' },
+    tracks: [['L', 0, 3, 36, 3], ['T', 6, 3, 1, -1], ['L', 12, 0, 36, 0], ['T', 16, 3, 1, 1], ['L', 22, 6, 36, 6], ['T', 24, 0, 1, -1], ['L', 30, -3, 36, -3]],
+    stations: [{ l: 'A', at: [0, 3] }, { l: 'B', at: [36, -3] }, { l: 'C', at: [36, 0] }, { l: 'D', at: [36, 3] }, { l: 'E', at: [36, 6] }],
+    trains: [{ from: 'A', to: 'E', t0: 0, go: true }, { from: 'A', to: 'B', t0: 5, go: true }, { from: 'A', to: 'D', t0: 10, go: true }],
+    switches: { '6,3': 0, '16,3': 0, '24,0': 0 } },
+  { name: { fr: 'La voie médiane', en: 'The middle track' }, speed: 3.4,
+    hint: { fr: 'Trois trains, deux entrées, une voie centrale partagée. Un seul train à la fois sur la voie du milieu.',
+            en: 'Three trains, two entries, one shared middle track. Only one train at a time on it.' },
+    tracks: [['L', 0, 0, 40, 0], ['L', 0, 6, 40, 6], ['L', 14, 3, 40, 3], ['T', 8, 0, 1, 1], ['T', 8, 6, 1, -1], ['T', 20, 3, 1, -1], ['T', 28, 3, 1, 1]],
+    stations: [{ l: 'A', at: [0, 0] }, { l: 'B', at: [0, 6] }, { l: 'C', at: [40, 0] }, { l: 'D', at: [40, 3] }, { l: 'E', at: [40, 6] }],
+    trains: [{ from: 'A', to: 'E', t0: 0, go: true }, { from: 'B', to: 'C', t0: 3, go: true }, { from: 'A', to: 'D', t0: 9, go: true }],
+    switches: { '8,0': 0, '8,6': 0, '20,3': 0, '28,3': 0 } },
+  { name: { fr: 'Deux évitements', en: 'Two passing loops' }, speed: 3.6,
+    hint: { fr: 'Quatre trains, deux par sens, deux voies d\'évitement. Chaque croisement se fait dans un évitement, train à l\'arrêt.',
+            en: 'Four trains, two per direction, two passing loops. Every meet happens in a loop, one train stopped.' },
+    tracks: [['L', 0, 0, 6, 0], ['T', 6, 0, -1, 1], ['L', 6, 0, 46, 0], ['L', 46, 0, 52, 0], ['T', 46, 0, 1, 1],
+             ['T', 10, 0, 1, 1], ['L', 16, 3, 20, 3], ['T', 20, 3, 1, -1],
+             ['T', 27, 0, 1, 1], ['L', 33, 3, 37, 3], ['T', 37, 3, 1, -1]],
+    stations: [{ l: 'A', at: [0, 0] }, { l: 'C', at: [0, 3] }, { l: 'B', at: [52, 0] }, { l: 'D', at: [52, 3] }],
+    trains: [{ from: 'A', to: 'D', t0: 0, go: true }, { from: 'B', to: 'C', t0: 0, go: true }, { from: 'A', to: 'D', t0: 13, go: true }, { from: 'B', to: 'C', t0: 13, go: true }],
+    switches: { '6,0': 0, '10,0': 0, '26,0': 0, '27,0': 0, '43,0': 0, '46,0': 0 } },
+  { name: { fr: 'Contresens', en: 'Wrong way' }, speed: 3.6,
+    hint: { fr: 'Un train arrive à contresens sur la voie du milieu, celle que les autres traversent. Quelqu\'un doit attendre.',
+            en: 'One train comes the opposite way on the middle track, the one the others cross. Someone has to wait.' },
+    tracks: [['L', 0, 0, 40, 0], ['L', 0, 3, 40, 3], ['L', 0, 6, 40, 6], ['T', 8, 0, 1, 1], ['T', 16, 6, 1, -1], ['T', 28, 3, 1, 1], ['T', 30, 3, 1, -1]],
+    stations: [{ l: 'A', at: [0, 0] }, { l: 'B', at: [0, 6] }, { l: 'C', at: [40, 3] }, { l: 'D', at: [40, 0] }, { l: 'E', at: [40, 6] }, { l: 'F', at: [0, 3] }],
+    trains: [{ from: 'A', to: 'E', t0: 0, go: true }, { from: 'B', to: 'D', t0: 3, go: true }, { from: 'C', to: 'F', t0: 7, go: true }, { from: 'A', to: 'D', t0: 14, go: true }],
+    switches: { '8,0': 0, '14,3': 0, '16,6': 0, '22,3': 0, '28,3': 0, '30,3': 0 } },
+  { name: { fr: 'Grande gare', en: 'Grand central' }, speed: 3.6,
+    hint: { fr: 'Cinq trains, quatre voies, deux sens. Les trains qui traversent un aiguillage par une branche le font basculer: vérifie chaque aiguillage avant le train suivant.',
+            en: 'Five trains, four tracks, both directions. Trains running through a switch from a branch flip it: check every switch before the next train.' },
+    tracks: [['L', 0, 0, 40, 0], ['L', 0, 3, 40, 3], ['L', 0, 6, 40, 6], ['L', 0, 9, 40, 9],
+             ['T', 6, 0, 1, 1], ['T', 16, 3, 1, 1], ['T', 8, 6, 1, -1], ['T', 18, 3, 1, -1],
+             ['T', 36, 3, -1, 1], ['T', 28, 6, -1, 1], ['T', 38, 9, -1, -1], ['T', 26, 6, -1, -1]],
+    stations: [{ l: 'A', at: [0, 0] }, { l: 'B', at: [0, 6] }, { l: 'C', at: [40, 3] }, { l: 'D', at: [40, 9] },
+               { l: 'E', at: [40, 0] }, { l: 'F', at: [40, 6] }, { l: 'G', at: [0, 3] }, { l: 'H', at: [0, 9] }],
+    trains: [{ from: 'A', to: 'F', t0: 0, go: true }, { from: 'C', to: 'H', t0: 0, go: true }, { from: 'B', to: 'E', t0: 4, go: true }, { from: 'D', to: 'G', t0: 7, go: true }, { from: 'A', to: 'E', t0: 13, go: true }],
+    switches: {} },
+];
+/* ============================================================ 3D scene (Three.js) */
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js';
+
+const $ = (id) => document.getElementById(id);
+const canvas = $('c3d'), stageEl = $('stage'), labelsEl = $('labels');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias:true, alpha:false, powerPreference:'high-performance' });
+renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
+renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.05;
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(42, 1, 0.5, 800);
+const Y_UP = new THREE.Vector3(0, 1, 0);
+
+const hemi = new THREE.HemisphereLight(0xdfe9f3, 0x3d4a36, 0.95); scene.add(hemi);
+const sun = new THREE.DirectionalLight(0xfff1de, 2.1);
+sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048); sun.shadow.bias = -0.0005; sun.shadow.normalBias = 0.02;
+scene.add(sun); scene.add(sun.target);
+
+/* theme: canvas background + grass follow the CSS tokens */
+function cssColor(name, fallback){ const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim(); return new THREE.Color(v || fallback); }
+const groundMat = new THREE.MeshStandardMaterial({ color:0x3b5236, roughness:1 });
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(900, 900), groundMat);
+ground.rotation.x = -Math.PI / 2; ground.position.y = -0.02; ground.receiveShadow = true; scene.add(ground);
+function applyTheme(){
+  const bg = cssColor('--canvas', '#1a2330');
+  scene.background = bg; scene.fog = new THREE.Fog(bg.getHex(), 160, 420);
+  groundMat.color.copy(cssColor('--grass', '#3b5236'));
+}
+applyTheme();
+new MutationObserver(applyTheme).observe(document.documentElement, { attributes:true, attributeFilter:['data-theme'] });
+matchMedia('(prefers-color-scheme: light)').addEventListener('change', applyTheme);
+
+/* shared materials */
+const M = {
+  ballast: new THREE.MeshStandardMaterial({ color:0x5b5752, roughness:1, side:THREE.DoubleSide }),
+  rail: new THREE.MeshStandardMaterial({ color:0xb4bcc4, roughness:0.35, metalness:0.75, side:THREE.DoubleSide }),
+  sleeper: new THREE.MeshStandardMaterial({ color:0x5a4737, roughness:0.95 }),
+  ring: new THREE.MeshStandardMaterial({ color:0xf28c28, roughness:0.5, emissive:0xf28c28, emissiveIntensity:0.25, side:THREE.DoubleSide }),
+  ringBad: new THREE.MeshStandardMaterial({ color:0xff5f45, roughness:0.5, emissive:0xff5f45, emissiveIntensity:0.6, side:THREE.DoubleSide }),
+  open: new THREE.MeshStandardMaterial({ color:0x43c977, roughness:0.5, emissive:0x43c977, emissiveIntensity:0.35, side:THREE.DoubleSide }),
+  closed: new THREE.MeshStandardMaterial({ color:0xb0402f, roughness:0.7, side:THREE.DoubleSide, transparent:true, opacity:0.55 }),
+  stone: new THREE.MeshStandardMaterial({ color:0x7d7873, roughness:0.9 }),
+  dark: new THREE.MeshStandardMaterial({ color:0x111418, roughness:1 }),
+  buffer: new THREE.MeshStandardMaterial({ color:0xc7402c, roughness:0.6 }),
+  post: new THREE.MeshStandardMaterial({ color:0x2b3037, roughness:0.7 }),
+  trunk: new THREE.MeshStandardMaterial({ color:0x5b463a, roughness:0.95 }),
+  crown: new THREE.MeshStandardMaterial({ color:0x3f6a3a, roughness:0.95 }),
+  crown2: new THREE.MeshStandardMaterial({ color:0x4f7d43, roughness:0.95 }),
+  hit: new THREE.MeshBasicMaterial({ visible:false }),
+};
+const TRAIN_COLORS = [0xe4572e, 0x3d8bfd, 0x43c977, 0xf2c53d, 0xc084ff, 0x2ec4b6];
+
+/* ------------------------------------------------------------ geometry helpers */
+function samplePts(curve, step){ // [x, z, tx, tz] along an edge curve (track y becomes world z)
+  const n = Math.max(2, Math.ceil(curve.len / step) + 1), out = [];
+  for (let i = 0; i < n; i++){ const q = curve.at(curve.len * i / (n - 1)); out.push([q[0], q[1], q[2], q[3]]); }
+  return out;
+}
+function ribbonGeometry(strips){ // strips: [{pts:[[x,z,tx,tz]...], halfW, y, off}] -> one BufferGeometry
+  const pos = [], idx = [];
+  for (const st of strips){
+    const base = pos.length / 3, off = st.off || 0;
+    for (const [x, z, tx, tz] of st.pts){
+      const nx = -tz, nz = tx, cx = x + nx * off, cz = z + nz * off;
+      pos.push(cx + nx * st.halfW, st.y, cz + nz * st.halfW, cx - nx * st.halfW, st.y, cz - nz * st.halfW);
+    }
+    for (let i = 0; i < st.pts.length - 1; i++){ const a = base + i * 2; idx.push(a, a + 2, a + 1, a + 1, a + 2, a + 3); }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setIndex(idx); g.computeVertexNormals();
+  return g;
+}
+function box(w, h, d, m, x, y, z){ const o = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); o.position.set(x, y, z); return o; }
+const _m4 = new THREE.Matrix4(), _q = new THREE.Quaternion(), _v = new THREE.Vector3(), _s = new THREE.Vector3();
+function setInstance(im, i, x, y, z, yaw, sc){
+  _q.setFromAxisAngle(Y_UP, yaw); _v.set(x, y, z); _s.set(sc, sc, sc);
+  _m4.compose(_v, _q, _s); im.setMatrixAt(i, _m4);
+}
+
+/* ------------------------------------------------------------ level scenery */
+let levelRoot = null;          // everything that belongs to the current level
+let switchVis = new Map();     // node.id -> {ring, branches:[mesh, mesh], node, flash, badT}
+const labels = [];             // {el, pos:()=>[x,y,z] | null, hide:()=>bool, tf}
+function clearLevel(){
+  if (levelRoot){
+    levelRoot.traverse(o => { if (o.geometry && !o.userData.keepGeo) o.geometry.dispose(); if (o.userData.ownMats) o.userData.ownMats.forEach(m => m.dispose()); });
+    scene.remove(levelRoot);
+  }
+  levelRoot = new THREE.Group(); scene.add(levelRoot);
+  switchVis = new Map();
+  labels.length = 0; labelsEl.innerHTML = '';
+}
+function addLabel(cls, html, pos, opts = {}){
+  const el = document.createElement('div'); el.className = cls; el.innerHTML = html;
+  labelsEl.appendChild(el);
+  const L = Object.assign({ el, pos, tf:'translate(-50%,-50%)', hide:null }, opts); labels.push(L); return L;
+}
+function removeLabel(L){ const i = labels.indexOf(L); if (i >= 0) labels.splice(i, 1); L.el.remove(); }
+function outDir(track, node){ // unit direction pointing out of the network at a terminal node
+  const e = track.edges[node.edges[0]];
+  const t = outTangent(e, node.id); return [-t[0], -t[1]];
+}
+const PORTAL_LEN = 6.5;
+function buildLevelScene(track, seed){
+  clearLevel();
+  const R = levelRoot;
+  const strips = { ballast:[], rail:[] };
+  const sleeperSlots = [];
+  for (const e of track.edges){
+    const pts = samplePts(e.curve, 0.5);
+    strips.ballast.push({ pts, halfW:1.35, y:0.03 });
+    strips.rail.push({ pts, halfW:0.075, y:0.16, off:0.72 }, { pts, halfW:0.075, y:0.16, off:-0.72 });
+    for (let s = 0.3; s < e.curve.len; s += 0.62) sleeperSlots.push(e.curve.at(s));
+  }
+  const ballast = new THREE.Mesh(ribbonGeometry(strips.ballast), M.ballast); ballast.receiveShadow = true; R.add(ballast);
+  const rails = new THREE.Mesh(ribbonGeometry(strips.rail), M.rail); rails.receiveShadow = true; R.add(rails);
+  const sleepers = new THREE.InstancedMesh(new THREE.BoxGeometry(0.26, 0.1, 2.3), M.sleeper, sleeperSlots.length);
+  sleeperSlots.forEach((q, i) => setInstance(sleepers, i, q[0], 0.09, q[1], Math.atan2(-q[3], q[2]), 1));
+  sleepers.instanceMatrix.needsUpdate = true; sleepers.receiveShadow = true; R.add(sleepers);
+
+  // switches: ring at the toe node + open/closed markers along the two branches
+  const ringGeo = new THREE.RingGeometry(1.05, 1.4, 40);
+  for (const n of track.nodes.values()){
+    if (n.kind !== 'switch') continue;
+    const ring = new THREE.Mesh(ringGeo, M.ring); ring.rotation.x = -Math.PI / 2; ring.position.set(n.x, 0.2, n.y); ring.userData.keepGeo = true; R.add(ring);
+    const branches = n.branches.map((eid) => {
+      const e = track.edges[eid], fromA = e.a === n.id;
+      const pts = [];
+      for (let s = 0; s <= 4.2; s += 0.35){ const q = fromA ? e.curve.at(s) : e.curve.at(e.curve.len - s); pts.push([q[0], q[1], q[2], q[3]]); }
+      const m = new THREE.Mesh(ribbonGeometry([{ pts, halfW:0.34, y:0.19 }]), M.open); R.add(m); return m;
+    });
+    switchVis.set(n.id, { ring, branches, node:n, flash:0, badT:0 });
+    refreshSwitch(n);
+  }
+
+  // terminals: stations are tunnel portals with a letter chip; unnamed terminals get a buffer stop
+  for (const n of track.nodes.values()){
+    if (n.kind !== 'terminal') continue;
+    const d = outDir(track, n), yaw = Math.atan2(-d[1], d[0]);
+    const g = new THREE.Group(); g.position.set(n.x, 0, n.y); g.rotation.y = yaw; R.add(g);
+    if (n.station){
+      const body = box(PORTAL_LEN, 3.6, 5.4, M.stone, PORTAL_LEN / 2, 1.75, 0); body.castShadow = true; body.receiveShadow = true; g.add(body);
+      g.add(box(0.2, 2.9, 2.7, M.dark, 0.02, 1.4, 0));                          // tunnel mouth
+      g.add(box(0.3, 3.9, 5.8, M.stone, 0.32, 1.95, 0));                        // portal face frame
+      const grass = box(PORTAL_LEN + 0.4, 0.5, 6.0, groundMat, PORTAL_LEN / 2, 3.75, 0); grass.receiveShadow = true; g.add(grass);
+      addLabel('lbl st', n.station.letter, () => [n.x + d[0] * 1.6, 4.9, n.y + d[1] * 1.6]);
+    } else {
+      g.add(box(0.5, 0.9, 2.2, M.buffer, 0.55, 0.55, 0));
+      g.add(box(1.2, 0.25, 0.25, M.post, 0.0, 0.5, 0.8)); g.add(box(1.2, 0.25, 0.25, M.post, 0.0, 0.5, -0.8));
+    }
+  }
+
+  // trees around the layout, kept off the track band and the portals
+  const b = track.bounds, margin = 3.6, portalX = 8;
+  let s = seed; const rnd = () => { s = (s * 16807) % 2147483647; return s / 2147483647; };
+  const N = 140, spots = [];
+  let tries = 0;
+  while (spots.length < N && tries++ < 4000){
+    const x = b.minX - 24 + rnd() * (b.maxX - b.minX + 48), z = b.minY - 26 + rnd() * (b.maxY - b.minY + 52);
+    const inBand = z > b.minY - margin && z < b.maxY + margin && x > b.minX - portalX && x < b.maxX + portalX;
+    if (!inBand) spots.push([x, z, rnd() * Math.PI, 0.75 + rnd() * 0.8, rnd() < 0.5]);
+  }
+  const crownGeo = new THREE.ConeGeometry(1.15, 3.2, 7), trunkGeo = new THREE.CylinderGeometry(0.16, 0.22, 1.2, 6);
+  const crownA = new THREE.InstancedMesh(crownGeo, M.crown, spots.length), crownB = new THREE.InstancedMesh(crownGeo, M.crown2, spots.length), trunk = new THREE.InstancedMesh(trunkGeo, M.trunk, spots.length);
+  spots.forEach(([x, z, rot, sc, alt], i) => {
+    setInstance(alt ? crownA : crownB, i, x, 1.9 * sc + 0.6, z, rot, sc);
+    setInstance(alt ? crownB : crownA, i, 0, -50, 0, 0, 0.001);
+    setInstance(trunk, i, x, 0.6 * sc, z, rot, sc);
+  });
+  [crownA, crownB, trunk].forEach(im => { im.instanceMatrix.needsUpdate = true; im.castShadow = true; R.add(im); });
+
+  // sun follows the level so the shadow frustum stays tight
+  const cx = (b.minX + b.maxX) / 2, cz = (b.minY + b.maxY) / 2, hw = (b.maxX - b.minX) / 2 + 12, hd = (b.maxY - b.minY) / 2 + 14;
+  sun.position.set(cx - 28, 48, cz + 18); sun.target.position.set(cx, 0, cz);
+  Object.assign(sun.shadow.camera, { left:-hw - 6, right:hw + 6, top:hd + 8, bottom:-hd - 8, near:5, far:140 });
+  sun.shadow.camera.updateProjectionMatrix();
+}
+function refreshSwitch(n, pop = true){
+  const v = switchVis.get(n.id); if (!v) return;
+  v.branches.forEach((m, i) => { m.material = i === n.state ? M.open : M.closed; m.position.y = i === n.state ? 0.01 : 0; });
+  if (pop) v.flash = 1;   // pop animation, eased back in the frame loop
+}
+function switchBusy(n){ const v = switchVis.get(n.id); if (v) v.badT = 0.45; }
+function animateSwitches(dt){
+  for (const v of switchVis.values()){
+    if (v.flash > 0){ v.flash = Math.max(0, v.flash - dt * 3); }
+    v.ring.scale.setScalar(1 + 0.35 * v.flash);
+    if (v.badT > 0){ v.badT -= dt; v.ring.material = M.ringBad; v.ring.scale.setScalar(1.15 + 0.15 * Math.sin(v.badT * 40)); }
+    else v.ring.material = M.ring;
+  }
+}
+
+/* ------------------------------------------------------------ trains */
+function makeVehicle(color, isLoco, tr){
+  const body = new THREE.MeshStandardMaterial({ color, roughness:0.5, metalness:0.15 });
+  const roof = new THREE.MeshStandardMaterial({ color:new THREE.Color(color).multiplyScalar(0.55), roughness:0.7 });
+  const g = new THREE.Group();
+  const L = isLoco ? 4.6 : 4.2;
+  g.add(box(L, 0.5, 1.7, M.post, 0, 0.45, 0));                                     // chassis
+  const main = box(L - (isLoco ? 1.2 : 0.2), 1.35, 2.0, body, isLoco ? -0.6 : 0, 1.35, 0); main.castShadow = true; g.add(main);
+  if (isLoco){
+    const cab = box(1.3, 1.7, 2.0, body, L / 2 - 0.75, 1.55, 0); cab.castShadow = true; g.add(cab);
+    g.add(box(1.1, 0.12, 1.8, roof, L / 2 - 0.75, 2.46, 0));
+    g.add(box(0.8, 0.5, 1.5, M.dark, L / 2 - 0.75, 1.95, 0));                      // windscreen band
+    g.add(box(L - 1.7, 0.16, 1.7, roof, -0.7, 2.1, 0));
+    g.add(box(0.9, 0.3, 1.1, M.dark, -1.1, 2.27, 0));                               // exhaust / fan block
+  } else {
+    g.add(box(L - 0.4, 0.16, 1.8, roof, 0, 2.1, 0));
+  }
+  const hit = box(L + 0.8, 3.0, 3.0, M.hit, 0, 1.5, 0); hit.layers.set(1); hit.userData = { kind:'train', train:tr }; g.add(hit);
+  g.userData.ownMats = [body, roof];
+  return g;
+}
+const TRAIN_BACKS = [2.3, 7.2];        // vehicle centres measured back from the head
+const TRAIN_HALF = [2.3, 2.1];
+const TRAIN_LEN = 9.3;
+function makeTrainVisual(color, tr){
+  const g = new THREE.Group(); g.visible = false;
+  const loco = makeVehicle(color, true, tr), wagon = makeVehicle(color, false, tr);
+  g.add(loco); g.add(wagon);
+  g.userData.vehicles = [loco, wagon];
+  levelRoot.add(g);
+  return g;
+}
+
+/* ------------------------------------------------------------ camera: tilted top-down fitted to the level */
+const view = { cx:0, cz:0, ox:0, oz:0, dist:40, zoom:1, panX:0, panZ:0, elev:0.96, az:0 };
+let currentBounds = null;
+function screenAxes(){ // ground-plane vectors: right (screen x) and forward (away from the viewer)
+  return { rx:Math.cos(view.az), rz:-Math.sin(view.az), fx:-Math.sin(view.az), fz:-Math.cos(view.az) };
+}
+function placeCamera(){
+  const tx = view.cx + view.ox + view.panX, tz = view.cz + view.oz + view.panZ, d = view.dist * view.zoom;
+  camera.position.set(tx + d * Math.sin(view.az) * Math.cos(view.elev), d * Math.sin(view.elev), tz + d * Math.cos(view.az) * Math.cos(view.elev));
+  camera.lookAt(tx, 0, tz);
+}
+function fitCamera(bounds){
+  const b = bounds; currentBounds = b;
+  const aspect = camera.aspect || 1;
+  view.az = aspect < 0.9 ? Math.PI / 2 : 0; view.elev = aspect < 0.9 ? 1.05 : 0.96;
+  view.zoom = 1; view.panX = 0; view.panZ = 0; view.ox = 0; view.oz = 0;
+  view.cx = (b.minX + b.maxX) / 2; view.cz = (b.minY + b.maxY) / 2;
+  const mx = PORTAL_LEN + 2.5, mz = 5;
+  const corners = [];
+  for (const x of [b.minX - mx, b.maxX + mx]) for (const z of [b.minY - mz, b.maxY + mz]) for (const y of [0, 4.5]) corners.push(new THREE.Vector3(x, y, z));
+  const yTop = 0.86, yBot = -0.76, xMax = 0.94;         // NDC box left for the layout (status chips above, hint bar below)
+  const { fx, fz } = screenAxes();
+  view.dist = 30;
+  for (let it = 0; it < 10; it++){
+    placeCamera();
+    let mX = 0, yMin = 1, yMax = -1;
+    for (const c of corners){ const p = _p.copy(c).project(camera); mX = Math.max(mX, Math.abs(p.x)); yMin = Math.min(yMin, p.y); yMax = Math.max(yMax, p.y); }
+    const scale = Math.max(mX / xMax, (yMax - yMin) / (yTop - yBot));
+    view.dist *= scale;
+    const dy = (yMax + yMin) / 2 - (yTop + yBot) / 2;   // >0: content too high on screen -> move target away from the viewer
+    const shift = dy * view.dist * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2) / Math.sin(view.elev);
+    view.ox += fx * shift; view.oz += fz * shift;
+    if (Math.abs(scale - 1) < 0.005 && Math.abs(dy) < 0.005) break;
+  }
+  view.dist = Math.max(view.dist, 14);
+  placeCamera();
+}
+function panBy(dx, dy){
+  const h = stageEl.clientHeight || 1, d = view.dist * view.zoom;
+  const k = d * 2 * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2) / h;
+  const { rx, rz, fx, fz } = screenAxes();
+  view.panX += -rx * dx * k + fx * dy * k / Math.sin(view.elev);
+  view.panZ += -rz * dx * k + fz * dy * k / Math.sin(view.elev);
+  placeCamera();
+}
+function zoomBy(f){ view.zoom = Math.min(2.6, Math.max(0.5, view.zoom * f)); placeCamera(); }
+function resize(){
+  const w = stageEl.clientWidth, h = stageEl.clientHeight; if (!w || !h) return;
+  renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix();
+}
+new ResizeObserver(() => { resize(); if (currentBounds) fitCamera(currentBounds); }).observe(stageEl);
+
+/* ------------------------------------------------------------ labels projection */
+const _p = new THREE.Vector3();
+function updateLabels(){
+  const w = stageEl.clientWidth, h = stageEl.clientHeight;
+  for (const L of labels){
+    if (L.hide && L.hide()){ L.el.style.display = "none"; continue; }
+    const p = L.pos();
+    if (!p){ L.el.style.display = "none"; continue; }
+    _p.set(p[0], p[1], p[2]).project(camera);
+    if (_p.z > 1){ L.el.style.display = 'none'; continue; }
+    L.el.style.display = '';
+    L.el.style.transform = `translate(${((_p.x + 1) / 2 * w).toFixed(1)}px, ${((1 - _p.y) / 2 * h).toFixed(1)}px) ` + L.tf;
+  }
+}
+
+/* ------------------------------------------------------------ picking */
+const raycaster = new THREE.Raycaster(); raycaster.layers.set(1);
+const groundPlane = new THREE.Plane(Y_UP, -0.2), _hit = new THREE.Vector3();
+function pick(clientX, clientY, track){
+  const r = canvas.getBoundingClientRect();
+  raycaster.setFromCamera({ x:((clientX - r.left) / r.width) * 2 - 1, y:-((clientY - r.top) / r.height) * 2 + 1 }, camera);
+  for (const h of raycaster.intersectObject(levelRoot, true)){ if (h.object.userData.kind === 'train' && h.object.userData.train) return { kind:'train', train:h.object.userData.train }; }
+  if (!track || !raycaster.ray.intersectPlane(groundPlane, _hit)) return null;
+  let best = null, bd = 2.6;
+  for (const v of switchVis.values()){ const d = Math.hypot(v.node.x - _hit.x, v.node.y - _hit.z); if (d < bd){ bd = d; best = v.node; } }
+  return best ? { kind:'switch', node:best } : null;
+}
+/* ============================================================ game logic */
+const I18N = {
+  fr:{ sub:'Le jeu des aiguillages', levels:'Niveaux', restart:'Recommencer', pause:'Pause', resume:'Reprendre', loco:'Anatomie d\'une locomotive ↗', locoShort:'Locomotive ↗',
+       chooseLevel:'Choisir un niveau', close:'Fermer', level:'Niveau', arrived:'arrivés', tutorial:'Tutoriel', goal:'Objectif',
+       win:'Niveau réussi', winText:'Tous les trains sont arrivés en {t} s.', next:'Niveau suivant', replay:'Rejouer', fail:'Raté', retry:'Réessayer',
+       crash:'Collision entre deux trains.', wrong:'Le train → {to} est arrivé en {at}.', buffer:'Le train → {to} a heurté un butoir.',
+       allDone:'Bravo, les 10 niveaux sont terminés. Temps: {t} s.', trains:'{n} trains', train:'1 train' },
+  en:{ sub:'The railway switch game', levels:'Levels', restart:'Restart', pause:'Pause', resume:'Resume', loco:'Anatomy of a locomotive ↗', locoShort:'Locomotive ↗',
+       chooseLevel:'Choose a level', close:'Close', level:'Level', arrived:'arrived', tutorial:'Tutorial', goal:'Goal',
+       win:'Level complete', winText:'All trains arrived in {t} s.', next:'Next level', replay:'Replay', fail:'Failed', retry:'Retry',
+       crash:'Two trains collided.', wrong:'Train → {to} arrived at {at}.', buffer:'Train → {to} hit a buffer stop.',
+       allDone:'Well done, all 10 levels finished. Time: {t} s.', trains:'{n} trains', train:'1 train' },
+};
+let lang = 'fr';
+function tt(k, vars){ let s = (I18N[lang] && I18N[lang][k]) || I18N.fr[k] || k; if (vars) for (const [a, b] of Object.entries(vars)) s = s.split('{' + a + '}').join(b); return s; }
+
+const STORE_KEY = 'aiguillages.v1';
+function loadStore(){ try { return JSON.parse(localStorage.getItem(STORE_KEY) || '{}') || {}; } catch (e){ return {}; } }
+function saveStore(patch){ try { localStorage.setItem(STORE_KEY, JSON.stringify(Object.assign(loadStore(), patch))); } catch (e){} }
+
+const ACC = 2.4, DEC = 3.2, SAMPLES = [0.3, 2.3, 4.6, 7.2, 9.0], CRASH_D = 1.3, BUSY_D = 2.4, PORTAL_CLEAR = 11;
+const G = { level:0, spec:null, track:null, trains:[], time:0, elapsed:0, paused:false, speedMul:1, over:null, failMsg:'', failT:0, tut:null, tutStep:0, arrived:0, callout:null };
+
+const el = {
+  lvlNum:$('lvlNum'), lvlName:$('lvlName'), btnLevels:$('btnLevels'), btnRestart:$('btnRestart'), btnPause:$('btnPause'), speedSeg:$('speedSeg'), langSeg:$('langSeg'),
+  status:$('status'), hint:$('hint'), bannerHost:$('bannerHost'), modal:$('modal'), mTitle:$('mTitle'), mText:$('mText'), mBtns:$('mBtns'),
+  levelsModal:$('levelsModal'), levelsGrid:$('levelsGrid'), btnCloseLevels:$('btnCloseLevels'),
+};
+
+/* ------------------------------------------------------------ train geometry helpers */
+function trainPoint(tr, back){ // -> [x, z, tx, tz, tunnel] ; tunnel = how deep this point sits inside a portal (0 when on the open track)
+  const T = G.track;
+  if (!tr.route.length){ const d = outDir(T, tr.from); return [tr.from.x, tr.from.y, -d[0], -d[1], 99]; }   // not spawned yet: deep inside its portal
+  if (tr.state === 'done' || tr.state === 'gone'){
+    const over = tr.exit - back;
+    if (over > 0){ const n = tr.to, d = outDir(T, n); return [n.x + d[0] * over, n.y + d[1] * over, d[0], d[1], over]; }
+    const p = posBehind(T, tr, -over);
+    return [p[0], p[1], p[2], p[3], p[4] ? Math.hypot(p[0] - tr.from.x, p[1] - tr.from.y) : 0];
+  }
+  const p = posBehind(T, tr, back);
+  return [p[0], p[1], p[2], p[3], p[4] ? Math.hypot(p[0] - tr.from.x, p[1] - tr.from.y) : 0];
+}
+const isActive = (tr) => tr.state === 'run' || tr.state === 'stop';
+const isPlaced = (tr) => tr.state !== 'wait' && tr.state !== 'gone';
+function portalBlocked(node){ // a train still on (or emerging onto) this portal's own track, within PORTAL_CLEAR of the mouth
+  const d = outDir(G.track, node);
+  for (const tr of G.trains){
+    if (!isPlaced(tr)) continue;
+    for (const b of SAMPLES){
+      const p = trainPoint(tr, b), dx = p[0] - node.x, dy = p[1] - node.y;
+      const along = -(dx * d[0] + dy * d[1]), perp = Math.abs(dx * d[1] - dy * d[0]);
+      if (perp < 1.6 && along > -12 && along < PORTAL_CLEAR) return true;
+    }
+  }
+  return false;
+}
+function nearAnyTrain(x, y, radius, includeDone){
+  for (const tr of G.trains){
+    if (!(isActive(tr) || tr.state === 'crash' || (includeDone && tr.state === 'done'))) continue;
+    for (const b of SAMPLES){ const p = trainPoint(tr, b); if (Math.hypot(p[0] - x, p[1] - y) < radius) return true; }
+  }
+  return false;
+}
+function updateTrainVisual(tr){
+  const g = tr.vis;
+  g.visible = isPlaced(tr);
+  if (!g.visible) return;
+  g.userData.vehicles.forEach((veh, k) => {
+    const p = trainPoint(tr, TRAIN_BACKS[k]);
+    veh.visible = p[4] < TRAIN_HALF[k];
+    veh.position.set(p[0], 0, p[1]);
+    veh.rotation.set(0, Math.atan2(-p[3], p[2]), tr.tilt ? 0.22 : 0);
+  });
+  const st = tr.state === 'crash' ? 'crash' : tr.state === 'stop' ? 'stop' : 'run';
+  if (tr.labelState !== st){
+    tr.labelState = st;
+    tr.label.el.innerHTML = '→ ' + tr.spec.to + (st === 'stop' ? '<span class="s">■</span>' : st === 'crash' ? '<span class="s">✕</span>' : '');
+    tr.label.el.classList.toggle('stopped', st === 'stop');
+  }
+}
+
+/* ------------------------------------------------------------ level lifecycle */
+function loadLevel(i){
+  i = Math.max(0, Math.min(LEVELS.length - 1, i));
+  G.level = i; G.spec = LEVELS[i]; G.track = buildTrack(G.spec);
+  G.time = -1; G.elapsed = 0; G.paused = false; G.over = null; G.failT = 0; G.arrived = 0;
+  G.tut = G.spec.tutorial || null; G.tutStep = 0; G.callout = null;
+  buildLevelScene(G.track, 1234 + i * 77);
+  resize(); fitCamera(G.track.bounds);
+  G.trains = G.spec.trains.map((spec, k) => {
+    const tr = { i:k, spec, color:TRAIN_COLORS[k % TRAIN_COLORS.length], state:'wait', go:!!spec.go, v:0, exit:0, tilt:false, labelState:'',
+                 from:G.track.byLetter(spec.from), to:G.track.byLetter(spec.to), edge:0, dir:1, s:0, route:[] };
+    tr.vis = makeTrainVisual(tr.color, tr);
+    tr.label = addLabel('lbl tr', '', () => { const p = trainPoint(tr, 2.3); return [p[0], 3.3, p[1]]; }, { tf:'translate(-50%,-100%)', hide:() => !isPlaced(tr) || trainPoint(tr, 2.3)[4] > 1.5 });
+    tr.label.el.style.background = '#' + tr.color.toString(16).padStart(6, '0');
+    return tr;
+  });
+  el.btnPause.setAttribute('aria-pressed', 'false');
+  hideModals(); refreshTexts(); refreshTutorial(); showBanner(); renderLevelsGrid();
+  saveStore({ last:i });
+  updateVisuals(0); render();
+}
+function showBanner(){
+  el.bannerHost.innerHTML = `<div class="banner"><div class="n">${tt('level')} ${G.level + 1}</div><div class="t">${G.spec.name[lang]}</div></div>`;
+  clearTimeout(showBanner.t); showBanner.t = setTimeout(() => { el.bannerHost.innerHTML = ''; }, 2000);
+}
+function refreshTexts(){
+  if (!G.spec) return;
+  document.querySelectorAll('[data-i18n]').forEach(n => { const k = n.dataset.i18n; if (k === 'pause') n.textContent = tt(G.paused ? 'resume' : 'pause'); else n.textContent = tt(k); });
+  el.lvlNum.textContent = String(G.level + 1).padStart(2, '0');
+  el.lvlName.textContent = G.spec.name[lang];
+  el.hint.innerHTML = `<span class="k">${tt('goal')}</span>${G.spec.hint[lang]}`;
+  refreshStatus(true);
+  if (G.callout) refreshTutorial();
+}
+let lastStatus = '';
+function refreshStatus(force){
+  const s = `<span class="chip">${tt('arrived')} <b>${G.arrived}/${G.trains.length}</b></span><span class="chip"><b>${Math.max(0, G.elapsed).toFixed(0)} s</b></span>`;
+  if (force || s !== lastStatus){ lastStatus = s; el.status.innerHTML = s; }
+}
+
+/* ------------------------------------------------------------ tutorial callouts */
+function refreshTutorial(){
+  if (G.callout){ removeLabel(G.callout); G.callout = null; }
+  if (!G.tut || G.tutStep >= G.tut.length) return;
+  const step = G.tut[G.tutStep];
+  const [kind, ref] = step.anchor.split(':');
+  let pos;
+  if (kind === 'switch'){ const n = G.track.nodes.get(ref); pos = () => [n.x, 0.6, n.y]; }
+  else { const tr = G.trains[+ref]; pos = () => { if (isPlaced(tr)){ const p = trainPoint(tr, 2.3); return [p[0], 3.4, p[1]]; } return [tr.from.x, 4.5, tr.from.y]; }; }
+  G.callout = addLabel('callout', `<span class="k">${tt('tutorial')} ${G.tutStep + 1}/${G.tut.length}</span>${step[lang]}`, pos, { tf:'translate(-50%, calc(-100% - 22px))' });
+}
+function checkTutorial(){
+  if (!G.tut || G.tutStep >= G.tut.length) return;
+  if (G.tut[G.tutStep].done(G)){ G.tutStep++; refreshTutorial(); }
+}
+
+/* ------------------------------------------------------------ simulation */
+function spawn(tr){
+  placeTrain(G.track, tr, tr.from, tr.go ? 0 : 5.5);   // a waiting train sits at the tunnel mouth, clear of the first switch
+  tr.state = tr.go ? 'run' : 'stop'; tr.v = 0;
+}
+function arrive(tr, node){
+  if (node.station && node.station.letter === tr.spec.to){ tr.state = 'done'; tr.exit = 0; G.arrived++; return; }
+  tr.state = 'crash'; tr.v = 0; tr.tilt = !node.station;
+  fail(node.station ? tt('wrong', { to:tr.spec.to, at:node.station.letter }) : tt('buffer', { to:tr.spec.to }));
+}
+function fail(msg){ if (G.over) return; G.over = 'fail'; G.failMsg = msg; G.failT = 0.9; }
+function checkCollisions(){
+  const act = G.trains.filter(isActive);
+  const S = act.map(tr => SAMPLES.map(b => trainPoint(tr, b)));
+  for (let i = 0; i < act.length; i++) for (let j = i + 1; j < act.length; j++){
+    let hit = false;
+    for (const a of S[i]){ for (const b of S[j]){ if (Math.hypot(a[0] - b[0], a[1] - b[1]) < CRASH_D){ hit = true; break; } } if (hit) break; }
+    if (hit){ for (const tr of [act[i], act[j]]){ tr.state = 'crash'; tr.tilt = true; tr.v = 0; } fail(tt('crash')); }
+  }
+}
+function simStep(h){
+  G.time += h;
+  if (G.time > 0 && !G.over) G.elapsed += h;
+  const T = G.track;
+  for (const tr of G.trains){
+    if (tr.state === 'wait' && G.time >= tr.spec.t0 && !portalBlocked(tr.from)) spawn(tr);
+  }
+  for (const tr of G.trains){
+    if (isActive(tr)){
+      const vT = tr.go ? G.spec.speed : 0;
+      if (tr.v < vT) tr.v = Math.min(vT, tr.v + ACC * h); else if (tr.v > vT) tr.v = Math.max(vT, tr.v - DEC * h);
+      tr.state = (tr.go || tr.v > 1e-3) ? 'run' : 'stop';
+      if (tr.v > 0){
+        for (const e of advanceTrain(T, tr, tr.v * h)){
+          if (e.type === 'flip') refreshSwitch(e.node);
+          else if (e.type === 'end') arrive(tr, e.node);
+        }
+      }
+    } else if (tr.state === 'done'){
+      tr.v = Math.min(G.spec.speed, tr.v + ACC * h);
+      tr.exit += tr.v * h;
+      if (tr.exit > TRAIN_LEN + 2.5) tr.state = 'gone';
+    }
+  }
+  checkCollisions();
+  checkTutorial();
+  if (!G.over && G.trains.every(tr => tr.state === 'gone')) win();
+  if (G.over === 'fail' && G.failT > 0){ G.failT -= h; if (G.failT <= 0) showFail(); }
+}
+
+/* ------------------------------------------------------------ player actions */
+function toggleSwitch(node){
+  if (G.over || node.kind !== 'switch') return false;
+  if (nearAnyTrain(node.x, node.y, BUSY_D, false)){ switchBusy(node); return false; }
+  node.state = 1 - node.state; refreshSwitch(node); return true;
+}
+function clickTrain(tr){
+  if (G.over || !isActive(tr)) return false;
+  tr.go = !tr.go; return true;
+}
+
+/* ------------------------------------------------------------ modals */
+function modalOpen(){ return !el.modal.hidden || !el.levelsModal.hidden; }
+function hideModals(){ el.modal.hidden = true; el.levelsModal.hidden = true; }
+function showModal(title, cls, text, buttons){
+  el.mTitle.textContent = title; el.mTitle.className = cls; el.mText.textContent = text; el.mBtns.innerHTML = '';
+  buttons.forEach((b, i) => { const n = document.createElement('button'); n.type = 'button'; n.className = 'btn' + (b.primary ? ' primary' : ''); n.textContent = b.label; n.addEventListener('click', b.fn); el.mBtns.appendChild(n); if (b.primary) setTimeout(() => n.focus(), 0); });
+  el.levelsModal.hidden = true; el.modal.hidden = false;
+}
+function win(){
+  G.over = 'win';
+  const store = loadStore(), done = Object.assign({}, store.done || {}); done[G.level] = true; saveStore({ done });
+  const t = G.elapsed.toFixed(1), last = G.level === LEVELS.length - 1;
+  const btns = [{ label:tt('replay'), fn:() => loadLevel(G.level) }];
+  if (last) btns.push({ label:tt('levels'), primary:true, fn:openLevels });
+  else btns.push({ label:tt('next'), primary:true, fn:() => loadLevel(G.level + 1) });
+  showModal(tt('win'), 'ok', last ? tt('allDone', { t }) : tt('winText', { t }), btns);
+  renderLevelsGrid();
+}
+function showFail(){
+  showModal(tt('fail'), 'bad', G.failMsg, [{ label:tt('levels'), fn:openLevels }, { label:tt('retry'), primary:true, fn:() => loadLevel(G.level) }]);
+}
+function openLevels(){ renderLevelsGrid(); el.modal.hidden = true; el.levelsModal.hidden = false; }
+function renderLevelsGrid(){
+  const done = loadStore().done || {};
+  el.levelsGrid.innerHTML = '';
+  LEVELS.forEach((L, i) => {
+    const b = document.createElement('button'); b.type = 'button';
+    b.className = done[i] ? 'done' : ''; if (i === G.level) b.setAttribute('aria-current', 'true');
+    b.innerHTML = `<span class="n">${i + 1}</span><span class="t">${L.name[lang]}</span>`;
+    b.addEventListener('click', () => loadLevel(i));
+    el.levelsGrid.appendChild(b);
+  });
+}
+
+/* ------------------------------------------------------------ controls */
+el.btnLevels.addEventListener('click', () => { if (el.levelsModal.hidden) openLevels(); else el.levelsModal.hidden = true; });
+el.btnCloseLevels.addEventListener('click', () => { el.levelsModal.hidden = true; });
+el.btnRestart.addEventListener('click', () => loadLevel(G.level));
+function setPaused(p){ G.paused = p; el.btnPause.setAttribute('aria-pressed', String(p)); el.btnPause.textContent = tt(p ? 'resume' : 'pause'); }
+el.btnPause.addEventListener('click', () => setPaused(!G.paused));
+el.speedSeg.addEventListener('click', (e) => { const b = e.target.closest('button[data-speed]'); if (!b) return; G.speedMul = +b.dataset.speed; el.speedSeg.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', String(x === b))); });
+function setLang(l){
+  lang = I18N[l] ? l : 'fr'; saveStore({ lang });
+  el.langSeg.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', String(x.dataset.lang === lang)));
+  document.documentElement.lang = lang;
+  refreshTexts(); renderLevelsGrid();
+}
+el.langSeg.addEventListener('click', (e) => { const b = e.target.closest('button[data-lang]'); if (b) setLang(b.dataset.lang); });
+document.addEventListener('keydown', (e) => {
+  if (e.target.matches('input,textarea')) return;
+  if (e.key === 'Escape'){ el.levelsModal.hidden = true; }
+  else if (e.key === ' '){ e.preventDefault(); if (!modalOpen()) setPaused(!G.paused); }
+  else if (e.key === 'r' || e.key === 'R'){ loadLevel(G.level); }
+});
+
+/* pointer: tap picks, drag pans, wheel / pinch zooms */
+const ptrs = new Map(); let dragMoved = false, pinchD = 0;
+canvas.addEventListener('pointerdown', (e) => {
+  canvas.setPointerCapture(e.pointerId);
+  ptrs.set(e.pointerId, { x:e.clientX, y:e.clientY, sx:e.clientX, sy:e.clientY });
+  if (ptrs.size === 1) dragMoved = false;
+  if (ptrs.size === 2){ const [a, b] = [...ptrs.values()]; pinchD = Math.hypot(a.x - b.x, a.y - b.y); dragMoved = true; }
+});
+canvas.addEventListener('pointermove', (e) => {
+  const p = ptrs.get(e.pointerId);
+  if (!p){ if (e.pointerType === 'mouse') canvas.classList.toggle('pick', !!pick(e.clientX, e.clientY, G.track)); return; }
+  const dx = e.clientX - p.x, dy = e.clientY - p.y; p.x = e.clientX; p.y = e.clientY;
+  if (Math.hypot(e.clientX - p.sx, e.clientY - p.sy) > 6) dragMoved = true;
+  if (ptrs.size === 1){ if (dragMoved){ panBy(dx, dy); canvas.classList.add('dragging'); } }
+  else if (ptrs.size === 2){ const [a, b] = [...ptrs.values()]; const d = Math.hypot(a.x - b.x, a.y - b.y); if (pinchD > 0 && d > 0) zoomBy(pinchD / d); pinchD = d; }
+});
+function endPointer(e, tap){
+  const p = ptrs.get(e.pointerId); ptrs.delete(e.pointerId);
+  if (ptrs.size === 0) canvas.classList.remove('dragging');
+  if (tap && p && !dragMoved && ptrs.size === 0 && !modalOpen()){
+    const h = pick(e.clientX, e.clientY, G.track);
+    if (h && h.kind === 'train') clickTrain(h.train); else if (h && h.kind === 'switch') toggleSwitch(h.node);
+  }
+}
+canvas.addEventListener('pointerup', (e) => endPointer(e, true));
+canvas.addEventListener('pointercancel', (e) => endPointer(e, false));
+canvas.addEventListener('wheel', (e) => { e.preventDefault(); zoomBy(Math.exp(e.deltaY * 0.0012)); }, { passive:false });
+canvas.addEventListener('dblclick', () => fitCamera(G.track.bounds));
+
+/* ------------------------------------------------------------ frame loop */
+function updateVisuals(dt){
+  for (const tr of G.trains) updateTrainVisual(tr);
+  animateSwitches(dt);
+  updateLabels();
+  refreshStatus(false);
+}
+function render(){ renderer.render(scene, camera); }
+function step(dt){ let rem = dt * G.speedMul; while (rem > 1e-6){ const h = Math.min(1 / 60, rem); simStep(h); rem -= h; } }
+let last = performance.now();
+function frame(now){
+  requestAnimationFrame(frame);
+  const dt = Math.min(0.05, Math.max(0, (now - last) / 1000)); last = now;
+  if (!G.paused && !modalOpen()) step(dt);
+  updateVisuals(dt); render();
+}
+
+/* ------------------------------------------------------------ boot */
+{
+  const store = loadStore();
+  setLang(store.lang || ((navigator.language || 'fr').toLowerCase().startsWith('fr') ? 'fr' : 'en'));
+  resize();
+  loadLevel(Number.isInteger(store.last) ? store.last : 0);
+  requestAnimationFrame(frame);
+}
+window.gameDebug = { G, LEVELS, loadLevel, step, render, updateVisuals, toggleSwitch, clickTrain, view, fitCamera, scene, camera, renderer, trainPoint, setLang };
+</script>

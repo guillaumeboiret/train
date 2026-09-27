@@ -1,0 +1,1 @@
+[out:json][timeout:180][maxsize:1073741824];(way["railway"="rail"]["highspeed"="yes"](44.70,-0.95,48.90,2.50);way["railway"="rail"](44.80,-0.63,45.03,-0.42);way["railway"="rail"](48.70,2.15,48.85,2.36););out body;>;out skel qt;

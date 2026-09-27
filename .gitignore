@@ -1,0 +1,11 @@
+.DS_Store
+__pycache__/
+# editor backups and build by-products (the build scripts regenerate them)
+*.bak*
+*-test.html
+*-check.mjs
+# route bake inputs and caches (about 20 MB, refetched by route/fetch_rails.py and route/build_route.py)
+route/tiles/
+route/rails*.json
+route/route_debug.json
+route/*.log

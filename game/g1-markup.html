@@ -1,0 +1,39 @@
+<div id="app">
+  <header class="topbar">
+    <div class="brand">Aiguillages<small data-i18n="sub">Le jeu des aiguillages</small></div>
+    <div class="lvl"><span class="num" id="lvlNum">01</span><span id="lvlName"></span></div>
+    <div class="spacer"></div>
+    <div class="controls">
+      <button type="button" class="btn" id="btnLevels" data-i18n="levels">Niveaux</button>
+      <button type="button" class="btn" id="btnRestart" data-i18n="restart">Recommencer</button>
+      <button type="button" class="btn" id="btnPause" aria-pressed="false" data-i18n="pause">Pause</button>
+      <div class="seg" id="speedSeg" role="group" aria-label="Vitesse">
+        <button type="button" data-speed="1" aria-pressed="true">×1</button>
+        <button type="button" data-speed="2" aria-pressed="false">×2</button>
+      </div>
+      <a class="btn link" href="https://claude.ai/artifact/EMVu67YYfT7DzW8UozZAj6" target="_blank" rel="noopener"><span class="full" data-i18n="loco">Anatomie d'une locomotive ↗</span><span class="short" data-i18n="locoShort">Locomotive ↗</span></a>
+      <div class="seg" id="langSeg" role="group" aria-label="Langue">
+        <button type="button" data-lang="fr" aria-pressed="true">FR</button>
+        <button type="button" data-lang="en" aria-pressed="false">EN</button>
+      </div>
+    </div>
+  </header>
+  <main class="stage" id="stage">
+    <canvas id="c3d" aria-label="Plan des voies"></canvas>
+    <div id="labels"></div>
+    <div class="status" id="status" aria-live="polite"></div>
+    <div class="hint" id="hint"></div>
+    <div id="bannerHost"></div>
+    <div class="modal" id="modal" hidden role="dialog" aria-modal="true">
+      <div class="card"><h2 id="mTitle"></h2><p id="mText"></p><div class="row" id="mBtns"></div></div>
+    </div>
+    <div class="modal" id="levelsModal" hidden role="dialog" aria-modal="true">
+      <div class="card wide">
+        <h2 data-i18n="chooseLevel">Choisir un niveau</h2>
+        <div class="levels" id="levelsGrid"></div>
+        <div class="row"><button type="button" class="btn" id="btnCloseLevels" data-i18n="close">Fermer</button></div>
+      </div>
+    </div>
+  </main>
+</div>
+<script type="module">

@@ -1,0 +1,205 @@
+<div id="app">
+  <header class="topbar">
+    <div class="brand"><span data-i18n="title">Anatomie d'une locomotive</span><small data-i18n="subtitle">Modèle 3D pédagogique</small></div>
+    <div class="seg" id="modeSeg" role="group" aria-label="Type de traction">
+      <button type="button" data-mode="diesel" aria-pressed="true" data-i18n="mode_diesel">Diesel-électrique</button>
+      <button type="button" data-mode="electric" aria-pressed="false" data-i18n="mode_electric">Électrique</button>
+      <button type="button" data-mode="tgv" aria-pressed="false" data-i18n="mode_tgv">TGV</button>
+    </div>
+    <div class="spacer"></div>
+    <a class="btn link" href="https://claude.ai/artifact/YTRJvuYiFZpzyjxXD6vqQR" target="_blank" rel="noopener" data-i18n="game">Jouer aux aiguillages ↗</a>
+    <div class="seg" id="langSeg" role="group" aria-label="Langue">
+      <button type="button" data-lang="fr" aria-pressed="true">FR</button>
+      <button type="button" data-lang="en" aria-pressed="false">EN</button>
+    </div>
+  </header>
+  <main class="stage">
+    <canvas id="c3d" aria-label="Locomotive 3D"></canvas>
+    <div id="labels" aria-hidden="true"></div>
+    <div id="hud" class="hud">
+      <div class="hud-row"><span class="hk" data-i18n="hud_pk">PK</span><span class="hv"><b id="hudPk">0.9</b> km</span><span class="hk" data-i18n="hud_alt">Alt.</span><span class="hv"><b id="hudAlt">0</b> m</span><span class="hk" data-i18n="hud_grade">Pente</span><span class="hv"><b id="hudGrade">0</b> ‰</span></div>
+      <div class="hud-row"><span class="hk" data-i18n="hud_tracks">Voies</span><span class="hv"><b id="hudTracks">2</b></span><span class="hk" data-i18n="hud_limit">Limite</span><span class="hv"><b id="hudLimit">160</b> km/h</span><span class="hud-kind" id="hudKind"></span></div>
+      <div class="hud-row"><span class="hk" data-i18n="hud_next">Prochaine gare</span><span class="hv" id="hudNext"></span></div>
+      <div class="hud-row hud-tp"><label class="hk" for="pkIn" data-i18n="hud_tp">Aller au PK</label><input id="pkIn" type="number" min="0" max="537.8" step="0.1" inputmode="decimal" placeholder="123.4"><button type="button" id="pkGo" class="go" data-i18n="hud_go">Go</button></div>
+      <div id="routeBar" role="group" aria-label="Ligne"></div>
+    </div>
+    <aside class="dock" id="dock">
+      <nav class="tabs" role="tablist">
+        <button type="button" role="tab" aria-selected="true" data-tab="guide" data-i18n="tab_guide">Guide</button>
+        <button type="button" role="tab" aria-selected="false" data-tab="controls" data-i18n="tab_controls">Commandes</button>
+        <button type="button" role="tab" aria-selected="false" data-tab="parts" data-i18n="tab_parts">Pièces</button>
+        <button type="button" role="tab" aria-selected="false" data-tab="views" data-i18n="tab_views">Vues</button>
+        <button type="button" id="sheetToggle" aria-label="Replier">▾</button>
+      </nav>
+      <div class="panels">
+        <section class="tabpanel" data-tab="guide" role="tabpanel">
+          <div class="row" style="margin-bottom:12px">
+            <button type="button" class="btn" id="prevStep">‹ <span data-i18n="prev">Précédent</span></button>
+            <button type="button" class="btn primary" id="nextStep"><span data-i18n="next">Suivant</span> ›</button>
+            <button type="button" class="btn" id="autoPlay" aria-pressed="false"><span data-i18n="autoplay">Lecture auto</span></button>
+          </div>
+          <div class="steps" id="stepList"></div>
+        </section>
+        <section class="tabpanel" data-tab="controls" role="tabpanel" hidden>
+          <div class="status">
+            <div><span class="dot" id="lampBatt"></span><span data-i18n="lamp_batt">Batterie</span></div>
+            <div><span class="dot" id="lampSrc"></span><span id="lampSrcTxt">Moteur diesel</span></div>
+            <div><span class="dot" id="lampDc"></span><span data-i18n="lamp_power">Bus continu</span></div>
+            <div><span class="dot" id="lampTr"></span><span data-i18n="lamp_traction">Traction</span></div>
+            <span class="tgv-only"><div><span class="dot" id="lampDoors"></span><span data-i18n="lamp_doors">Portes</span></div></span>
+          </div>
+          <label class="switch"><span data-i18n="ctl_battery">Coupe-batterie</span><input type="checkbox" id="swBattery"></label>
+          <div class="diesel-only">
+            <div class="field" style="margin-top:14px">
+              <span class="lab" data-i18n="ctl_engine">Moteur diesel</span>
+              <div class="row">
+                <button type="button" class="btn primary" id="btnStart" data-i18n="start">Démarrer</button>
+                <button type="button" class="btn" id="btnStop" data-i18n="stop">Arrêter</button>
+              </div>
+            </div>
+          </div>
+          <div class="electric-only">
+            <div style="margin-top:14px"></div>
+            <label class="switch"><span data-i18n="ctl_panto">Pantographe</span><input type="checkbox" id="swPanto"></label>
+            <label class="switch"><span data-i18n="ctl_vcb">Disjoncteur principal</span><input type="checkbox" id="swVcb"></label>
+            <div style="margin-bottom:14px"></div>
+          </div>
+          <div class="tgv-only">
+            <div class="field">
+              <span class="lab" data-i18n="ctl_sets">Composition</span>
+              <div class="seg" id="setsSeg">
+                <button type="button" data-sets="1" aria-pressed="true" data-i18n="sets_us">Rame simple (US)</button>
+                <button type="button" data-sets="2" aria-pressed="false" data-i18n="sets_um">Double (UM)</button>
+              </div>
+              <div class="hint" id="setsHint" data-i18n="sets_hint">Accouplement possible à l'arrêt seulement.</div>
+            </div>
+            <label class="switch"><span><span data-i18n="ctl_doors">Portes côté quai</span> <span class="val" id="doorsVal"></span></span><input type="checkbox" id="swDoors"></label>
+            <div class="hint" style="margin:6px 0 14px" data-i18n="doors_hint">Déverrouillées à l'arrêt seulement. Traction interdite portes ouvertes.</div>
+            <div class="field">
+              <span class="lab"><span data-i18n="ctl_station">Arrêt en gare (pilote auto)</span><span class="val" id="stationVal"></span></span>
+              <div class="row"><button type="button" class="btn primary" id="btnStation" data-i18n="station_go">Aller au quai</button></div>
+              <div class="hint" data-i18n="station_hint">Freine et arrête la rame au repère du quai.</div>
+            </div>
+          </div>
+          <div class="field">
+            <label for="rgThrottle"><span data-i18n="ctl_throttle">Manette de traction</span><span class="val" id="throttleVal">0</span></label>
+            <input type="range" id="rgThrottle" min="0" max="8" step="1" value="0">
+            <div class="notches"><span>0</span><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span></div>
+          </div>
+          <div class="field">
+            <label for="rgBrake"><span data-i18n="ctl_brake">Frein électrique</span><span class="val" id="brakeVal">0</span></label>
+            <input type="range" id="rgBrake" min="0" max="8" step="1" value="0">
+            <div class="notches"><span>0</span><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span></div>
+          </div>
+          <div class="field">
+            <span class="lab" data-i18n="ctl_dir">Sens de marche</span>
+            <div class="seg" id="dirSeg">
+              <button type="button" data-dir="-1" aria-pressed="false" data-i18n="rev">Arrière</button>
+              <button type="button" data-dir="1" aria-pressed="true" data-i18n="fwd">Avant</button>
+            </div>
+          </div>
+          <div class="field">
+            <span class="lab" data-i18n="ctl_track">Voie</span>
+            <div class="seg" id="trackSeg">
+              <button type="button" data-track="0" aria-pressed="true" data-i18n="track_2">Voie 2 (sens Paris)</button>
+              <button type="button" data-track="1" aria-pressed="false" data-i18n="track_1">Voie 1 (sens Bordeaux)</button>
+            </div>
+            <div class="hint" id="trackHint" data-i18n="track_hint">Changement par une communication 400 m devant la rame.</div>
+          </div>
+          <div class="field">
+            <span class="lab" data-i18n="ctl_time">Vitesse du temps</span>
+            <div class="seg" id="timeSeg">
+              <button type="button" data-time="1" aria-pressed="true">×1</button>
+              <button type="button" data-time="4" aria-pressed="false">×4</button>
+              <button type="button" data-time="8" aria-pressed="false">×8</button>
+              <button type="button" data-time="16" aria-pressed="false">×16</button>
+            </div>
+          </div>
+          <div class="field">
+            <span class="lab" data-i18n="ctl_weather">Météo</span>
+            <div class="seg" id="wxSeg">
+              <button type="button" data-wx="sun" aria-pressed="true" data-i18n="wx_sun">Soleil</button>
+              <button type="button" data-wx="cloud" aria-pressed="false" data-i18n="wx_cloud">Nuages</button>
+              <button type="button" data-wx="rain" aria-pressed="false" data-i18n="wx_rain">Pluie</button>
+              <button type="button" data-wx="dusk" aria-pressed="false" data-i18n="wx_dusk">Crépuscule</button>
+            </div>
+          </div>
+          <div class="field">
+            <button type="button" class="btn horn" id="btnHorn" data-i18n="horn">Klaxon (H)</button>
+          </div>
+          <div class="hint" data-i18n="route_src">Ligne Bordeaux Saint-Jean à Paris Montparnasse.</div>
+          <label class="switch"><span data-i18n="ctl_flows">Flux d'énergie</span><input type="checkbox" id="swFlows" checked></label>
+          <label class="switch"><span data-i18n="ctl_labels">Étiquettes</span><input type="checkbox" id="swLabels"></label>
+        </section>
+        <section class="tabpanel parts" data-tab="parts" role="tabpanel" hidden>
+          <p class="mode-note" data-i18n="parts_hint">Cliquez une pièce dans la liste ou directement sur le modèle. L'œil masque une pièce.</p>
+          <div id="partList"></div>
+        </section>
+        <section class="tabpanel" data-tab="views" role="tabpanel" hidden>
+          <div class="field">
+            <span class="lab" data-i18n="v_shell">Carrosserie</span>
+            <div class="seg" id="shellSeg">
+              <button type="button" data-shell="1" aria-pressed="true" data-i18n="shell_opaque">Opaque</button>
+              <button type="button" data-shell="0.18" aria-pressed="false" data-i18n="shell_ghost">Transparente</button>
+              <button type="button" data-shell="0" aria-pressed="false" data-i18n="shell_hidden">Masquée</button>
+            </div>
+          </div>
+          <div class="field">
+            <span class="lab" data-i18n="v_cut">Plan de coupe</span>
+            <div class="seg" id="cutSeg">
+              <button type="button" data-cut="none" aria-pressed="true" data-i18n="cut_none">Aucun</button>
+              <button type="button" data-cut="z" aria-pressed="false" data-i18n="cut_long">Long.</button>
+              <button type="button" data-cut="x" aria-pressed="false" data-i18n="cut_trans">Transv.</button>
+              <button type="button" data-cut="y" aria-pressed="false" data-i18n="cut_horiz">Horiz.</button>
+            </div>
+          </div>
+          <div class="field">
+            <label for="rgCut"><span data-i18n="v_cutpos">Position de la coupe</span><span class="val" id="cutVal">0.0 m</span></label>
+            <input type="range" id="rgCut" min="-1" max="1" step="0.005" value="0">
+          </div>
+          <label class="switch"><span data-i18n="v_cutflip">Inverser le côté conservé</span><input type="checkbox" id="swCutFlip"></label>
+          <div class="field" style="margin-top:14px">
+            <label for="rgExplode"><span data-i18n="v_explode">Vue éclatée</span><span class="val" id="explodeVal">0 %</span></label>
+            <input type="range" id="rgExplode" min="0" max="1" step="0.01" value="0">
+          </div>
+          <div class="field">
+            <span class="lab" data-i18n="v_cam">Caméra</span>
+            <div class="row" id="camRow">
+              <button type="button" class="btn" data-cam="overview" data-i18n="cam_overview">Ensemble</button>
+              <button type="button" class="btn" data-cam="side" data-i18n="cam_side">Profil</button>
+              <button type="button" class="btn" data-cam="cab" data-i18n="cam_cab">Cabine</button>
+              <button type="button" class="btn" data-cam="engine" data-i18n="cam_engine">Salle des machines</button>
+              <button type="button" class="btn" data-cam="bogie" data-i18n="cam_bogie">Bogie</button>
+              <button type="button" class="btn" data-cam="roof" data-i18n="cam_roof">Toit</button>
+              <button type="button" class="btn" data-cam="under" data-i18n="cam_under">Dessous</button>
+              <button type="button" class="btn" data-cam="far" data-i18n="cam_far">Paysage</button>
+              <span class="tgv-only">
+                <button type="button" class="btn" data-cam="train" data-i18n="cam_train">Rame entière</button>
+                <button type="button" class="btn" data-cam="rearroof" data-i18n="cam_rearroof">Motrice arrière</button>
+                <button type="button" class="btn" data-cam="coupler" data-i18n="cam_coupler">Attelage</button>
+                <button type="button" class="btn" data-cam="station" data-i18n="cam_station">Gare</button>
+                <button type="button" class="btn" data-cam="door" data-i18n="cam_door">Portes</button>
+              </span>
+            </div>
+            <div class="hint" data-i18n="cam_hint">Clavier: W A S D déplacent le point de visée le long de la rame, R/F (ou E/Q) montent et descendent, Maj accélère. H ou Espace: klaxon.</div>
+          </div>
+          <label class="switch"><span data-i18n="v_rotate">Rotation automatique</span><input type="checkbox" id="swRotate"></label>
+        </section>
+      </div>
+    </aside>
+    <div class="infocard" id="infocard">
+      <div class="eyebrow"><span id="infoEyebrow"></span><span class="mini" id="infoMini"></span></div>
+      <button type="button" class="close" id="infoClose" aria-label="Masquer" title="Masquer / afficher">×</button>
+      <h2 id="infoTitle"></h2>
+      <p id="infoText"></p>
+      <div class="legend" id="infoLegend"></div>
+    </div>
+    <div class="gauges" id="gauges" aria-live="off">
+      <div class="g"><div class="k" id="gAk">Régime</div><div class="v"><span id="gAv">0</span><span class="u" id="gAu">tr/min</span></div><div class="bar"><i id="gAb"></i></div></div>
+      <div class="g"><div class="k" data-i18n="g_dc">Bus continu</div><div class="v"><span id="gVv">0</span><span class="u">V</span></div><div class="bar"><i id="gVb"></i></div></div>
+      <div class="g"><div class="k" data-i18n="g_i">Courant</div><div class="v"><span id="gIv">0</span><span class="u">A</span></div><div class="bar"><i id="gIb"></i></div></div>
+      <div class="g"><div class="k" data-i18n="g_f">Effort</div><div class="v"><span id="gFv">0</span><span class="u">kN</span></div><div class="bar"><i id="gFb"></i></div></div>
+      <div class="g"><div class="k" data-i18n="g_v">Vitesse</div><div class="v"><span id="gSv">0</span><span class="u">km/h</span></div><div class="bar"><i id="gSb"></i></div></div>
+    </div>
+  </main>
+</div>
