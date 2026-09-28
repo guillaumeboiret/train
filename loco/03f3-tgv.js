@@ -297,6 +297,7 @@ const pcShells = { mats:[], meshes:[] };     // their body shells, so the shell 
 const trShells = { mats:[], meshes:[] };     // trailer skins (body, ends, gangways, doors): the shell control fades them too and reveals the interiors
 const allCoaches = [], COACH_NEAR = 60;      // every trailer of every set (own, parked, opposing); interiors are drawn within COACH_NEAR m of the camera (further out a head is 3 px)
 const DECK = { lo:0.92, up:2.3 };            // floor heights of the two decks (the windows sit at 1.6..2.2 and 3.0..3.75)
+const SEAT_VIEW = 9.4;                       // x from the coach's rear end of the window seat kept free for the viewer, on both decks of every coach (row 7, beside window 3)
 const SEAT_GEO = (() => {                    // cushion + backrest facing +x, origin on the floor at the seat centre, 0.44 wide
   const s = new THREE.Shape(); s.moveTo(-0.22, 0.28); s.lineTo(0.22, 0.28); s.lineTo(0.22, 0.42); s.lineTo(-0.12, 0.42); s.lineTo(-0.12, 0.95); s.lineTo(-0.22, 0.95); s.closePath();
   const g = new THREE.ExtrudeGeometry(s, { depth:0.44, bevelEnabled:false }); g.translate(0, 0, -0.22); return g;
@@ -337,11 +338,14 @@ const hash32 = i => { i = Math.imul(i ^ (i >>> 16), 0x45d9f3b); i = Math.imul(i 
 function buildCoach(parent, cm, xr, L, carNo){
   const g = new THREE.Group(); g.visible = false; parent.add(g);
   const fl = new THREE.Mesh(deckGeo(L).floor, cm.floor), ce = new THREE.Mesh(deckGeo(L).ceil, cm.ceil); fl.position.x = ce.position.x = xr;
-  const seat = [], deck = [];
-  for (const [d, y] of [[0, DECK.lo], [1, DECK.up]]) for (let x = xr + 4.0; x < xr + L - 0.9; x += 0.9) for (const z of [-0.95, -0.48, 0.48, 0.95]){ seat.push(x, y, z); deck.push(d); }
+  const seat = [], deck = [], view = [];
+  for (const [d, y] of [[0, DECK.lo], [1, DECK.up]]) for (let x = xr + 4.0; x < xr + L - 0.9; x += 0.9) for (const z of [-0.95, -0.48, 0.48, 0.95]){
+    if (z === 0.95 && Math.abs(x - xr - SEAT_VIEW) < 0.1) view.push(deck.length);
+    seat.push(x, y, z); deck.push(d);
+  }
   const n = deck.length, cls = carNo % 10 <= 3 ? 0 : 1;                                 // cars 1..3 (11..13) are first class
   const seats = new THREE.InstancedMesh(SEAT_GEO, cm.seat, n), bodies = new THREE.InstancedMesh(PAX_BODY_GEO, cm.body, n), heads = new THREE.InstancedMesh(PAX_HEAD_GEO, cm.head, n), legs = new THREE.InstancedMesh(PAX_LEG_GEO, cm.legs, n);
-  const c = { g, id:carNo, xr, L, n, seat:new Float32Array(seat), deck:new Uint8Array(deck), occ:new Uint8Array(n), colB:new Uint32Array(n), colH:new Uint32Array(n),
+  const c = { g, id:carNo, xr, L, n, seat:new Float32Array(seat), deck:new Uint8Array(deck), occ:new Uint8Array(n), view, colB:new Uint32Array(n), colH:new Uint32Array(n),
               bodies, heads, legs, paths:[], walk:[], crowd:[[], []], dirty:false, colDirty:false };
   for (let i = 0; i < n; i++){
     _m4.compose(_p.set(seat[3 * i], seat[3 * i + 1], seat[3 * i + 2]), Q0, _s.setScalar(1)); seats.setMatrixAt(i, _m4); seats.setColorAt(i, SEAT_COL[cls]);
@@ -431,7 +435,7 @@ const TR = (() => {
     };
     return { band, round, cut, cx, cy };
   };
-  const geo = {}, tex = {}, lin = {}, pane = {}, lining = {}, logo = inouiLogo(128, '#f2f1ee', '#e5415d');
+  const geo = {}, tex = {}, lin = {}, pane = {}, lining = {}, surround = {}, logo = inouiLogo(128, '#f2f1ee', '#e5415d');
   for (const L of Ls){
     geo[L] = loftGeo([{ x:0, pts }, { x:L, pts }], vs);
     tex[L] = canvasTex(2048, 1024, (c, W, H) => {   // inOui livery: silver over a Carmillon line, anthracite band (to the floor by the door), pale sill, dark gaskets and door frame, logo past the door
@@ -476,6 +480,20 @@ const TR = (() => {
       return g;
     };
     pane[L] = { glass:strips(false, -0.004), plug:strips(true, 0.07) };   // glass 4 mm proud of the skin, over the gasket; the plug sits behind the closed leaf (its back is 4.8 cm in)
+    const rr = (x0, x1, y0, y1, r, out) => {   // rounded rectangle, 7 points per corner, anticlockwise from the top right corner
+      for (const [cx, cy, q] of [[x1 - r, y1 - r, 0], [x0 + r, y1 - r, 1], [x0 + r, y0 + r, 2], [x1 - r, y0 + r, 3]])
+        for (let k = 0; k <= 6; k++){ const a = (q + k / 6) * Math.PI / 2; out.push([cx + r * Math.cos(a), cy + r * Math.sin(a)]); }
+      return out;
+    };
+    const fp = [], fi = [];   // window surrounds 3 mm inside the lining, from 3 cm inside each opening to 3.5 cm out: a crisp edge over the alpha cuts, which a seat sees at arm's length
+    for (const s of [1, -1]) for (const [x0, x1, y0, y1, d] of holes(L)){
+      if (d) continue;
+      const a = rr(x0 + 0.03, x1 - 0.03, y0 + 0.03, y1 - 0.03, 0.07, []), b = rr(x0 - 0.035, x1 + 0.035, y0 - 0.035, y1 + 0.035, 0.135, []), o = fp.length / 3, n = a.length;
+      for (const [x, y] of [...a, ...b]) fp.push(x, y, s * (zAtY(pts, y) - 0.003));
+      for (let k = 0; k < n; k++){ const k1 = (k + 1) % n; fi.push(o + k, o + n + k, o + n + k1, o + k, o + n + k1, o + k1); }
+    }
+    const fg = surround[L] = new THREE.BufferGeometry();
+    fg.setAttribute('position', new THREE.Float32BufferAttribute(fp, 3)); fg.setIndex(fi); fg.computeVertexNormals();
   }
   const paint = g => {   // inOui door: magenta at the top and bottom, coral a little over mid height (vertex colours by height)
     const p = g.getAttribute('position'), st = [[0, '#dd4c8e'], [0.55, '#fa6951'], [1, '#e034a2']].map(([t, h]) => [t, new THREE.Color(h)]), q = new THREE.Color(), col = [];
@@ -487,7 +505,7 @@ const TR = (() => {
     return g;
   };
   const leaf = { p:paint(doorLeafGeo(pts, 1, ...DOOR.slice(2), DOOR[1] - DOOR[0])), n:paint(doorLeafGeo(pts, -1, ...DOOR.slice(2), DOOR[1] - DOOR[0])) };
-  return { geo, tex, lin, pane, lining, pts, yBot, yTop, leaf, doorX:(DOOR[0] + DOOR[1]) / 2 };
+  return { geo, tex, lin, pane, lining, surround, pts, yBot, yTop, leaf, doorX:(DOOR[0] + DOOR[1]) / 2 };
 })();
 const carNumTex = {};
 function carNumber(n){
@@ -508,6 +526,7 @@ function buildSet(opts){
     linM[L] = mk(0xffffff, { map:TR.lin[L], alphaTest:0.5, side:THREE.BackSide, roughness:0.9, metalness:0, emissive:0xffffff, emissiveMap:TR.lin[L], emissiveIntensity:0.25 });   // inside of the shell, lit by the saloon lights
   }
   const endM = mk(0x2b3238, { roughness:0.85 }), capM = mk(0x2b3238, { roughness:0.85 });
+  const frameM = mk(LIN.reveal, { side:THREE.DoubleSide, roughness:0.9, metalness:0, emissive:LIN.reveal, emissiveIntensity:0.25 });   // lit like the lining
   const bellowsM = mk(0x23272c, { roughness:0.95 }), doorM = mk(0xffffff, { vertexColors:true, roughness:0.45, metalness:0.15, side:THREE.DoubleSide }), glassM = mk(0x1c2530, { roughness:0.25, metalness:0.1 });
   const paneM = {   // glass in the openings: opaque from afar, tinted and clear near the camera; the doorway plug only from afar
     far:mk(0x27303a, { roughness:0.25, metalness:0.1 }), plug:mk(LIV.door, { roughness:0.8 }),
@@ -524,6 +543,7 @@ function buildSet(opts){
     const cr = new THREE.Mesh(TR.geo[L].capRear, capM), cf = new THREE.Mesh(TR.geo[L].capFront, capM); cf.position.x = 0; g.add(skin(cr), skin(cf));
     const lining = new THREE.Mesh(TR.lining[L], linM[L]), glass = new THREE.Mesh(TR.pane[L].glass, paneM.far), plug = new THREE.Mesh(TR.pane[L].plug, paneM.plug);
     lining.visible = false; glass.receiveShadow = plug.receiveShadow = true; g.add(lining, glass, plug);
+    lining.add(new THREE.Mesh(TR.surround[L], frameM));   // shown with the lining
     g.add(box(L - 1.0, 0.16, 2.6, endM, L / 2, 0.83, 0));                                 // underframe
     g.add(box(L - 3.0, 0.5, 2.9, endM, L / 2, 0.55, 0));                                  // low floor tanks/equipment
     if (i < TGV.TRAILERS.length - 1) g.add(skin(box(0.5, 3.3, 2.5, bellowsM, -0.25, 2.5, 0)));   // gangway bellows over the Jacobs bogie
@@ -687,13 +707,13 @@ function paxSeed(c){   // the passengers a coach starts with: 30% of the seats, 
   for (let i = 0; i < c.n; i++){
     const h = hash32(c.id * 1000 + i); c.colB[i] = PAX_COL[h % PAX_COL.length]; c.colH[i] = SKIN[(h >>> 8) % SKIN.length];
     c.bodies.setColorAt(i, _pc.setHex(c.colB[i])); c.heads.setColorAt(i, _pc.setHex(c.colH[i])); c.legs.setColorAt(i, _pc.setHex(trousers(c.colB[i], c.colH[i])));
-    c.occ[i] = hash32(c.id * 7919 + i) % 100 < 30 ? 1 : 0; poseSeat(c, i, c.occ[i] === 1);   // occ: 0 free, 1 seated, 2 getting off, 3 taken by someone getting on
+    c.occ[i] = !c.view.includes(i) && hash32(c.id * 7919 + i) % 100 < 30 ? 1 : 0; poseSeat(c, i, c.occ[i] === 1);   // occ: 0 free, 1 seated, 2 getting off, 3 taken by someone getting on
   }
   c.colDirty = true;
 }
-function freeSeat(c, deck){   // a random free seat on that deck, or -1
+function freeSeat(c, deck){   // a random free seat on that deck, or -1 (never the viewer's)
   let n = 0, pick = -1;
-  for (let i = 0; i < c.n; i++) if (c.occ[i] === 0 && c.deck[i] === deck && Math.random() * ++n < 1) pick = i;
+  for (let i = 0; i < c.n; i++) if (c.occ[i] === 0 && c.deck[i] === deck && !c.view.includes(i) && Math.random() * ++n < 1) pick = i;
   return pick;
 }
 
@@ -900,7 +920,13 @@ Object.assign(CAMS, {
   coupler:  () => S.sets === 2 || S.coupling !== 0 ? [[-186, 3.4, 6.0], [-186, 1.4, 0]] : [[-183, 3.4, 5.5], [-191, 1.4, 0]],   // from the island platform, inside the row of lamp posts and clear of the train on the far face
   station:  [[-30, 10, 34], [-45, 1.5, 4]],
   door:     [[-48, 2.3, 5.9], [-35, 1.7, 1.4]],   // eye height on the island platform, under the canopy, between the two trains
+  seatUp:   () => seatView(1),
+  seatLo:   () => seatView(0),
 });
+function seatView(d){   // first person in the viewer's seat of coach 1, head over the seat, the seat in front on the left, the window on the right
+  const c = tgvSets[0].coaches[0];
+  return { obj:c.g, eye:new THREE.Vector3(c.xr + SEAT_VIEW + 0.12, (d ? DECK.up : DECK.lo) + 1.16, 0.95), yaw:-0.75, pitch:-0.14 };
+}
 
 /* ---- per-frame update (tgv mode only) + mode switch hook */
 let tgvShadow = '';

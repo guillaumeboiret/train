@@ -15,7 +15,7 @@ const KID_T = {
 };
 const kt = k => KID_T[S.lang][k] ?? k;
 const KID_WX = [['sun', '☀️'], ['cloud', '☁️'], ['rain', '🌧️'], ['dusk', '🌆']];
-const KID_CAMS = ['overview', 'driver', 'door', 'side', 'train', 'far'];   // one tap: next view ('door' on the TGV only)
+const KID_CAMS = ['overview', 'driver', 'door', 'seatUp', 'seatLo', 'side', 'train', 'far'], KID_TGV_CAMS = ['door', 'seatUp', 'seatLo'];   // one tap: next view (the door and the two window seats on the TGV only)
 Object.assign(CAMS, {
   driver: () => S.mode === 'tgv' ? [[7.45, 3.45, 0.5], [60, 2.9, 0.1]] : [[10.3, 4.0, 0], [60, 2.4, 0]],   // TGV: in the cab over the driver's shoulder, through the windshield; loco: just above its windshield
   door: () => {   // on the platform just ahead of coach 1's door, over the heads of the queue: the leaf slides toward the camera
@@ -217,7 +217,7 @@ function kidDoors(){
 }
 let camIdx = 0, wxIdx = 0;
 function kidCam(){
-  do camIdx = (camIdx + 1) % KID_CAMS.length; while (KID_CAMS[camIdx] === 'door' && S.mode !== 'tgv');
+  do camIdx = (camIdx + 1) % KID_CAMS.length; while (S.mode !== 'tgv' && KID_TGV_CAMS.includes(KID_CAMS[camIdx]));
   flyPreset(KID_CAMS[camIdx]);
 }
 function kidWx(){ wxIdx = (wxIdx + 1) % KID_WX.length; setWeather(KID_WX[wxIdx][0]); $('kidWxIco').textContent = KID_WX[wxIdx][1]; }

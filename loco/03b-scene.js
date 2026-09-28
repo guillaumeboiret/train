@@ -228,7 +228,9 @@ function definePart(id, build){
   return p;
 }
 
-/* ------------------------------------------------------- orbit camera */
+/* ------------------------------------------------------- orbit camera (or first person: an eye riding a car of the train, the head free to turn) */
+const _fpP = new THREE.Vector3(), _fpQ = new THREE.Quaternion(), _fpR = new THREE.Quaternion(), _fpE = new THREE.Euler();
+const fpFov = aspect => THREE.MathUtils.clamp(2 * Math.atan(Math.tan(37.5 * Math.PI / 180) / aspect) * 180 / Math.PI, 55, 95);   // about 75° across, kept within 55..95° tall
 class Orbit {
   constructor(cam, dom){
     this.cam = cam; this.dom = dom;
@@ -238,6 +240,7 @@ class Orbit {
     this.autoRotate = false; this.moved = 0;
     this.ptrs = new Map(); this.lastPinch = 0; this.lastMid = null;
     this.onClick = null;
+    this.fp = null; this.fpZoom = 1; this.fov = cam.fov;   // first person {obj, eye, yaw, pitch, t, from, fromQ}; fov: the orbit's own lens
     dom.addEventListener('pointerdown', e => this.down(e));
     dom.addEventListener('pointermove', e => this.move(e));
     dom.addEventListener('pointerup', e => this.up(e));
@@ -266,7 +269,8 @@ class Orbit {
       this.lastMid = mid;
       return;
     }
-    if (p.b === 2 || p.b === 1 || p.shift) this.pan(dx, dy);
+    if (this.fp){ const k = this.cam.fov * Math.PI / 180 / Math.max(1, this.dom.clientHeight); this.turn(dx * k, dy * k); }   // the view follows the finger
+    else if (p.b === 2 || p.b === 1 || p.shift) this.pan(dx, dy);
     else { this.tSph.theta -= dx * 0.0055; this.tSph.phi -= dy * 0.0055; this.clamp(); }
   }
   up(e){
@@ -276,8 +280,12 @@ class Orbit {
     if (this.ptrs.size === 0) this.dom.classList.remove('dragging');
     if (p && this.moved < 6 && p.b === 0 && this.onClick) this.onClick(e);
   }
-  zoom(f){ this.tSph.radius = THREE.MathUtils.clamp(this.tSph.radius * f, 0.5, this.maxR || 90); }   // 0.5 m: the camera can enter the train
+  zoom(f){
+    if (this.fp){ this.fpZoom = THREE.MathUtils.clamp(this.fpZoom * f, 0.45, 1); return; }   // first person: the lens narrows, the eye stays in its seat
+    this.tSph.radius = THREE.MathUtils.clamp(this.tSph.radius * f, 0.5, this.maxR || 90);   // 0.5 m: the camera can enter the train
+  }
   pan(dx, dy){
+    if (this.fp) return;
     const k = this.sph.radius * 0.0016;
     const right = new THREE.Vector3(), up = new THREE.Vector3();
     right.setFromMatrixColumn(this.cam.matrix, 0); up.setFromMatrixColumn(this.cam.matrix, 1);
@@ -285,7 +293,20 @@ class Orbit {
     this.tTarget.y = THREE.MathUtils.clamp(this.tTarget.y, -2, 12);
   }
   clamp(){ this.tSph.phi = THREE.MathUtils.clamp(this.tSph.phi, 0.06, Math.PI - 0.06); }
+  turn(yaw, pitch){ const f = this.fp; f.yaw += yaw; f.pitch = THREE.MathUtils.clamp(f.pitch + pitch, -1.2, 1.2); }
+  look(obj, eye, yaw, pitch){   // first person: eye is in obj's frame and rides it rigidly, so the landscape moves past and the car does not; yaw 0 looks along +x, π/2 toward -z
+    this.fp = { obj, eye, yaw, pitch, t:0, from:this.cam.position.clone(), fromQ:this.cam.quaternion.clone() };
+    this.fpZoom = 1;
+  }
+  free(){   // back to orbiting from where the eye is, around a point 4 m ahead of it, so the view does not jump
+    if (!this.fp) return;
+    this.fp = null;
+    const d = _fpP.set(0, 0, -4).applyQuaternion(this.cam.quaternion);
+    this.target.copy(this.cam.position).add(d); this.tTarget.copy(this.target);
+    this.sph.setFromVector3(d.negate()); this.tSph.copy(this.sph);
+  }
   flyTo(pos, target){
+    this.free();
     this.tTarget.copy(target);
     this.tSph.setFromVector3(new THREE.Vector3().subVectors(pos, target));
     // keep theta continuous (avoid spinning the long way round)
@@ -294,14 +315,24 @@ class Orbit {
     this.clamp();
   }
   update(dt){
-    if (this.autoRotate && this.ptrs.size === 0) this.tSph.theta += dt * 0.18;
-    const k = 1 - Math.exp(-dt * 7);
-    this.sph.radius += (this.tSph.radius - this.sph.radius) * k;
-    this.sph.phi += (this.tSph.phi - this.sph.phi) * k;
-    this.sph.theta += (this.tSph.theta - this.sph.theta) * k;
-    this.target.lerp(this.tTarget, k);
-    this.cam.position.setFromSpherical(this.sph).add(this.target);
-    this.cam.lookAt(this.target);
+    const cam = this.cam, k = 1 - Math.exp(-dt * 7);
+    if (this.fp){
+      const f = this.fp;
+      f.obj.getWorldQuaternion(_fpQ).multiply(_fpR.setFromEuler(_fpE.set(f.pitch, f.yaw - Math.PI / 2, 0, 'YXZ')));   // also refreshes obj.matrixWorld
+      _fpP.copy(f.eye).applyMatrix4(f.obj.matrixWorld);
+      f.t = Math.min(1, f.t + dt / 0.9); const b = f.t * f.t * (3 - 2 * f.t);   // a 0.9 s glide into the seat, then rigid
+      cam.position.copy(f.from).lerp(_fpP, b); cam.quaternion.copy(f.fromQ).slerp(_fpQ, b);
+    } else {
+      if (this.autoRotate && this.ptrs.size === 0) this.tSph.theta += dt * 0.18;
+      this.sph.radius += (this.tSph.radius - this.sph.radius) * k;
+      this.sph.phi += (this.tSph.phi - this.sph.phi) * k;
+      this.sph.theta += (this.tSph.theta - this.sph.theta) * k;
+      this.target.lerp(this.tTarget, k);
+      cam.position.setFromSpherical(this.sph).add(this.target);
+      cam.lookAt(this.target);
+    }
+    const fov = this.fp ? fpFov(cam.aspect) * this.fpZoom : this.fov;   // a wider lens in first person, as a seat sees through a window
+    if (Math.abs(cam.fov - fov) > 0.01){ cam.fov += (fov - cam.fov) * k; cam.updateProjectionMatrix(); }
   }
 }
 const orbit = new Orbit(camera, canvas);
@@ -319,4 +350,7 @@ const CAMS = {
   roof:[[6, 11, 8], [0.5, 4.6, 0]],
   under:[[6, -2.6, 8.5], [0, 1.0, 0]],
 };
-function flyPreset(name){ let c = CAMS[name]; if (typeof c === 'function') c = c(); if (c) orbit.flyTo(new THREE.Vector3(...c[0]), new THREE.Vector3(...c[1])); }
+function flyPreset(name){   // a preset is [eye, target] to orbit, or {obj, eye, yaw, pitch} to ride in first person
+  let c = CAMS[name]; if (typeof c === 'function') c = c(); if (!c) return;
+  if (c.obj) orbit.look(c.obj, c.eye, c.yaw, c.pitch); else orbit.flyTo(new THREE.Vector3(...c[0]), new THREE.Vector3(...c[1]));
+}

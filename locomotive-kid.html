@@ -368,6 +368,8 @@ body:not([data-mode="tgv"]) .tgv-only{display:none}
                 <button type="button" class="btn" data-cam="coupler" data-i18n="cam_coupler">Attelage</button>
                 <button type="button" class="btn" data-cam="station" data-i18n="cam_station">Gare</button>
                 <button type="button" class="btn" data-cam="door" data-i18n="cam_door">Portes</button>
+                <button type="button" class="btn" data-cam="seatUp" data-i18n="cam_seatUp">Place en haut</button>
+                <button type="button" class="btn" data-cam="seatLo" data-i18n="cam_seatLo">Place en bas</button>
               </span>
             </div>
             <div class="hint" data-i18n="cam_hint">Clavier: W A S D déplacent le point de visée le long de la rame, R/F (ou E/Q) montent et descendent, Maj accélère. H ou Espace: klaxon.</div>
@@ -424,7 +426,7 @@ const T = {
     ctl_doors:"Portes côté quai", doors_open:"Ouvertes", doors_closed:"Fermées", doors_pax:"Échange voyageurs…", doors_hint:"Déverrouillées à l'arrêt seulement. Traction interdite portes ouvertes.",
     ctl_station:"Arrêt en gare (pilote auto)", station_go:"Aller au quai", station_running:"Approche…", station_at:"À quai", station_hint:"Freine et arrête la rame au repère du quai.",
     coupling:"Accostage…", uncoupling:"Séparation…", lamp_doors:"Portes", info_hide:"Masquer la fiche", info_show:"Afficher la fiche", f_roof:"Ligne de toiture 25 kV",
-    cam_train:"Rame entière", cam_rearroof:"Motrice arrière", cam_coupler:"Attelage", cam_station:"Gare", cam_door:"Portes",
+    cam_train:"Rame entière", cam_rearroof:"Motrice arrière", cam_coupler:"Attelage", cam_station:"Gare", cam_door:"Portes", cam_seatUp:"Place en haut", cam_seatLo:"Place en bas",
     ctl_track:"Voie", track_hint:"Changement par une communication 400 m devant la rame.", track_busy:"Communication déjà engagée, attendez.", track_occupied:"Voie occupée par un train en face.", track_2:"Voie 2 (sens Paris)", track_1:"Voie 1 (sens Bordeaux)",
     ctl_time:"Vitesse du temps", horn:"Klaxon (H)", hud_pk:"PK", hud_alt:"Alt.", hud_grade:"Pente", hud_tracks:"Voies", hud_limit:"Limite", hud_next:"Prochaine gare", hud_end:"Terminus", hud_tp:"Aller au PK", hud_go:"Go", rb_title:"Cliquez ou glissez sur la ligne pour vous téléporter", ctl_weather:"Météo", wx_sun:"Soleil", wx_cloud:"Nuages", wx_rain:"Pluie", wx_dusk:"Crépuscule", hud_bridge:"Pont", hud_tunnel:"Tunnel", hud_cutting:"Tranchée", hud_viaduct:"Viaduc",
     cam_hint:"Clavier: W A S D déplacent le point de visée le long de la rame, R/F (ou E/Q) montent et descendent, Maj accélère. H ou Espace: klaxon.",
@@ -458,7 +460,7 @@ const T = {
     ctl_doors:"Platform-side doors", doors_open:"Open", doors_closed:"Closed", doors_pax:"Passengers boarding…", doors_hint:"Unlocked at standstill only. No traction while open.",
     ctl_station:"Station stop (autopilot)", station_go:"Go to platform", station_running:"Approaching…", station_at:"At platform", station_hint:"Brakes and stops the set at the platform mark.",
     coupling:"Coupling…", uncoupling:"Uncoupling…", lamp_doors:"Doors", info_hide:"Hide card", info_show:"Show card", f_roof:"25 kV roof line",
-    cam_train:"Whole train", cam_rearroof:"Rear power car", cam_coupler:"Coupling", cam_station:"Station", cam_door:"Doors",
+    cam_train:"Whole train", cam_rearroof:"Rear power car", cam_coupler:"Coupling", cam_station:"Station", cam_door:"Doors", cam_seatUp:"Seat upstairs", cam_seatLo:"Seat downstairs",
     ctl_track:"Track", track_hint:"Changes over a crossover 400 m ahead of the train.", track_busy:"Crossover already in use, wait.", track_occupied:"Track occupied by an oncoming train.", track_2:"Track 2 (to Paris)", track_1:"Track 1 (to Bordeaux)",
     ctl_time:"Time scale", horn:"Horn (H)", hud_pk:"km", hud_alt:"Alt.", hud_grade:"Grade", hud_tracks:"Tracks", hud_limit:"Limit", hud_next:"Next station", hud_end:"Terminus", hud_tp:"Go to km", hud_go:"Go", rb_title:"Click or drag on the line to teleport", ctl_weather:"Weather", wx_sun:"Sun", wx_cloud:"Clouds", wx_rain:"Rain", wx_dusk:"Dusk", hud_bridge:"Bridge", hud_tunnel:"Tunnel", hud_cutting:"Cutting", hud_viaduct:"Viaduct",
     cam_hint:"Keys: W A S D move the focus along the train, R/F (or E/Q) up and down, Shift is faster. H or Space: horn.",
@@ -886,7 +888,9 @@ function definePart(id, build){
   return p;
 }
 
-/* ------------------------------------------------------- orbit camera */
+/* ------------------------------------------------------- orbit camera (or first person: an eye riding a car of the train, the head free to turn) */
+const _fpP = new THREE.Vector3(), _fpQ = new THREE.Quaternion(), _fpR = new THREE.Quaternion(), _fpE = new THREE.Euler();
+const fpFov = aspect => THREE.MathUtils.clamp(2 * Math.atan(Math.tan(37.5 * Math.PI / 180) / aspect) * 180 / Math.PI, 55, 95);   // about 75° across, kept within 55..95° tall
 class Orbit {
   constructor(cam, dom){
     this.cam = cam; this.dom = dom;
@@ -896,6 +900,7 @@ class Orbit {
     this.autoRotate = false; this.moved = 0;
     this.ptrs = new Map(); this.lastPinch = 0; this.lastMid = null;
     this.onClick = null;
+    this.fp = null; this.fpZoom = 1; this.fov = cam.fov;   // first person {obj, eye, yaw, pitch, t, from, fromQ}; fov: the orbit's own lens
     dom.addEventListener('pointerdown', e => this.down(e));
     dom.addEventListener('pointermove', e => this.move(e));
     dom.addEventListener('pointerup', e => this.up(e));
@@ -924,7 +929,8 @@ class Orbit {
       this.lastMid = mid;
       return;
     }
-    if (p.b === 2 || p.b === 1 || p.shift) this.pan(dx, dy);
+    if (this.fp){ const k = this.cam.fov * Math.PI / 180 / Math.max(1, this.dom.clientHeight); this.turn(dx * k, dy * k); }   // the view follows the finger
+    else if (p.b === 2 || p.b === 1 || p.shift) this.pan(dx, dy);
     else { this.tSph.theta -= dx * 0.0055; this.tSph.phi -= dy * 0.0055; this.clamp(); }
   }
   up(e){
@@ -934,8 +940,12 @@ class Orbit {
     if (this.ptrs.size === 0) this.dom.classList.remove('dragging');
     if (p && this.moved < 6 && p.b === 0 && this.onClick) this.onClick(e);
   }
-  zoom(f){ this.tSph.radius = THREE.MathUtils.clamp(this.tSph.radius * f, 0.5, this.maxR || 90); }   // 0.5 m: the camera can enter the train
+  zoom(f){
+    if (this.fp){ this.fpZoom = THREE.MathUtils.clamp(this.fpZoom * f, 0.45, 1); return; }   // first person: the lens narrows, the eye stays in its seat
+    this.tSph.radius = THREE.MathUtils.clamp(this.tSph.radius * f, 0.5, this.maxR || 90);   // 0.5 m: the camera can enter the train
+  }
   pan(dx, dy){
+    if (this.fp) return;
     const k = this.sph.radius * 0.0016;
     const right = new THREE.Vector3(), up = new THREE.Vector3();
     right.setFromMatrixColumn(this.cam.matrix, 0); up.setFromMatrixColumn(this.cam.matrix, 1);
@@ -943,7 +953,20 @@ class Orbit {
     this.tTarget.y = THREE.MathUtils.clamp(this.tTarget.y, -2, 12);
   }
   clamp(){ this.tSph.phi = THREE.MathUtils.clamp(this.tSph.phi, 0.06, Math.PI - 0.06); }
+  turn(yaw, pitch){ const f = this.fp; f.yaw += yaw; f.pitch = THREE.MathUtils.clamp(f.pitch + pitch, -1.2, 1.2); }
+  look(obj, eye, yaw, pitch){   // first person: eye is in obj's frame and rides it rigidly, so the landscape moves past and the car does not; yaw 0 looks along +x, π/2 toward -z
+    this.fp = { obj, eye, yaw, pitch, t:0, from:this.cam.position.clone(), fromQ:this.cam.quaternion.clone() };
+    this.fpZoom = 1;
+  }
+  free(){   // back to orbiting from where the eye is, around a point 4 m ahead of it, so the view does not jump
+    if (!this.fp) return;
+    this.fp = null;
+    const d = _fpP.set(0, 0, -4).applyQuaternion(this.cam.quaternion);
+    this.target.copy(this.cam.position).add(d); this.tTarget.copy(this.target);
+    this.sph.setFromVector3(d.negate()); this.tSph.copy(this.sph);
+  }
   flyTo(pos, target){
+    this.free();
     this.tTarget.copy(target);
     this.tSph.setFromVector3(new THREE.Vector3().subVectors(pos, target));
     // keep theta continuous (avoid spinning the long way round)
@@ -952,14 +975,24 @@ class Orbit {
     this.clamp();
   }
   update(dt){
-    if (this.autoRotate && this.ptrs.size === 0) this.tSph.theta += dt * 0.18;
-    const k = 1 - Math.exp(-dt * 7);
-    this.sph.radius += (this.tSph.radius - this.sph.radius) * k;
-    this.sph.phi += (this.tSph.phi - this.sph.phi) * k;
-    this.sph.theta += (this.tSph.theta - this.sph.theta) * k;
-    this.target.lerp(this.tTarget, k);
-    this.cam.position.setFromSpherical(this.sph).add(this.target);
-    this.cam.lookAt(this.target);
+    const cam = this.cam, k = 1 - Math.exp(-dt * 7);
+    if (this.fp){
+      const f = this.fp;
+      f.obj.getWorldQuaternion(_fpQ).multiply(_fpR.setFromEuler(_fpE.set(f.pitch, f.yaw - Math.PI / 2, 0, 'YXZ')));   // also refreshes obj.matrixWorld
+      _fpP.copy(f.eye).applyMatrix4(f.obj.matrixWorld);
+      f.t = Math.min(1, f.t + dt / 0.9); const b = f.t * f.t * (3 - 2 * f.t);   // a 0.9 s glide into the seat, then rigid
+      cam.position.copy(f.from).lerp(_fpP, b); cam.quaternion.copy(f.fromQ).slerp(_fpQ, b);
+    } else {
+      if (this.autoRotate && this.ptrs.size === 0) this.tSph.theta += dt * 0.18;
+      this.sph.radius += (this.tSph.radius - this.sph.radius) * k;
+      this.sph.phi += (this.tSph.phi - this.sph.phi) * k;
+      this.sph.theta += (this.tSph.theta - this.sph.theta) * k;
+      this.target.lerp(this.tTarget, k);
+      cam.position.setFromSpherical(this.sph).add(this.target);
+      cam.lookAt(this.target);
+    }
+    const fov = this.fp ? fpFov(cam.aspect) * this.fpZoom : this.fov;   // a wider lens in first person, as a seat sees through a window
+    if (Math.abs(cam.fov - fov) > 0.01){ cam.fov += (fov - cam.fov) * k; cam.updateProjectionMatrix(); }
   }
 }
 const orbit = new Orbit(camera, canvas);
@@ -977,7 +1010,10 @@ const CAMS = {
   roof:[[6, 11, 8], [0.5, 4.6, 0]],
   under:[[6, -2.6, 8.5], [0, 1.0, 0]],
 };
-function flyPreset(name){ let c = CAMS[name]; if (typeof c === 'function') c = c(); if (c) orbit.flyTo(new THREE.Vector3(...c[0]), new THREE.Vector3(...c[1])); }
+function flyPreset(name){   // a preset is [eye, target] to orbit, or {obj, eye, yaw, pitch} to ride in first person
+  let c = CAMS[name]; if (typeof c === 'function') c = c(); if (!c) return;
+  if (c.obj) orbit.look(c.obj, c.eye, c.yaw, c.pitch); else orbit.flyTo(new THREE.Vector3(...c[0]), new THREE.Vector3(...c[1]));
+}
 
 /* ------------------------------------------------ shared animated handles */
 const axles = [], motorRotors = [], roofFans = [], lampMats = [];
@@ -2156,6 +2192,7 @@ const pcShells = { mats:[], meshes:[] };     // their body shells, so the shell 
 const trShells = { mats:[], meshes:[] };     // trailer skins (body, ends, gangways, doors): the shell control fades them too and reveals the interiors
 const allCoaches = [], COACH_NEAR = 60;      // every trailer of every set (own, parked, opposing); interiors are drawn within COACH_NEAR m of the camera (further out a head is 3 px)
 const DECK = { lo:0.92, up:2.3 };            // floor heights of the two decks (the windows sit at 1.6..2.2 and 3.0..3.75)
+const SEAT_VIEW = 9.4;                       // x from the coach's rear end of the window seat kept free for the viewer, on both decks of every coach (row 7, beside window 3)
 const SEAT_GEO = (() => {                    // cushion + backrest facing +x, origin on the floor at the seat centre, 0.44 wide
   const s = new THREE.Shape(); s.moveTo(-0.22, 0.28); s.lineTo(0.22, 0.28); s.lineTo(0.22, 0.42); s.lineTo(-0.12, 0.42); s.lineTo(-0.12, 0.95); s.lineTo(-0.22, 0.95); s.closePath();
   const g = new THREE.ExtrudeGeometry(s, { depth:0.44, bevelEnabled:false }); g.translate(0, 0, -0.22); return g;
@@ -2196,11 +2233,14 @@ const hash32 = i => { i = Math.imul(i ^ (i >>> 16), 0x45d9f3b); i = Math.imul(i 
 function buildCoach(parent, cm, xr, L, carNo){
   const g = new THREE.Group(); g.visible = false; parent.add(g);
   const fl = new THREE.Mesh(deckGeo(L).floor, cm.floor), ce = new THREE.Mesh(deckGeo(L).ceil, cm.ceil); fl.position.x = ce.position.x = xr;
-  const seat = [], deck = [];
-  for (const [d, y] of [[0, DECK.lo], [1, DECK.up]]) for (let x = xr + 4.0; x < xr + L - 0.9; x += 0.9) for (const z of [-0.95, -0.48, 0.48, 0.95]){ seat.push(x, y, z); deck.push(d); }
+  const seat = [], deck = [], view = [];
+  for (const [d, y] of [[0, DECK.lo], [1, DECK.up]]) for (let x = xr + 4.0; x < xr + L - 0.9; x += 0.9) for (const z of [-0.95, -0.48, 0.48, 0.95]){
+    if (z === 0.95 && Math.abs(x - xr - SEAT_VIEW) < 0.1) view.push(deck.length);
+    seat.push(x, y, z); deck.push(d);
+  }
   const n = deck.length, cls = carNo % 10 <= 3 ? 0 : 1;                                 // cars 1..3 (11..13) are first class
   const seats = new THREE.InstancedMesh(SEAT_GEO, cm.seat, n), bodies = new THREE.InstancedMesh(PAX_BODY_GEO, cm.body, n), heads = new THREE.InstancedMesh(PAX_HEAD_GEO, cm.head, n), legs = new THREE.InstancedMesh(PAX_LEG_GEO, cm.legs, n);
-  const c = { g, id:carNo, xr, L, n, seat:new Float32Array(seat), deck:new Uint8Array(deck), occ:new Uint8Array(n), colB:new Uint32Array(n), colH:new Uint32Array(n),
+  const c = { g, id:carNo, xr, L, n, seat:new Float32Array(seat), deck:new Uint8Array(deck), occ:new Uint8Array(n), view, colB:new Uint32Array(n), colH:new Uint32Array(n),
               bodies, heads, legs, paths:[], walk:[], crowd:[[], []], dirty:false, colDirty:false };
   for (let i = 0; i < n; i++){
     _m4.compose(_p.set(seat[3 * i], seat[3 * i + 1], seat[3 * i + 2]), Q0, _s.setScalar(1)); seats.setMatrixAt(i, _m4); seats.setColorAt(i, SEAT_COL[cls]);
@@ -2290,7 +2330,7 @@ const TR = (() => {
     };
     return { band, round, cut, cx, cy };
   };
-  const geo = {}, tex = {}, lin = {}, pane = {}, lining = {}, logo = inouiLogo(128, '#f2f1ee', '#e5415d');
+  const geo = {}, tex = {}, lin = {}, pane = {}, lining = {}, surround = {}, logo = inouiLogo(128, '#f2f1ee', '#e5415d');
   for (const L of Ls){
     geo[L] = loftGeo([{ x:0, pts }, { x:L, pts }], vs);
     tex[L] = canvasTex(2048, 1024, (c, W, H) => {   // inOui livery: silver over a Carmillon line, anthracite band (to the floor by the door), pale sill, dark gaskets and door frame, logo past the door
@@ -2335,6 +2375,20 @@ const TR = (() => {
       return g;
     };
     pane[L] = { glass:strips(false, -0.004), plug:strips(true, 0.07) };   // glass 4 mm proud of the skin, over the gasket; the plug sits behind the closed leaf (its back is 4.8 cm in)
+    const rr = (x0, x1, y0, y1, r, out) => {   // rounded rectangle, 7 points per corner, anticlockwise from the top right corner
+      for (const [cx, cy, q] of [[x1 - r, y1 - r, 0], [x0 + r, y1 - r, 1], [x0 + r, y0 + r, 2], [x1 - r, y0 + r, 3]])
+        for (let k = 0; k <= 6; k++){ const a = (q + k / 6) * Math.PI / 2; out.push([cx + r * Math.cos(a), cy + r * Math.sin(a)]); }
+      return out;
+    };
+    const fp = [], fi = [];   // window surrounds 3 mm inside the lining, from 3 cm inside each opening to 3.5 cm out: a crisp edge over the alpha cuts, which a seat sees at arm's length
+    for (const s of [1, -1]) for (const [x0, x1, y0, y1, d] of holes(L)){
+      if (d) continue;
+      const a = rr(x0 + 0.03, x1 - 0.03, y0 + 0.03, y1 - 0.03, 0.07, []), b = rr(x0 - 0.035, x1 + 0.035, y0 - 0.035, y1 + 0.035, 0.135, []), o = fp.length / 3, n = a.length;
+      for (const [x, y] of [...a, ...b]) fp.push(x, y, s * (zAtY(pts, y) - 0.003));
+      for (let k = 0; k < n; k++){ const k1 = (k + 1) % n; fi.push(o + k, o + n + k, o + n + k1, o + k, o + n + k1, o + k1); }
+    }
+    const fg = surround[L] = new THREE.BufferGeometry();
+    fg.setAttribute('position', new THREE.Float32BufferAttribute(fp, 3)); fg.setIndex(fi); fg.computeVertexNormals();
   }
   const paint = g => {   // inOui door: magenta at the top and bottom, coral a little over mid height (vertex colours by height)
     const p = g.getAttribute('position'), st = [[0, '#dd4c8e'], [0.55, '#fa6951'], [1, '#e034a2']].map(([t, h]) => [t, new THREE.Color(h)]), q = new THREE.Color(), col = [];
@@ -2346,7 +2400,7 @@ const TR = (() => {
     return g;
   };
   const leaf = { p:paint(doorLeafGeo(pts, 1, ...DOOR.slice(2), DOOR[1] - DOOR[0])), n:paint(doorLeafGeo(pts, -1, ...DOOR.slice(2), DOOR[1] - DOOR[0])) };
-  return { geo, tex, lin, pane, lining, pts, yBot, yTop, leaf, doorX:(DOOR[0] + DOOR[1]) / 2 };
+  return { geo, tex, lin, pane, lining, surround, pts, yBot, yTop, leaf, doorX:(DOOR[0] + DOOR[1]) / 2 };
 })();
 const carNumTex = {};
 function carNumber(n){
@@ -2367,6 +2421,7 @@ function buildSet(opts){
     linM[L] = mk(0xffffff, { map:TR.lin[L], alphaTest:0.5, side:THREE.BackSide, roughness:0.9, metalness:0, emissive:0xffffff, emissiveMap:TR.lin[L], emissiveIntensity:0.25 });   // inside of the shell, lit by the saloon lights
   }
   const endM = mk(0x2b3238, { roughness:0.85 }), capM = mk(0x2b3238, { roughness:0.85 });
+  const frameM = mk(LIN.reveal, { side:THREE.DoubleSide, roughness:0.9, metalness:0, emissive:LIN.reveal, emissiveIntensity:0.25 });   // lit like the lining
   const bellowsM = mk(0x23272c, { roughness:0.95 }), doorM = mk(0xffffff, { vertexColors:true, roughness:0.45, metalness:0.15, side:THREE.DoubleSide }), glassM = mk(0x1c2530, { roughness:0.25, metalness:0.1 });
   const paneM = {   // glass in the openings: opaque from afar, tinted and clear near the camera; the doorway plug only from afar
     far:mk(0x27303a, { roughness:0.25, metalness:0.1 }), plug:mk(LIV.door, { roughness:0.8 }),
@@ -2383,6 +2438,7 @@ function buildSet(opts){
     const cr = new THREE.Mesh(TR.geo[L].capRear, capM), cf = new THREE.Mesh(TR.geo[L].capFront, capM); cf.position.x = 0; g.add(skin(cr), skin(cf));
     const lining = new THREE.Mesh(TR.lining[L], linM[L]), glass = new THREE.Mesh(TR.pane[L].glass, paneM.far), plug = new THREE.Mesh(TR.pane[L].plug, paneM.plug);
     lining.visible = false; glass.receiveShadow = plug.receiveShadow = true; g.add(lining, glass, plug);
+    lining.add(new THREE.Mesh(TR.surround[L], frameM));   // shown with the lining
     g.add(box(L - 1.0, 0.16, 2.6, endM, L / 2, 0.83, 0));                                 // underframe
     g.add(box(L - 3.0, 0.5, 2.9, endM, L / 2, 0.55, 0));                                  // low floor tanks/equipment
     if (i < TGV.TRAILERS.length - 1) g.add(skin(box(0.5, 3.3, 2.5, bellowsM, -0.25, 2.5, 0)));   // gangway bellows over the Jacobs bogie
@@ -2546,13 +2602,13 @@ function paxSeed(c){   // the passengers a coach starts with: 30% of the seats, 
   for (let i = 0; i < c.n; i++){
     const h = hash32(c.id * 1000 + i); c.colB[i] = PAX_COL[h % PAX_COL.length]; c.colH[i] = SKIN[(h >>> 8) % SKIN.length];
     c.bodies.setColorAt(i, _pc.setHex(c.colB[i])); c.heads.setColorAt(i, _pc.setHex(c.colH[i])); c.legs.setColorAt(i, _pc.setHex(trousers(c.colB[i], c.colH[i])));
-    c.occ[i] = hash32(c.id * 7919 + i) % 100 < 30 ? 1 : 0; poseSeat(c, i, c.occ[i] === 1);   // occ: 0 free, 1 seated, 2 getting off, 3 taken by someone getting on
+    c.occ[i] = !c.view.includes(i) && hash32(c.id * 7919 + i) % 100 < 30 ? 1 : 0; poseSeat(c, i, c.occ[i] === 1);   // occ: 0 free, 1 seated, 2 getting off, 3 taken by someone getting on
   }
   c.colDirty = true;
 }
-function freeSeat(c, deck){   // a random free seat on that deck, or -1
+function freeSeat(c, deck){   // a random free seat on that deck, or -1 (never the viewer's)
   let n = 0, pick = -1;
-  for (let i = 0; i < c.n; i++) if (c.occ[i] === 0 && c.deck[i] === deck && Math.random() * ++n < 1) pick = i;
+  for (let i = 0; i < c.n; i++) if (c.occ[i] === 0 && c.deck[i] === deck && !c.view.includes(i) && Math.random() * ++n < 1) pick = i;
   return pick;
 }
 
@@ -2759,7 +2815,13 @@ Object.assign(CAMS, {
   coupler:  () => S.sets === 2 || S.coupling !== 0 ? [[-186, 3.4, 6.0], [-186, 1.4, 0]] : [[-183, 3.4, 5.5], [-191, 1.4, 0]],   // from the island platform, inside the row of lamp posts and clear of the train on the far face
   station:  [[-30, 10, 34], [-45, 1.5, 4]],
   door:     [[-48, 2.3, 5.9], [-35, 1.7, 1.4]],   // eye height on the island platform, under the canopy, between the two trains
+  seatUp:   () => seatView(1),
+  seatLo:   () => seatView(0),
 });
+function seatView(d){   // first person in the viewer's seat of coach 1, head over the seat, the seat in front on the left, the window on the right
+  const c = tgvSets[0].coaches[0];
+  return { obj:c.g, eye:new THREE.Vector3(c.xr + SEAT_VIEW + 0.12, (d ? DECK.up : DECK.lo) + 1.16, 0.95), yaw:-0.75, pitch:-0.14 };
+}
 
 /* ---- per-frame update (tgv mode only) + mode switch hook */
 let tgvShadow = '';
@@ -4021,6 +4083,7 @@ function toggleHidden(id){
 const FLY_DIST = { shell:16, frame:16, catenary:16, bogies:16, tgvShell:22, powerCars:26, roofLine:20, trailers:30, jacobs:12, doors:9 };
 function flyToPart(id){
   const p = parts[id]; if (!p) return;
+  orbit.free();   // out of a seat first, so the way in is measured from where the eye really is
   const a = p.anchor.clone().add(p.group.position); curveLocal(a.x, a.y, a.z, a);
   const target = a.clone(); target.y -= 0.6;
   const dir = camera.position.clone().sub(orbit.target).normalize();
@@ -4263,7 +4326,11 @@ function setExplode(f){
   for (const p of Object.values(parts)){ if (p.id === 'catenary') continue; p.group.position.copy(p.explode).multiplyScalar(f); }
 }
 $('rgExplode').addEventListener('input', e => setExplode(+e.target.value));
-$('camRow').addEventListener('click', e => { const b = e.target.closest('button'); if (b) flyPreset(b.dataset.cam); });
+$('camRow').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  if (b.dataset.cam.startsWith('seat') && shellLevel < 1) setShell(1);   // a passenger's view: the body opaque, the windows glazed
+  flyPreset(b.dataset.cam);
+});
 $('swRotate').addEventListener('change', e => { orbit.autoRotate = e.target.checked; });
 
 /* ---- tabs, top bar, sheet */
@@ -4435,6 +4502,10 @@ window.addEventListener('blur', () => { keys.clear(); horn.release(); });
 const _pf = new THREE.Vector3(), _pr = new THREE.Vector3();
 function panKeys(dt){   // the focus point moves in the train's frame, so the camera stays attached to it
   if (!keys.size || (keys.size === 1 && keys.has('shift'))) return;
+  if (orbit.fp){   // first person: the keys turn the head
+    const a = 1.3 * dt, on = m => keys.has(m) ? 1 : 0;
+    orbit.turn((on('left') - on('right')) * a, (Math.max(on('fwd'), on('up')) - Math.max(on('back'), on('down'))) * a); return;
+  }
   const sp = 0.6 * orbit.sph.radius * (keys.has('shift') ? 3 : 1) * dt, tt = orbit.tTarget;
   _pf.copy(orbit.target).sub(camera.position); _pf.y = 0; if (_pf.lengthSq() < 1e-6) _pf.set(1, 0, 0); _pf.normalize();
   _pr.crossVectors(_pf, Y_UP);
@@ -4504,7 +4575,7 @@ const KID_T = {
 };
 const kt = k => KID_T[S.lang][k] ?? k;
 const KID_WX = [['sun', '☀️'], ['cloud', '☁️'], ['rain', '🌧️'], ['dusk', '🌆']];
-const KID_CAMS = ['overview', 'driver', 'door', 'side', 'train', 'far'];   // one tap: next view ('door' on the TGV only)
+const KID_CAMS = ['overview', 'driver', 'door', 'seatUp', 'seatLo', 'side', 'train', 'far'], KID_TGV_CAMS = ['door', 'seatUp', 'seatLo'];   // one tap: next view (the door and the two window seats on the TGV only)
 Object.assign(CAMS, {
   driver: () => S.mode === 'tgv' ? [[7.45, 3.45, 0.5], [60, 2.9, 0.1]] : [[10.3, 4.0, 0], [60, 2.4, 0]],   // TGV: in the cab over the driver's shoulder, through the windshield; loco: just above its windshield
   door: () => {   // on the platform just ahead of coach 1's door, over the heads of the queue: the leaf slides toward the camera
@@ -4706,7 +4777,7 @@ function kidDoors(){
 }
 let camIdx = 0, wxIdx = 0;
 function kidCam(){
-  do camIdx = (camIdx + 1) % KID_CAMS.length; while (KID_CAMS[camIdx] === 'door' && S.mode !== 'tgv');
+  do camIdx = (camIdx + 1) % KID_CAMS.length; while (S.mode !== 'tgv' && KID_TGV_CAMS.includes(KID_CAMS[camIdx]));
   flyPreset(KID_CAMS[camIdx]);
 }
 function kidWx(){ wxIdx = (wxIdx + 1) % KID_WX.length; setWeather(KID_WX[wxIdx][0]); $('kidWxIco').textContent = KID_WX[wxIdx][1]; }

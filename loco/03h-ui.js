@@ -83,6 +83,7 @@ function toggleHidden(id){
 const FLY_DIST = { shell:16, frame:16, catenary:16, bogies:16, tgvShell:22, powerCars:26, roofLine:20, trailers:30, jacobs:12, doors:9 };
 function flyToPart(id){
   const p = parts[id]; if (!p) return;
+  orbit.free();   // out of a seat first, so the way in is measured from where the eye really is
   const a = p.anchor.clone().add(p.group.position); curveLocal(a.x, a.y, a.z, a);
   const target = a.clone(); target.y -= 0.6;
   const dir = camera.position.clone().sub(orbit.target).normalize();
@@ -325,7 +326,11 @@ function setExplode(f){
   for (const p of Object.values(parts)){ if (p.id === 'catenary') continue; p.group.position.copy(p.explode).multiplyScalar(f); }
 }
 $('rgExplode').addEventListener('input', e => setExplode(+e.target.value));
-$('camRow').addEventListener('click', e => { const b = e.target.closest('button'); if (b) flyPreset(b.dataset.cam); });
+$('camRow').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  if (b.dataset.cam.startsWith('seat') && shellLevel < 1) setShell(1);   // a passenger's view: the body opaque, the windows glazed
+  flyPreset(b.dataset.cam);
+});
 $('swRotate').addEventListener('change', e => { orbit.autoRotate = e.target.checked; });
 
 /* ---- tabs, top bar, sheet */
@@ -497,6 +502,10 @@ window.addEventListener('blur', () => { keys.clear(); horn.release(); });
 const _pf = new THREE.Vector3(), _pr = new THREE.Vector3();
 function panKeys(dt){   // the focus point moves in the train's frame, so the camera stays attached to it
   if (!keys.size || (keys.size === 1 && keys.has('shift'))) return;
+  if (orbit.fp){   // first person: the keys turn the head
+    const a = 1.3 * dt, on = m => keys.has(m) ? 1 : 0;
+    orbit.turn((on('left') - on('right')) * a, (Math.max(on('fwd'), on('up')) - Math.max(on('back'), on('down'))) * a); return;
+  }
   const sp = 0.6 * orbit.sph.radius * (keys.has('shift') ? 3 : 1) * dt, tt = orbit.tTarget;
   _pf.copy(orbit.target).sub(camera.position); _pf.y = 0; if (_pf.lengthSq() < 1e-6) _pf.set(1, 0, 0); _pf.normalize();
   _pr.crossVectors(_pf, Y_UP);
