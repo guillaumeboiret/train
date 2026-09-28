@@ -4398,9 +4398,13 @@ const KID_T = {
 };
 const kt = k => KID_T[S.lang][k] ?? k;
 const KID_WX = [['sun', '☀️'], ['cloud', '☁️'], ['rain', '🌧️'], ['dusk', '🌆']];
-const KID_CAMS = ['overview', 'driver', 'side', 'train', 'far'];   // one tap: next view
+const KID_CAMS = ['overview', 'driver', 'door', 'side', 'train', 'far'];   // one tap: next view ('door' on the TGV only)
 Object.assign(CAMS, {
   driver: () => S.mode === 'tgv' ? [[7.45, 3.45, 0.5], [60, 2.9, 0.1]] : [[10.3, 4.0, 0], [60, 2.4, 0]],   // TGV: in the cab over the driver's shoulder, through the windshield; loco: just above its windshield
+  door: () => {   // on the platform just ahead of coach 1's door, over the heads of the queue: the leaf slides toward the camera
+    const x = TGV.TRAILERS[0][0] + TR.doorX, V = THREE.Vector3;
+    return [curveLocal(x + 5.5, 2.9, 6.0, new V()).toArray(), curveLocal(x, 1.7, 1.5, new V()).toArray()];
+  },
   train: () => S.mode === 'tgv' ? [[-60, 40, 150], [-85, 2, 0]] : [[-28, 9, 14], [6, 2.5, 0]],       // the whole train: a 200 m TGV from the side, a loco chased from behind
 });
 // toy physics per train: top speed in about a minute, STOP in well under one; the explainer keeps the real numbers (all 1)
@@ -4592,9 +4596,13 @@ function kidDoors(){
   if (S.speed > 0.1){ kidToast('hint_stopped', 2500); return; }
   if (S.doors && paxHolding()){ kidToast('hint_pax', 3000); PX.closeWhenDone = true; return; }
   S.doors = !S.doors; syncControls();
+  if (S.doors){ camIdx = KID_CAMS.indexOf('door'); flyPreset('door'); }   // opening: land beside the first door to watch it
 }
 let camIdx = 0, wxIdx = 0;
-function kidCam(){ camIdx = (camIdx + 1) % KID_CAMS.length; flyPreset(KID_CAMS[camIdx]); }
+function kidCam(){
+  do camIdx = (camIdx + 1) % KID_CAMS.length; while (KID_CAMS[camIdx] === 'door' && S.mode !== 'tgv');
+  flyPreset(KID_CAMS[camIdx]);
+}
 function kidWx(){ wxIdx = (wxIdx + 1) % KID_WX.length; setWeather(KID_WX[wxIdx][0]); $('kidWxIco').textContent = KID_WX[wxIdx][1]; }
 function kidXray(){ setShell(shellLevel >= 1 ? 0.18 : 1); $('kidXray').setAttribute('aria-pressed', String(shellLevel < 1)); }
 function kidTrain(mode){
