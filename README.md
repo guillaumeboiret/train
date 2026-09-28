@@ -1,4 +1,4 @@
-# train-3d
+# train
 
 Three static [Three.js](https://threejs.org) pages about trains, in French and English. A personal side project.
 
