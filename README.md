@@ -34,7 +34,7 @@ https://train.boiret.com serves the three pages plus a landing page. `site/build
 
 ### Languages
 
-The whole site speaks one language at a time, French or English. `site/lang.js`, inlined first in every page's head by `site/build.sh`, picks it before anything renders: a `?lang=fr` or `?lang=en` link wins and is remembered, then the visitor's last pick, then the browser's languages, then English. Every page's switcher saves the pick under the `lang` key of `localStorage`, so the next page opens in the same language. Each page starts in `<html lang>`; while its dictionary is not applied yet, its `[data-i18n]` markup text is hidden rather than shown in the wrong language.
+The whole site speaks one language at a time, French or English. `site/lang.js`, inlined first in every page's head by `site/build.sh`, picks it before anything renders: a `?lang=fr` or `?lang=en` link wins and is remembered, then the visitor's last pick, then the browser's languages, then English. Every page's switcher saves the pick under the `lang` key of `localStorage`, so the next page opens in the same language. Each page starts in `<html lang>`; while its dictionary is not applied yet, its `[data-i18n]` markup text is hidden rather than shown in the wrong language, at most until `DOMContentLoaded`, so a page whose script fails (no WebGL) still shows its text.
 
 Adding a language: its code in `OK` in `site/lang.js`, a button in each switcher (`site/index.html`, `loco/02-markup.html`, `loco/03i-kid.js`, `game/g1-markup.html`), and its strings wherever `fr` has some: the landing dictionary in `site/index.html`, `T`, `PARTS` and `STEPS` in `loco/03a-data.js`, `KID_T` in `loco/03i-kid.js`, `I18N` in `game/g5-game.js` and the level texts in `game/g3-levels.js`.
 

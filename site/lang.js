@@ -23,4 +23,7 @@
   const s = document.createElement('style');
   s.textContent = '[data-i18n-wait] [data-i18n]{ visibility:hidden; }';
   document.head.append(s);
+  // A page whose script dies first (no WebGL, a failed import) shows its markup text rather than none. Every page applies
+  // its dictionary while its scripts run, and they have all run by DOMContentLoaded, so this never acts on a healthy page.
+  document.addEventListener('DOMContentLoaded', () => d.removeAttribute('data-i18n-wait'));
 })();
