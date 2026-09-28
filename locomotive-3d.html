@@ -106,6 +106,12 @@ input[type=range]{width:100%;accent-color:var(--accent);margin:2px 0}
 .legend i{width:16px;height:3px;border-radius:2px;display:inline-block}
 .infocard .close{grid-column:2;grid-row:1/3;align-self:start;background:transparent;border:1px solid var(--line);color:var(--muted);border-radius:6px;width:28px;height:28px;cursor:pointer;font-size:16px;line-height:1}
 .gauges{position:absolute;top:12px;right:12px;display:grid;grid-auto-flow:column;gap:8px}
+.compass{position:absolute;top:84px;right:324px;width:56px;height:56px;box-sizing:border-box;border-radius:50%;background:var(--panel);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid var(--line);pointer-events:none}
+.compass svg{display:block;width:100%;height:100%}
+.cp-tick{fill:none;stroke:var(--muted);stroke-width:1.6;stroke-linecap:round}
+.cp-n{fill:#e5484d}.cp-s{fill:var(--muted)}.cp-hub{fill:var(--panel-solid)}.cp-mark{fill:var(--accent)}
+.cp-l{font:700 12px/1 var(--font-display);fill:var(--ink);text-anchor:middle;dominant-baseline:central}
+.cp-l.cp-ln{fill:#e5484d}
 .g{background:var(--panel);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid var(--line);border-radius:8px;padding:8px 10px 9px;min-width:104px}
 .g .k{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600;white-space:nowrap}
 .g .v{font-family:var(--font-mono);font-size:21px;line-height:1.1;font-variant-numeric:tabular-nums;margin-top:3px;white-space:nowrap}
@@ -152,8 +158,9 @@ body:not([data-mode="tgv"]) .tgv-only{display:none}
   .dock.collapsed{height:auto}
   .dock.collapsed .panels{display:none}
   #sheetToggle{display:block}
-  .infocard{left:16px;right:16px;width:auto;top:12px;bottom:auto;max-height:30%;overflow:auto;padding:10px 12px}
-  .infocard.collapsed{right:auto;max-width:calc(100% - 32px);padding:6px 8px 6px 12px}
+  .infocard{left:16px;right:72px;width:auto;top:12px;bottom:auto;max-height:30%;overflow:auto;padding:10px 12px}
+  .infocard.collapsed{right:auto;max-width:calc(100% - 88px);padding:6px 8px 6px 12px}
+  .compass{top:12px;right:12px;width:48px;height:48px}
   .infocard h2{font-size:19px}
   .infocard p{font-size:13px;margin-top:6px}
   .gauges{top:auto;bottom:calc(44% + 8px);left:8px;right:8px;grid-auto-flow:row;grid-template-columns:repeat(5,1fr);gap:4px}
@@ -191,6 +198,13 @@ body:not([data-mode="tgv"]) .tgv-only{display:none}
   <main class="stage">
     <canvas id="c3d" aria-label="Locomotive 3D" data-i18n-aria="aria_canvas"></canvas>
     <div id="labels" aria-hidden="true"></div>
+    <div class="compass" id="compass" role="img" aria-label="Boussole" data-i18n-aria="aria_compass">
+      <svg viewBox="-32 -32 64 64" aria-hidden="true" focusable="false">
+        <g id="cpCard"><path class="cp-tick" d="M0-29.5v3M29.5 0h-3M0 29.5v-3M-29.5 0h3M20.5-20.5l-2 2M20.5 20.5l-2-2M-20.5 20.5l2-2M-20.5-20.5l2 2"/><path class="cp-s" d="M0 12l3.4-12h-6.8z"/><path class="cp-n" d="M0-12l3.4 12h-6.8z"/><circle class="cp-hub" r="1.6"/></g>
+        <path class="cp-mark" d="M0-27.5l-2.6-3.8h5.2z"/>
+        <text class="cp-l cp-ln" id="cpN" x="0" y="-20">N</text><text class="cp-l" id="cpE" x="20" y="0">E</text><text class="cp-l" id="cpS" x="0" y="20">S</text><text class="cp-l" id="cpW" x="-20" y="0" data-i18n="cmp_w">O</text>
+      </svg>
+    </div>
     <div id="hud" class="hud">
       <div class="hud-row"><span class="hk" data-i18n="hud_pk">PK</span><span class="hv"><b id="hudPk">0.9</b> km</span><span class="hk" data-i18n="hud_alt">Alt.</span><span class="hv"><b id="hudAlt">0</b> m</span><span class="hk" data-i18n="hud_grade">Pente</span><span class="hv"><b id="hudGrade">0</b> ‰</span></div>
       <div class="hud-row"><span class="hk" data-i18n="hud_tracks">Voies</span><span class="hv"><b id="hudTracks">2</b></span><span class="hk" data-i18n="hud_limit">Limite</span><span class="hv"><b id="hudLimit">160</b> km/h</span><span class="hud-kind" id="hudKind"></span></div>
@@ -415,7 +429,7 @@ const T = {
     ctl_time:"Vitesse du temps", horn:"Klaxon (H)", hud_pk:"PK", hud_alt:"Alt.", hud_grade:"Pente", hud_tracks:"Voies", hud_limit:"Limite", hud_next:"Prochaine gare", hud_end:"Terminus", hud_tp:"Aller au PK", hud_go:"Go", rb_title:"Cliquez ou glissez sur la ligne pour vous téléporter", ctl_weather:"Météo", wx_sun:"Soleil", wx_cloud:"Nuages", wx_rain:"Pluie", wx_dusk:"Crépuscule", hud_bridge:"Pont", hud_tunnel:"Tunnel", hud_cutting:"Tranchée", hud_viaduct:"Viaduc",
     cam_hint:"Clavier: W A S D déplacent le point de visée le long de la rame, R/F (ou E/Q) montent et descendent, Maj accélère. H ou Espace: klaxon.",
     route_src:"Ligne Bordeaux Saint-Jean à Paris Montparnasse, 537,8 km. Tracé, gares et nombre de voies: © OpenStreetMap contributors (ODbL). Relief: Mapzen/AWS Terrain Tiles (SRTM). Profil de la voie lissé et limité à 2,5 %. Champs, maisons et arbres générés; trains en face à intervalles aléatoires.",
-    aria_traction:"Type de traction", aria_lang:"Langue", aria_canvas:"Locomotive 3D", aria_line:"Ligne", aria_fold:"Replier", aria_hide:"Masquer", tip_hide:"Masquer / afficher",
+    aria_traction:"Type de traction", aria_lang:"Langue", aria_canvas:"Locomotive 3D", aria_compass:"Boussole", cmp_w:"O", aria_line:"Ligne", aria_fold:"Replier", aria_hide:"Masquer", tip_hide:"Masquer / afficher",
   },
   en: {
     title:"Locomotive Anatomy", subtitle:"Interactive 3D explainer",
@@ -449,7 +463,7 @@ const T = {
     ctl_time:"Time scale", horn:"Horn (H)", hud_pk:"km", hud_alt:"Alt.", hud_grade:"Grade", hud_tracks:"Tracks", hud_limit:"Limit", hud_next:"Next station", hud_end:"Terminus", hud_tp:"Go to km", hud_go:"Go", rb_title:"Click or drag on the line to teleport", ctl_weather:"Weather", wx_sun:"Sun", wx_cloud:"Clouds", wx_rain:"Rain", wx_dusk:"Dusk", hud_bridge:"Bridge", hud_tunnel:"Tunnel", hud_cutting:"Cutting", hud_viaduct:"Viaduct",
     cam_hint:"Keys: W A S D move the focus along the train, R/F (or E/Q) up and down, Shift is faster. H or Space: horn.",
     route_src:"Bordeaux Saint-Jean to Paris Montparnasse, 537.8 km. Alignment, stations and track count: © OpenStreetMap contributors (ODbL). Relief: Mapzen/AWS Terrain Tiles (SRTM). Track profile smoothed and capped at 2.5%. Fields, houses and trees are generated; oncoming trains run at random intervals.",
-    aria_traction:"Traction type", aria_lang:"Language", aria_canvas:"3D locomotive", aria_line:"Line", aria_fold:"Collapse", aria_hide:"Hide", tip_hide:"Hide / show",
+    aria_traction:"Traction type", aria_lang:"Language", aria_canvas:"3D locomotive", aria_compass:"Compass", cmp_w:"W", aria_line:"Line", aria_fold:"Collapse", aria_hide:"Hide", tip_hide:"Hide / show",
   }
 };
 
@@ -4346,8 +4360,19 @@ function loop(now){
   updateLabels();
   gaugeT += dt; if (gaugeT > 0.1){ gaugeT = 0; updateGauges(); updateHud(); }
 }
+/* ---- compass: the rose turns so its N shows true north the way the camera looks (route frame: x east, -z north) */
+const cpCard = $('cpCard'), cpL = ['cpN', 'cpE', 'cpS', 'cpW'].map(id => $(id)), _cpD = new THREE.Vector3(), _cpQ = new THREE.Quaternion();
+let cpH = NaN;
+function updateCompass(){
+  _cpD.set(1, 0, 0).applyQuaternion(camera.quaternion).applyQuaternion(_cpQ.copy(world.quaternion).invert());   // the camera's right, in the route frame
+  const h = Math.atan2(_cpD.z, _cpD.x);   // heading of up × right: where the camera faces at any pitch, the screen's top when it looks straight down
+  if (Math.abs(h - cpH) < 0.002) return;
+  cpH = h;
+  cpCard.setAttribute('transform', `rotate(${(-h * 180 / Math.PI).toFixed(1)})`);
+  cpL.forEach((el, k) => { const a = k * Math.PI / 2 - h; el.setAttribute('x', (20 * Math.sin(a)).toFixed(1)); el.setAttribute('y', (-20 * Math.cos(a)).toFixed(1)); });   // the letters go round but stay upright
+}
 let frameHook = null;   // the kid build hangs its camera follow here
-function frame(dt){ simulate(dt); animate(Math.min(dt * S.timeScale, 0.25)); updateFlows(dt); updateWeather(dt); panKeys(dt); if (frameHook) frameHook(dt); orbit.update(dt); updateSound(dt); }
+function frame(dt){ simulate(dt); animate(Math.min(dt * S.timeScale, 0.25)); updateFlows(dt); updateWeather(dt); panKeys(dt); if (frameHook) frameHook(dt); orbit.update(dt); updateCompass(); updateSound(dt); }
 window.tick = (sec, dt = 0.05) => { for (let t = 0; t < sec - 1e-9; t += dt) frame(dt); renderer.render(scene, camera); updateLabels(); updateGauges(); updateHud(); };
 
 /* ---- init */
@@ -4355,5 +4380,5 @@ resize();
 setShell(0.18); setCut('none'); setExplode(0);
 setMode('diesel');
 requestAnimationFrame(loop);
-window.locoDebug = { S, simulate, animate, updateFlows, updateGauges, orbit, renderer, scene, camera, goStep, setMode, setCut, setExplode, setShell, select, parts, TGV, tgvSets, station, updateTgv, syncControls, tick:window.tick, ROUTE, horn, chunks, requestTrack, trk, opp, parked, cars, curveLocal, updateHud, jumpToStation, jumpTo, setWeather, pcHosts, pcShells, flowObjs, landmarks, flyPreset, SND, PX, pool, paxResolve, paxHolding, allCoaches };
+window.locoDebug = { S, simulate, animate, updateFlows, updateGauges, orbit, renderer, scene, camera, goStep, setMode, setCut, setExplode, setShell, select, parts, TGV, tgvSets, station, updateTgv, syncControls, tick:window.tick, ROUTE, horn, chunks, requestTrack, trk, opp, parked, cars, curveLocal, updateHud, jumpToStation, jumpTo, setWeather, pcHosts, pcShells, flowObjs, landmarks, flyPreset, SND, PX, pool, paxResolve, paxHolding, allCoaches, world };
 </script>

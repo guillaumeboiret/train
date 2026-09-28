@@ -106,6 +106,12 @@ input[type=range]{width:100%;accent-color:var(--accent);margin:2px 0}
 .legend i{width:16px;height:3px;border-radius:2px;display:inline-block}
 .infocard .close{grid-column:2;grid-row:1/3;align-self:start;background:transparent;border:1px solid var(--line);color:var(--muted);border-radius:6px;width:28px;height:28px;cursor:pointer;font-size:16px;line-height:1}
 .gauges{position:absolute;top:12px;right:12px;display:grid;grid-auto-flow:column;gap:8px}
+.compass{position:absolute;top:84px;right:324px;width:56px;height:56px;box-sizing:border-box;border-radius:50%;background:var(--panel);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid var(--line);pointer-events:none}
+.compass svg{display:block;width:100%;height:100%}
+.cp-tick{fill:none;stroke:var(--muted);stroke-width:1.6;stroke-linecap:round}
+.cp-n{fill:#e5484d}.cp-s{fill:var(--muted)}.cp-hub{fill:var(--panel-solid)}.cp-mark{fill:var(--accent)}
+.cp-l{font:700 12px/1 var(--font-display);fill:var(--ink);text-anchor:middle;dominant-baseline:central}
+.cp-l.cp-ln{fill:#e5484d}
 .g{background:var(--panel);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid var(--line);border-radius:8px;padding:8px 10px 9px;min-width:104px}
 .g .k{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600;white-space:nowrap}
 .g .v{font-family:var(--font-mono);font-size:21px;line-height:1.1;font-variant-numeric:tabular-nums;margin-top:3px;white-space:nowrap}
@@ -152,8 +158,9 @@ body:not([data-mode="tgv"]) .tgv-only{display:none}
   .dock.collapsed{height:auto}
   .dock.collapsed .panels{display:none}
   #sheetToggle{display:block}
-  .infocard{left:16px;right:16px;width:auto;top:12px;bottom:auto;max-height:30%;overflow:auto;padding:10px 12px}
-  .infocard.collapsed{right:auto;max-width:calc(100% - 32px);padding:6px 8px 6px 12px}
+  .infocard{left:16px;right:72px;width:auto;top:12px;bottom:auto;max-height:30%;overflow:auto;padding:10px 12px}
+  .infocard.collapsed{right:auto;max-width:calc(100% - 88px);padding:6px 8px 6px 12px}
+  .compass{top:12px;right:12px;width:48px;height:48px}
   .infocard h2{font-size:19px}
   .infocard p{font-size:13px;margin-top:6px}
   .gauges{top:auto;bottom:calc(44% + 8px);left:8px;right:8px;grid-auto-flow:row;grid-template-columns:repeat(5,1fr);gap:4px}

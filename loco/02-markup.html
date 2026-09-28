@@ -16,6 +16,13 @@
   <main class="stage">
     <canvas id="c3d" aria-label="Locomotive 3D" data-i18n-aria="aria_canvas"></canvas>
     <div id="labels" aria-hidden="true"></div>
+    <div class="compass" id="compass" role="img" aria-label="Boussole" data-i18n-aria="aria_compass">
+      <svg viewBox="-32 -32 64 64" aria-hidden="true" focusable="false">
+        <g id="cpCard"><path class="cp-tick" d="M0-29.5v3M29.5 0h-3M0 29.5v-3M-29.5 0h3M20.5-20.5l-2 2M20.5 20.5l-2-2M-20.5 20.5l2-2M-20.5-20.5l2 2"/><path class="cp-s" d="M0 12l3.4-12h-6.8z"/><path class="cp-n" d="M0-12l3.4 12h-6.8z"/><circle class="cp-hub" r="1.6"/></g>
+        <path class="cp-mark" d="M0-27.5l-2.6-3.8h5.2z"/>
+        <text class="cp-l cp-ln" id="cpN" x="0" y="-20">N</text><text class="cp-l" id="cpE" x="20" y="0">E</text><text class="cp-l" id="cpS" x="0" y="20">S</text><text class="cp-l" id="cpW" x="-20" y="0" data-i18n="cmp_w">O</text>
+      </svg>
+    </div>
     <div id="hud" class="hud">
       <div class="hud-row"><span class="hk" data-i18n="hud_pk">PK</span><span class="hv"><b id="hudPk">0.9</b> km</span><span class="hk" data-i18n="hud_alt">Alt.</span><span class="hv"><b id="hudAlt">0</b> m</span><span class="hk" data-i18n="hud_grade">Pente</span><span class="hv"><b id="hudGrade">0</b> ‰</span></div>
       <div class="hud-row"><span class="hk" data-i18n="hud_tracks">Voies</span><span class="hv"><b id="hudTracks">2</b></span><span class="hk" data-i18n="hud_limit">Limite</span><span class="hv"><b id="hudLimit">160</b> km/h</span><span class="hud-kind" id="hudKind"></span></div>

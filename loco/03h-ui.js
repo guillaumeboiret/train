@@ -528,8 +528,19 @@ function loop(now){
   updateLabels();
   gaugeT += dt; if (gaugeT > 0.1){ gaugeT = 0; updateGauges(); updateHud(); }
 }
+/* ---- compass: the rose turns so its N shows true north the way the camera looks (route frame: x east, -z north) */
+const cpCard = $('cpCard'), cpL = ['cpN', 'cpE', 'cpS', 'cpW'].map(id => $(id)), _cpD = new THREE.Vector3(), _cpQ = new THREE.Quaternion();
+let cpH = NaN;
+function updateCompass(){
+  _cpD.set(1, 0, 0).applyQuaternion(camera.quaternion).applyQuaternion(_cpQ.copy(world.quaternion).invert());   // the camera's right, in the route frame
+  const h = Math.atan2(_cpD.z, _cpD.x);   // heading of up × right: where the camera faces at any pitch, the screen's top when it looks straight down
+  if (Math.abs(h - cpH) < 0.002) return;
+  cpH = h;
+  cpCard.setAttribute('transform', `rotate(${(-h * 180 / Math.PI).toFixed(1)})`);
+  cpL.forEach((el, k) => { const a = k * Math.PI / 2 - h; el.setAttribute('x', (20 * Math.sin(a)).toFixed(1)); el.setAttribute('y', (-20 * Math.cos(a)).toFixed(1)); });   // the letters go round but stay upright
+}
 let frameHook = null;   // the kid build hangs its camera follow here
-function frame(dt){ simulate(dt); animate(Math.min(dt * S.timeScale, 0.25)); updateFlows(dt); updateWeather(dt); panKeys(dt); if (frameHook) frameHook(dt); orbit.update(dt); updateSound(dt); }
+function frame(dt){ simulate(dt); animate(Math.min(dt * S.timeScale, 0.25)); updateFlows(dt); updateWeather(dt); panKeys(dt); if (frameHook) frameHook(dt); orbit.update(dt); updateCompass(); updateSound(dt); }
 window.tick = (sec, dt = 0.05) => { for (let t = 0; t < sec - 1e-9; t += dt) frame(dt); renderer.render(scene, camera); updateLabels(); updateGauges(); updateHud(); };
 
 /* ---- init */
@@ -537,4 +548,4 @@ resize();
 setShell(0.18); setCut('none'); setExplode(0);
 setMode('diesel');
 requestAnimationFrame(loop);
-window.locoDebug = { S, simulate, animate, updateFlows, updateGauges, orbit, renderer, scene, camera, goStep, setMode, setCut, setExplode, setShell, select, parts, TGV, tgvSets, station, updateTgv, syncControls, tick:window.tick, ROUTE, horn, chunks, requestTrack, trk, opp, parked, cars, curveLocal, updateHud, jumpToStation, jumpTo, setWeather, pcHosts, pcShells, flowObjs, landmarks, flyPreset, SND, PX, pool, paxResolve, paxHolding, allCoaches };
+window.locoDebug = { S, simulate, animate, updateFlows, updateGauges, orbit, renderer, scene, camera, goStep, setMode, setCut, setExplode, setShell, select, parts, TGV, tgvSets, station, updateTgv, syncControls, tick:window.tick, ROUTE, horn, chunks, requestTrack, trk, opp, parked, cars, curveLocal, updateHud, jumpToStation, jumpTo, setWeather, pcHosts, pcShells, flowObjs, landmarks, flyPreset, SND, PX, pool, paxResolve, paxHolding, allCoaches, world };
