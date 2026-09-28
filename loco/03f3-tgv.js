@@ -10,14 +10,15 @@ TGV.setCenter = sets => (TGV.TIP_F + (sets === 2 ? TGV.SET2_X + TGV.TIP_R : TGV.
 
 /* ---- lofted bodies: rings of a rounded section along x, textured with a canvas (u along x, v around the ring) */
 const RING_N = 40;
+function sectionPt(yBot, yTop, wBot, wTop, n, t){   // [z, y] at angle t: -PI/2 bottom centre, 0 the +z flank, PI/2 top
+  const cy = (yBot + yTop) / 2, hy = (yTop - yBot) / 2, c = Math.cos(t), s = Math.sin(t);
+  const zn = Math.sign(c) * Math.pow(Math.abs(c), 2 / n), yn = Math.sign(s) * Math.pow(Math.abs(s), 2 / n);
+  const y = cy + hy * yn, k = Math.max(0, ((y - yBot) / (yTop - yBot) - 0.45) / 0.55);
+  return [zn * (wBot + (wTop - wBot) * k * k), y];
+}
 function sectionPts(yBot, yTop, wBot, wTop, n){
-  const pts = [], cy = (yBot + yTop) / 2, hy = (yTop - yBot) / 2;
-  for (let i = 0; i < RING_N; i++){
-    const t = -Math.PI / 2 + (i / RING_N) * Math.PI * 2, c = Math.cos(t), s = Math.sin(t);
-    const zn = Math.sign(c) * Math.pow(Math.abs(c), 2 / n), yn = Math.sign(s) * Math.pow(Math.abs(s), 2 / n);
-    const y = cy + hy * yn, k = Math.max(0, ((y - yBot) / (yTop - yBot) - 0.45) / 0.55);
-    pts.push([zn * (wBot + (wTop - wBot) * k * k), y]);
-  }
+  const pts = [];
+  for (let i = 0; i < RING_N; i++) pts.push(sectionPt(yBot, yTop, wBot, wTop, n, -Math.PI / 2 + (i / RING_N) * Math.PI * 2));
   return pts;
 }
 function loftGeo(rings){   // rings: [{x, pts}] ordered by increasing x; returns {body, capRear, capFront}
@@ -77,14 +78,62 @@ const LIV = { grey:'#b9bec4', greyDark:'#8d939a', carmine:'#7a1224', glass:'#1c2
 const PAX_COL = [0x3b5bdb, 0xc23b3b, 0x2f8f5b, 0xe0a030, 0x555c66, 0xd6d0c4, 0x7b3fa0, 0x1f6f8b];   // clothes, shared by the platform crowd and the seated passengers
 
 /* ---- power car body (shared geometry + texture) */
+const NOSE = { D:0.45, y0:1.15, BACK:0.62, OUT:0.16, LIFT:0.1 };   // closed hatch: a rounded snout D ahead of the coupling face (PC_TIP), closing on
+   // the coupler axis (y0). To couple, its two leaves part and slide back into the nose like pocket doors (BACK, OUT, LIFT, set so they
+   // stay inside the skin), which leaves the flat face and the coupler: how the real TGV and Thalys hatches look open
+/* The snout carries on the nose law past PC_TIP and shrinks it onto the coupler axis over a quarter ellipse, so it leaves the
+   body with the same slope and closes round. Split along z = 0 into the two leaves (+z: ring points 0..RING_N/2), each placed
+   from the outer edge of the face on its side. The normals are worked out on the whole snout plus the last body segment and
+   written back onto the body, so neither the seam with the body nor the split between the leaves shows. */
+function noseHatchGeo(bodyGeo, prev, dome){
+  const R = dome.length + 1, W = RING_N + 1, pos = [], idx = [];
+  for (const { x, pts } of [prev, ...dome]) for (let j = 0; j <= RING_N; j++){ const [z, y] = pts[j % RING_N]; pos.push(x, y, z); }
+  for (let i = 0; i < R - 1; i++) for (let j = 0; j < RING_N; j++){ const a = i * W + j, b = a + W; idx.push(a, b, b + 1, a, b + 1, a + 1); }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
+  const n = g.getAttribute('normal'), v = new THREE.Vector3();
+  for (let i = 0; i < R; i++){   // the ring's first and last points are one point: one normal
+    v.set(n.getX(i * W) + n.getX(i * W + RING_N), n.getY(i * W) + n.getY(i * W + RING_N), n.getZ(i * W) + n.getZ(i * W + RING_N)).normalize();
+    n.setXYZ(i * W, v.x, v.y, v.z); n.setXYZ(i * W + RING_N, v.x, v.y, v.z);
+  }
+  for (let j = 0; j <= RING_N; j++) n.setXYZ((R - 1) * W + j, 1, 0, 0);   // the apex looks straight ahead
+  const bn = bodyGeo.getAttribute('normal'), last = bn.count - W;
+  for (let j = 0; j <= RING_N; j++) bn.setXYZ(last + j, n.getX(W + j), n.getY(W + j), n.getZ(W + j));
+  const hz = Math.max(...dome[0].pts.map(([z]) => Math.abs(z)));
+  const leaf = s => {
+    const j0 = s > 0 ? 0 : RING_N / 2, M = RING_N / 2 + 1, lp = [], ln = [], li = [];
+    for (let i = 1; i < R; i++) for (let k = 0; k < M; k++){ const q = i * W + j0 + k; lp.push(pos[3 * q] - TGV.PC_TIP, pos[3 * q + 1] - NOSE.y0, pos[3 * q + 2] - s * hz); ln.push(n.getX(q), n.getY(q), n.getZ(q)); }
+    for (let i = 0; i < R - 2; i++) for (let k = 0; k < M - 1; k++){ const a = i * M + k, b = a + M; li.push(a, b, b + 1, a, b + 1, a + 1); }
+    const lg = new THREE.BufferGeometry(); lg.setAttribute('position', new THREE.Float32BufferAttribute(lp, 3)); lg.setAttribute('normal', new THREE.Float32BufferAttribute(ln, 3)); lg.setIndex(li);
+    return lg;
+  };
+  return { hz, leaf:{ '1':leaf(1), '-1':leaf(-1) } };
+}
 const PC = (() => {
   const yBot = 1.0, yTop = 4.25, w = TGV.HALF_W;
+  const sec = u => [yBot - 0.3 * u, Math.max(NOSE.y0 + 0.05, yTop - 2.55 * Math.pow(u, 1.5)), w * (1 - 0.5 * u * u), w * (0.9 - 0.42 * u * u), 4 - 1.8 * u];   // u 0 at PC_NOSE0, 1 at PC_TIP
+  const nose = u => sectionPts(...sec(u)), uAt = x => (x - TGV.PC_NOSE0) / (TGV.PC_TIP - TGV.PC_NOSE0);
   const rings = [{ x:TGV.PC_REAR, pts:sectionPts(yBot, yTop, w, w * 0.9, 4) }, { x:TGV.PC_NOSE0, pts:sectionPts(yBot, yTop, w, w * 0.9, 4) }];
-  for (let k = 1; k <= 12; k++){
-    const u = k / 12, x = TGV.PC_NOSE0 + (TGV.PC_TIP - TGV.PC_NOSE0) * u;
-    rings.push({ x, pts:sectionPts(yBot - 0.3 * u, yTop - 2.55 * Math.pow(u, 1.5), w * (1 - 0.5 * u * u), w * (0.9 - 0.42 * u * u), 4 - 1.8 * u) });
+  for (let k = 1; k <= 12; k++){ const u = k / 12; rings.push({ x:TGV.PC_NOSE0 + (TGV.PC_TIP - TGV.PC_NOSE0) * u, pts:nose(u) }); }
+  const dome = [];
+  for (let k = 0; k <= 12; k++){
+    const a = (k / 12) * Math.PI / 2, x = TGV.PC_TIP + NOSE.D * Math.sin(a), c = Math.cos(a);
+    dome.push({ x, pts:nose(uAt(x)).map(([z, y]) => [z * c, NOSE.y0 + (y - NOSE.y0) * c]) });
   }
-  const geo = loftGeo(rings), body = rings[0].pts, L = TGV.PC_TIP - TGV.PC_REAR;
+  const geo = loftGeo(rings), hatch = noseHatchGeo(geo.body, rings[rings.length - 2], dome), body = rings[0].pts, L = TGV.PC_TIP - TGV.PC_REAR;
+  /* lamp lenses: patches of the nose skin (x0..x1 along the car, t0..t1 around the section as in sectionPt) lifted 3 mm along
+     its normal, so they sit flush on the curved nose. Flank lamps are given by their height range, taken at their middle. */
+  const lens = (x0, x1, t0, t1) => {
+    const N = 6, pos = [], idx = [];
+    for (let i = 0; i <= N; i++) for (let j = 0; j <= N; j++){ const x = x0 + (x1 - x0) * i / N, [z, y] = sectionPt(...sec(uAt(x)), t0 + (t1 - t0) * j / N); pos.push(x, y, z); }
+    for (let i = 0; i < N; i++) for (let j = 0; j < N; j++){ const a = i * (N + 1) + j, b = a + N + 1; idx.push(a, b, b + 1, a, b + 1, a + 1); }
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
+    const p = g.getAttribute('position'), n = g.getAttribute('normal');
+    for (let k = 0; k < p.count; k++) p.setXYZ(k, p.getX(k) + 0.003 * n.getX(k), p.getY(k) + 0.003 * n.getY(k), p.getZ(k) + 0.003 * n.getZ(k));
+    return g;
+  };
+  const tAt = (x, y) => { const [b, t, , , n] = sec(uAt(x)), yn = (2 * y - b - t) / (t - b); return Math.asin(Math.sign(yn) * Math.pow(Math.abs(yn), n / 2)); };   // on the +z flank
+  const flank = (x0, x1, y0, y1) => { const t0 = tAt((x0 + x1) / 2, y0), t1 = tAt((x0 + x1) / 2, y1); return [lens(x0, x1, t0, t1), lens(x0, x1, Math.PI - t1, Math.PI - t0)]; };
+  const lamps = { head:flank(10.67, 10.97, 1.35, 1.55), tail:flank(10.77, 10.91, 1.09, 1.23), top:lens(9.02, 9.24, Math.PI / 2 - 0.025, Math.PI / 2 + 0.025) };   // top: above the windshield
   const ux = x => (x - TGV.PC_REAR) / L;
   const windows = (c, W, H) => {   // windshield across the nose top + cab side windows: painted on the livery, cut out of the body on cars with a cab
     c.beginPath(); c.moveTo(ux(9.3) * W, H * 0.40); c.lineTo(ux(10.75) * W, H * 0.455); c.lineTo(ux(10.75) * W, H * 0.545); c.lineTo(ux(9.3) * W, H * 0.60); c.closePath(); c.fill();
@@ -105,28 +154,29 @@ const PC = (() => {
     c.fillStyle = 'rgba(0,0,0,0.35)'; c.fillRect(0, 0, ux(TGV.PC_REAR + 0.25) * W, H);   // rear end shading
   });
   const mask = (bg, fg) => { const t = canvasTex(1024, 256, (c, W, H) => { c.fillStyle = bg; c.fillRect(0, 0, W, H); c.fillStyle = fg; windows(c, W, H); }); t.colorSpace = THREE.NoColorSpace; return t; };
-  return { geo, tex, alpha:mask('#fff', '#000'), glassAlpha:mask('#000', '#fff'), rings, yBot, yTop };
+  return { geo, hatch, lamps, tex, alpha:mask('#fff', '#000'), glassAlpha:mask('#000', '#fff'), rings, yBot, yTop };
 })();
 function buildPowerCarBody(parent, cx, dir, mk, withCoupler = true, cabin = false){   // mk: material factory (mat or pmat); dir +1 nose toward +x; cabin: windows cut out onto a fitted cab
   const g = new THREE.Group(); g.position.x = cx; if (dir < 0) g.rotation.y = Math.PI;
   const bm = mk(0xffffff, Object.assign({ map:PC.tex, roughness:0.45, metalness:0.2 }, cabin ? { alphaMap:PC.alpha, alphaTest:0.5, side:THREE.DoubleSide } : {}));
   const bodyM = new THREE.Mesh(PC.geo.body, bm); bodyM.castShadow = true; bodyM.receiveShadow = true; g.add(bodyM);
-  const capM = mk(0x6d1020, { roughness:0.5 }), rearM = mk(0x2b3238, { roughness:0.8 });
+  const capM = mk(0x22272c, { roughness:0.9 }), rearM = mk(0x2b3238, { roughness:0.8 });   // capM: the coupling face, dark, only seen with the hatch open
   const cf = new THREE.Mesh(PC.geo.capFront, capM), cr = new THREE.Mesh(PC.geo.capRear, rearM); cf.castShadow = cr.castShadow = true; g.add(cf, cr);
   const shell = { mats:[bm, capM, rearM], meshes:[bodyM, cf, cr] };   // what the shell opacity control drives on a plain power car
   if (cabin){   // tinted glass in the openings, seen from outside only (front faces point out)
     const gm = mk(0x1c2530, { alphaMap:PC.glassAlpha, transparent:true, opacity:0.45, roughness:0.1, metalness:0.3, depthWrite:false, alphaTest:0.01, side:THREE.FrontSide });
     const gl = new THREE.Mesh(PC.geo.body, gm); g.add(gl); shell.mats.push(gm); shell.meshes.push(gl);
   }
-  const lamp = (w, h, d, m, x, y, z) => { const b = box(w, h, d, m, x, y, z); g.add(b); shell.meshes.push(b); };
+  const lamp = (geo, m) => { const b = new THREE.Mesh(geo, m); g.add(b); shell.meshes.push(b); };
   // lamps: white heads and red tails, driven per power car by updateTgv (only the true train ends light up)
-  const hl = mk(0xfff1c0, { emissive:0xfff1c0, emissiveIntensity:0, roughness:0.3 });
-  [-0.86, 0.86].forEach(z => lamp(0.3, 0.2, 0.08, hl, 10.82, 1.45, z));
-  lamp(0.28, 0.16, 0.3, hl, 10.42, 2.62, 0);
-  const tl = mk(0xff3b30, { emissive:0xff2a20, emissiveIntensity:0, roughness:0.3 });
-  [-0.86, 0.86].forEach(z => lamp(0.14, 0.14, 0.08, tl, 10.84, 1.16, z));
+  const lens = { roughness:0.3, side:THREE.FrontSide, polygonOffset:true, polygonOffsetFactor:-2, polygonOffsetUnits:-2 };   // on the skin: win the depth test against it from afar, and from outside only (not through it from the cab)
+  const hl = mk(0xfff1c0, Object.assign({ emissive:0xfff1c0, emissiveIntensity:0 }, lens));
+  [...PC.lamps.head, PC.lamps.top].forEach(geo => lamp(geo, hl));
+  const tl = mk(0xff3b30, Object.assign({ emissive:0xff2a20, emissiveIntensity:0 }, lens));
+  PC.lamps.tail.forEach(geo => lamp(geo, tl));
   shell.mats.push(hl, tl);
   const hatch = withCoupler ? buildNoseCoupler(g, mk) : null;
+  if (hatch){ shell.mats.push(hatch.mat); shell.meshes.push(...hatch.leaves.map(l => l.mesh)); }   // the leaves are skin: they fade with the body
   parent.add(g);
   return { group:g, hatch, body:bodyM, hl, tl, shell };
 }
@@ -182,17 +232,22 @@ function equipPowerCar(pc, pantoX){
   pcHosts.push({ ig, clones, driver });
   pcShells.mats.push(...pc.shell.mats); pcShells.meshes.push(...pc.shell.meshes);
 }
-function buildNoseCoupler(g, mk){   // nose hatch (two leaves hinged on their outer edges) + Scharfenberg coupler behind it
-  const hatchM = mk(0x6d1020, { roughness:0.5 }), cpM = mk(pal.dark, { metalness:0.6, roughness:0.4 });
-  const hatch = { leaves:[], head:null };
-  [-1, 1].forEach(s => { const piv = new THREE.Group(); piv.position.set(TGV.PC_TIP + 0.03, 1.12, s * 0.5); piv.add(box(0.05, 0.6, 0.48, hatchM, 0, 0, -s * 0.24)); g.add(piv); hatch.leaves.push({ piv, s }); });
+function buildNoseCoupler(g, mk){   // nose hatch (the rounded snout in two leaves) + Scharfenberg coupler behind it
+  const hatchM = mk(new THREE.Color(LIV.carmine), { roughness:0.45, metalness:0.2, side:THREE.DoubleSide }), cpM = mk(pal.dark, { metalness:0.6, roughness:0.4 });
+  const hatch = { leaves:[], head:null, mat:hatchM };
+  [-1, 1].forEach(s => {
+    const piv = new THREE.Group(); piv.position.set(TGV.PC_TIP, NOSE.y0, s * PC.hatch.hz);
+    const mesh = new THREE.Mesh(PC.hatch.leaf[s], hatchM); mesh.castShadow = true; mesh.receiveShadow = true;
+    piv.add(mesh); g.add(piv); hatch.leaves.push({ piv, s, mesh });
+  });
   const head = new THREE.Group(); head.position.set(TGV.PC_TIP - 0.95, 1.12, 0);
   head.add(cyl(0.09, 1.1, cpM, 'x', -0.1, 0, 0, 12)); head.add(box(0.34, 0.36, 0.36, cpM, 0.55, 0, 0)); head.add(cyl(0.06, 0.4, cpM, 'x', 0.85, 0.06, 0.1, 10));
   g.add(head); hatch.head = head;
   return hatch;
 }
-function poseHatch(h, f){   // f 0 closed .. 1 open (leaves swing out, coupler head slides forward)
-  h.leaves.forEach(l => { l.piv.rotation.y = -l.s * f * 1.9; });
+function poseHatch(h, f){   // f 0 closed .. 1 open (leaves part and slide back into the nose, coupler head slides forward)
+  const e = f * f * (3 - 2 * f);
+  h.leaves.forEach(l => l.piv.position.set(TGV.PC_TIP - NOSE.BACK * e, NOSE.y0 + NOSE.LIFT * e, l.s * (PC.hatch.hz + NOSE.OUT * e)));
   h.head.position.x = TGV.PC_TIP - 0.95 + 0.45 * f;
 }
 function tgvBogie(parent, cx, mk, wheelbase = 3.0, jacobs = false){
@@ -309,7 +364,7 @@ const tgvTrain = new THREE.Group(); tgvTrain.name = 'tgvTrain'; scene.add(tgvTra
 const tgvSets = [];
 let tgvFrontHatch = null, tgvFrontLamps = null;
 definePart('tgvShell', g => { const b = buildPowerCarBody(g, 0, 1, mat, false, true); tgvFrontLamps = { hl:b.hl, tl:b.tl }; });
-definePart('coupler', g => { tgvFrontHatch = buildNoseCoupler(g, mat); });
+definePart('coupler', g => { tgvFrontHatch = buildNoseCoupler(g, mat); pcShells.mats.push(tgvFrontHatch.mat); pcShells.meshes.push(...tgvFrontHatch.leaves.map(l => l.mesh)); });   // the leaves fade with the lead car's skin
 {
   const ids = ['powerCars', 'roofLine', 'trailers', 'jacobs', 'doors'], G = {};
   for (const id of ids) definePart(id, g => { G[id] = g; });
