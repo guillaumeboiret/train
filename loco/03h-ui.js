@@ -328,7 +328,11 @@ function setExplode(f){
 $('rgExplode').addEventListener('input', e => setExplode(+e.target.value));
 $('camRow').addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b) return;
-  if (b.dataset.cam.startsWith('seat') && shellLevel < 1) setShell(1);   // a passenger's view: the body opaque, the windows glazed
+  if (b.dataset.cam.startsWith('seat') || b.dataset.cam === 'driver'){   // a passenger's or the driver's view: the body whole and opaque, the windows glazed
+    if (shellLevel < 1) setShell(1);
+    if (cutAxis !== 'none') setCut('none');
+    if (S.explode > 0){ setExplode(0); $('rgExplode').value = 0; }
+  }
   flyPreset(b.dataset.cam);
 });
 $('swRotate').addEventListener('change', e => { orbit.autoRotate = e.target.checked; });
@@ -361,6 +365,130 @@ orbit.onClick = e => {
   }
   select(null);
 };
+
+/* ---- the driver's place: the screens (one canvas shared by every cab) and the push buttons on the desk */
+const CAB_FONT = '"Barlow Condensed","Arial Narrow",Arial,sans-serif';
+for (const w of [600, 700]) document.fonts?.load(`${w} 40px "Barlow Condensed"`);   // a canvas does not fetch a web font by itself
+const cabActions = {   // what each desk button does; the kid build swaps in its own
+  horn(){   // sounds while held, like the horn button
+    horn.press();
+    const up = () => { horn.release(); window.removeEventListener('pointerup', up); window.removeEventListener('pointercancel', up); };
+    window.addEventListener('pointerup', up); window.addEventListener('pointercancel', up);
+  },
+  panto(){ $('swPanto').click(); },
+  doors(){ $('swDoors').click(); },
+  stop(){ manual(); S.notch = 0; S.brake = 8; syncControls(); },   // emergency: power off, full brake
+};
+const shown = o => { for (; o; o = o.parent) if (!o.visible) return false; return true; };
+orbit.onPress = e => {   // in the driver's place a press on a desk button works it; anywhere else it turns the head
+  if (orbit.fp?.name !== 'driver' || e.button !== 0) return false;
+  const r = canvas.getBoundingClientRect();
+  ptr.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+  ray.setFromCamera(ptr, camera);
+  for (const h of ray.intersectObjects(CAB.btns, true)){
+    let b = h.object; while (!b.userData.cabBtn) b = b.parent;
+    if (!shown(b)) continue;
+    cabActions[b.userData.cabBtn](); return true;
+  }
+  return false;
+};
+function uiCover(){   // share of the canvas height under the controls along its bottom that cross its middle (phone dock, kid controls, the guide's card)
+  const r = canvas.getBoundingClientRect(), mid = r.left + r.width / 2; let top = r.bottom;
+  for (const el of document.querySelectorAll('#dock, .gauges, .kid-bottom, #infocard')){
+    const b = el.getBoundingClientRect();
+    if (b.left < mid && b.right > mid && b.top > r.top + r.height * 0.4) top = Math.min(top, b.top);
+  }
+  return clamp((r.bottom - top) / r.height, 0, 0.6);
+}
+let drvT = 0;
+function keepDriver(dt){   // the driver's view moves to the other end when the train turns round, and re-frames when controls open or close over it
+  if (orbit.fp?.name !== 'driver') return;
+  if (orbit.fp.obj !== driverSeat()) return flyPreset('driver');
+  if ((drvT += dt) < 0.5) return;
+  drvT = 0; if (Math.abs(uiCover() - drvCover) > 0.04) flyPreset('driver');
+}
+let cabT = 1;   // seconds since the screens were last drawn
+const _cabP = new THREE.Vector3();
+function updateCab(dt){
+  const hot = { horn:horn.active, panto:S.panto, doors:S.doorsF > 0.02, stop:S.brake >= 8 };   // a lit or pushed-in button: its function is on
+  for (const b of CAB.btns){ const id = b.userData.cabBtn; b.visible = id !== 'panto' || S.mode !== 'diesel'; b.position.x = hot[id] ? 0.008 : 0; }
+  for (const id in CAB.mats){ const M = CAB.mats[id], k = !S.battery ? 0.06 : hot[id] ? 1 : 0.3; M.body.color.copy(M.base).multiplyScalar(k); M.cap.color.setScalar(k); }
+  cabT += dt; if (cabT < 0.25) return;
+  if (orbit.fp?.name !== 'driver' && camera.position.distanceToSquared(_cabP.set(9, 3, 0)) > 900) return;   // nobody close enough to a cab to read it
+  cabT = 0; drawCab(); CAB.tex.needsUpdate = true;
+}
+function drawCab(){
+  const c = CAB.ctx, cell = (id, fn) => { const [x, y, w, h] = CAB.cell[id]; c.save(); c.translate(x, y); c.beginPath(); c.rect(0, 0, w, h); c.clip(); fn(w, h); c.restore(); };
+  cell('speed', (w, h) => { c.fillStyle = '#05070a'; c.fillRect(0, 0, w, h); if (S.battery) cabSpeed(c); });
+  cell('line', (w, h) => { c.fillStyle = '#05070a'; c.fillRect(0, 0, w, h); if (S.battery) cabLine(c, w); });
+  cell('panel', (w, h) => cabPanel(c, w, h));
+  for (const id of ['horn', 'panto', 'doors']) cell(id, () => cabIcon(c, id));
+}
+function cabSpeed(c){   // 512 × 320: speed dial with the line's limit, what is live, brake and power
+  const v = S.speed * 3.6, top = Math.round(SPEC[S.mode].vMax * 3.6 / 20) * 20, lim = ROUTE.lineLimit(S.dist);
+  const a0 = 0.75 * Math.PI, ang = x => a0 + 1.5 * Math.PI * clamp(x / top, 0, 1);
+  c.lineCap = 'round'; c.lineWidth = 16;
+  c.strokeStyle = '#1a2a3a'; c.beginPath(); c.arc(256, 188, 122, a0, ang(top)); c.stroke();
+  if (v >= 0.5){ c.strokeStyle = v > lim + 3 ? '#ff5a5f' : '#3ccf6f'; c.beginPath(); c.arc(256, 188, 122, a0, ang(v)); c.stroke(); }
+  if (lim < top){ const a = ang(lim); c.strokeStyle = '#ffcf33'; c.lineWidth = 6; c.lineCap = 'butt'; c.beginPath(); c.moveTo(256 + 102 * Math.cos(a), 188 + 102 * Math.sin(a)); c.lineTo(256 + 142 * Math.cos(a), 188 + 142 * Math.sin(a)); c.stroke(); }
+  c.textAlign = 'center'; c.textBaseline = 'alphabetic';
+  c.fillStyle = '#fff'; c.font = `700 104px ${CAB_FONT}`; c.fillText(Math.round(v), 256, 218);
+  c.fillStyle = '#8fb3d9'; c.font = `600 28px ${CAB_FONT}`; c.fillText('km/h', 256, 252);
+  c.fillStyle = '#fff'; c.beginPath(); c.arc(452, 58, 40, 0, Math.PI * 2); c.fill();   // the limit, as the sign by the track
+  c.strokeStyle = '#e5484d'; c.lineWidth = 9; c.beginPath(); c.arc(452, 58, 35.5, 0, Math.PI * 2); c.stroke();
+  c.fillStyle = '#111'; c.font = `700 34px ${CAB_FONT}`; c.textBaseline = 'middle'; c.fillText(lim, 452, 60);
+  const chip = (x, txt, col) => { c.font = `700 26px ${CAB_FONT}`; const w = c.measureText(txt).width + 24; c.fillStyle = col; c.beginPath(); c.roundRect(x, 14, w, 38, 8); c.fill(); c.fillStyle = '#05070a'; c.textAlign = 'left'; c.fillText(txt, x + 12, 34); return x + w + 10; };
+  let x = 16;
+  if (S.mode === 'diesel') x = chip(x, t('scr_engine').toUpperCase(), S.engine === 'running' ? '#3ccf6f' : S.engine === 'cranking' ? '#ffcf33' : '#5b6773');
+  else x = chip(x, S.lineOn ? '25 kV' : t('scr_panto_dn').toUpperCase(), S.lineOn ? '#3ccf6f' : '#5b6773');
+  if (S.mode === 'tgv' && S.doorsF > 0.02) chip(x, t('scr_doors').toUpperCase(), '#ffcf33');
+  const y = 298, bw = S.brake / 8 * 200, tw = S.notch / 8 * 200;   // brake grows to the left, power to the right
+  c.fillStyle = '#1a2a3a'; c.fillRect(56, y - 7, 400, 14);
+  c.fillStyle = '#e5484d'; c.fillRect(256 - bw, y - 7, bw, 14);
+  c.fillStyle = '#3ccf6f'; c.fillRect(256, y - 7, tw, 14);
+  c.fillStyle = '#fff'; c.fillRect(255, y - 12, 2, 24);
+  c.fillStyle = '#8fb3d9'; c.font = `600 20px ${CAB_FONT}`; c.textBaseline = 'bottom';
+  c.textAlign = 'left'; c.fillText(t('scr_brake').toUpperCase(), 56, y - 11); c.textAlign = 'right'; c.fillText(t('scr_power').toUpperCase(), 456, y - 11);
+}
+function cabLine(c, w){   // 512 × 320: where the train is going, the next stop, the line with its stops
+  const list = ROUTE.stations, st = nextStation(0), d = st ? (st.s - TGV.PLAT_FRONT - S.dist) * S.dir : 0, end = S.dir > 0 ? list[list.length - 1] : list[0];
+  const now = new Date(), hm = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+  c.fillStyle = '#0f2236'; c.fillRect(0, 0, w, 56);
+  c.fillStyle = '#dce8f5'; c.font = `600 28px ${CAB_FONT}`; c.textBaseline = 'middle';
+  c.textAlign = 'left'; c.fillText(`→ ${end.name}`, 18, 29, w - 130); c.textAlign = 'right'; c.fillText(hm, w - 18, 29);
+  c.textAlign = 'left'; c.textBaseline = 'alphabetic';
+  c.fillStyle = '#8fb3d9'; c.font = `600 24px ${CAB_FONT}`; c.fillText(t(st ? 'hud_next' : 'hud_end').toUpperCase(), 18, 96);
+  c.fillStyle = '#fff'; c.font = `700 50px ${CAB_FONT}`; c.fillText((st || end).name, 18, 150, w - 36);
+  if (st){ c.fillStyle = '#ffcf33'; c.font = `700 40px ${CAB_FONT}`; c.fillText(d < 950 ? `${Math.round(d)} m` : `${(d / 1000).toFixed(d < 10000 ? 1 : 0)} km`, 18, 202); }
+  c.fillStyle = '#8fb3d9'; c.font = `600 24px ${CAB_FONT}`; c.textAlign = 'right'; c.fillText(`${t('hud_pk')} ${(S.dist / 1000).toFixed(1)}`, w - 18, 202);
+  const X = s => 30 + RB.f(s) * (w - 60), y = 262;   // Bordeaux on the left, as on the line bar
+  c.strokeStyle = '#3a4a5c'; c.lineWidth = 6; c.lineCap = 'round'; c.beginPath(); c.moveTo(30, y); c.lineTo(w - 30, y); c.stroke();
+  for (const s of list){ c.fillStyle = s === st ? '#ffcf33' : '#dce8f5'; c.beginPath(); c.arc(X(s.s), y, s === st ? 10 : 7, 0, Math.PI * 2); c.fill(); }
+  const tx = X(S.dist), k = S.dir;
+  c.fillStyle = '#ff8a3d'; c.beginPath(); c.moveTo(tx + 14 * k, y); c.lineTo(tx - 8 * k, y - 13); c.lineTo(tx - 8 * k, y + 13); c.closePath(); c.fill();
+}
+function cabPanel(c, w, h){   // 512 × 320: the print around the push buttons, which stand at y 130 in their columns
+  const kind = S.mode === 'tgv' ? 'tgv' : 'loco';
+  c.fillStyle = '#262e37'; c.fillRect(0, 0, w, h);
+  c.strokeStyle = '#3a4550'; c.lineWidth = 6; c.strokeRect(3, 3, w - 6, h - 6);
+  c.textAlign = 'center'; c.textBaseline = 'middle'; c.font = `700 30px ${CAB_FONT}`;
+  CAB.cols[kind].forEach((id, i) => {
+    if (id === 'panto' && S.mode === 'diesel') return;
+    const x = CAB.px[kind][i];
+    if (id !== 'stop'){ c.fillStyle = '#151a20'; c.beginPath(); c.arc(x, 130, 54, 0, Math.PI * 2); c.fill(); }   // the stop has its own plate
+    c.fillStyle = S.battery ? '#c9d4df' : '#56606b'; c.fillText(t('btn_' + id).toUpperCase(), x, 250, 120);
+  });
+}
+function cabIcon(c, id){   // 128 × 128 on the button's cap, in the button's colour
+  c.fillStyle = '#' + CAB.mats[id].base.getHexString(); c.fillRect(0, 0, 128, 128);
+  c.fillStyle = c.strokeStyle = id === 'doors' ? '#fff' : '#14181d'; c.lineWidth = 9; c.lineCap = 'round';
+  if (id === 'horn'){
+    c.beginPath(); c.moveTo(30, 52); c.lineTo(74, 30); c.lineTo(74, 98); c.lineTo(30, 76); c.closePath(); c.fill(); c.fillRect(20, 54, 12, 20);
+    for (const r of [22, 36]){ c.beginPath(); c.arc(78, 64, r, -0.7, 0.7); c.stroke(); }
+  } else if (id === 'panto'){   // a bolt: the line's power
+    c.beginPath(); [[72, 12], [36, 70], [60, 70], [50, 116], [94, 52], [68, 52], [80, 12]].forEach(([x, y], i) => i ? c.lineTo(x, y) : c.moveTo(x, y)); c.closePath(); c.fill();
+  } else { c.fillRect(26, 26, 30, 78); c.fillRect(72, 26, 30, 78); }   // the two door leaves
+}
 
 /* ---- labels */
 const labels = {}, labelRoot = $('labels'), _lp = new THREE.Vector3();
@@ -548,8 +676,12 @@ function updateCompass(){
   cpCard.setAttribute('transform', `rotate(${(-h * 180 / Math.PI).toFixed(1)})`);
   cpL.forEach((el, k) => { const a = k * Math.PI / 2 - h; el.setAttribute('x', (20 * Math.sin(a)).toFixed(1)); el.setAttribute('y', (-20 * Math.cos(a)).toFixed(1)); });   // the letters go round but stay upright
 }
-let frameHook = null;   // the kid build hangs its camera follow here
-function frame(dt){ simulate(dt); animate(Math.min(dt * S.timeScale, 0.25)); updateFlows(dt); updateWeather(dt); panKeys(dt); if (frameHook) frameHook(dt); orbit.update(dt); updateCompass(); updateSound(dt); }
+let frameHook = null;   // the kid build hangs its own rules here
+function frame(dt){
+  simulate(dt); animate(Math.min(dt * S.timeScale, 0.25)); updateFlows(dt); updateWeather(dt); panKeys(dt); if (frameHook) frameHook(dt);
+  keepDriver(dt);
+  orbit.update(dt); updateCab(dt); updateCompass(); updateSound(dt);
+}
 window.tick = (sec, dt = 0.05) => { for (let t = 0; t < sec - 1e-9; t += dt) frame(dt); renderer.render(scene, camera); updateLabels(); updateGauges(); updateHud(); };
 
 /* ---- init */
@@ -557,4 +689,4 @@ resize();
 setShell(0.18); setCut('none'); setExplode(0);
 setMode('diesel');
 requestAnimationFrame(loop);
-window.locoDebug = { S, simulate, animate, updateFlows, updateGauges, orbit, renderer, scene, camera, goStep, setMode, setCut, setExplode, setShell, select, parts, TGV, tgvSets, station, updateTgv, syncControls, tick:window.tick, ROUTE, horn, chunks, requestTrack, trk, opp, parked, cars, curveLocal, updateHud, jumpToStation, jumpTo, setWeather, pcHosts, pcShells, flowObjs, landmarks, flyPreset, SND, PX, pool, paxResolve, paxHolding, allCoaches, world };
+window.locoDebug = { CAB, driverSeat, cabActions, S, simulate, animate, updateFlows, updateGauges, orbit, renderer, scene, camera, goStep, setMode, setCut, setExplode, setShell, select, parts, TGV, tgvSets, station, updateTgv, syncControls, tick:window.tick, ROUTE, horn, chunks, requestTrack, trk, opp, parked, cars, curveLocal, updateHud, jumpToStation, jumpTo, setWeather, pcHosts, pcShells, flowObjs, landmarks, flyPreset, SND, PX, pool, paxResolve, paxHolding, allCoaches, world };

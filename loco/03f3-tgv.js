@@ -363,7 +363,7 @@ function equipPowerCar(pc, pantoX){
   const clones = {};
   for (const id of PC_INTERNALS){
     const c = parts[id].group.clone(); c.position.set(0, 0, 0); ig.add(c); clones[id] = c;
-    c.traverse(o => { if (o.userData.axle) axles.push(o); else if (o.userData.rotor) motorRotors.push(o); else if (o.userData.lever) cabLevers.push(o); });
+    c.traverse(o => { if (o.userData.axle) axles.push(o); else if (o.userData.rotor) motorRotors.push(o); else if (o.userData.lever) cabLevers.push(o); else if (o.userData.cabBtn) CAB.btns.push(o); });
   }
   clones.cab.getObjectByName('cabLoco').visible = false; clones.cab.getObjectByName('cabTgv').visible = true;
   const driver = clones.cab.getObjectByName('driver'); driver.visible = false;   // shown only in the leading cab
@@ -922,7 +922,19 @@ Object.assign(CAMS, {
   door:     [[-48, 2.3, 5.9], [-35, 1.7, 1.4]],   // eye height on the island platform, under the canopy, between the two trains
   seatUp:   () => seatView(1),
   seatLo:   () => seatView(0),
+  driver:   () => driverView(),
 });
+function driverSeat(){   // the cab at the head of the train, whichever way it runs; a loco backing its wagons has none there: the last wagon stands in
+  if (S.mode !== 'tgv') return S.dir > 0 ? parts.cab.group.getObjectByName('cabLoco') : wagons.children[wagons.children.length - 1];
+  return S.dir > 0 ? tgvDriver.parent : (S.sets === 2 || S.coupling !== 0 ? pcHosts[1] : pcHosts[0]).driver.parent;
+}
+let drvCover = 0;   // the share of the view under the page's controls when the driver's view was last framed
+function driverView(){   // first person in the driver's place, the dashboard at the bottom of what the page leaves visible (keepDriver in 03h keeps it seated and framed)
+  const obj = driverSeat(), V = THREE.Vector3; drvCover = uiCover();
+  if (S.mode !== 'tgv' && S.dir < 0) return { obj, eye:new V(-8.9, 4.0, 0), yaw:Math.PI, pitch:-0.05 };   // just past the end of the last wagon, looking back down the line
+  const pitch = -0.57 + Math.atan((1 - 2 * drvCover) * Math.tan(fpFov(camera.aspect) * Math.PI / 360));   // the dashboard's lower edge (about -32°) at the edge of the page's bottom controls
+  return S.mode === 'tgv' ? { obj, eye:new V(8.3, 3.45, 0), yaw:0, pitch } : { obj, eye:new V(8.25, 3.2, 0.55), yaw:0, pitch };
+}
 function seatView(d){   // first person in the viewer's seat of coach 1, head over the seat, the seat in front on the left, the window on the right
   const c = tgvSets[0].coaches[0];
   return { obj:c.g, eye:new THREE.Vector3(c.xr + SEAT_VIEW + 0.12, (d ? DECK.up : DECK.lo) + 1.16, 0.95), yaw:-0.75, pitch:-0.14 };
@@ -959,7 +971,8 @@ function updateTgv(dt){
   const f = S.doorsF, k1 = Math.min(1, f / 0.3), k2 = Math.max(0, (f - 0.3) / 0.7);
   for (const set of tgvSets) for (const d of set.doors){ if (d.s < 0) continue; d.g.position.z = d.z0 + 0.13 * k1; d.g.position.x = d.x0 + 1.35 * k2; }
   for (const h of pcHosts) for (const id in h.clones) h.clones[id].visible = parts[id].group.visible;   // copies follow the part toggles
-  tgvDriver.visible = S.dir > 0;   // the driver sits in the leading cab
-  for (const h of pcHosts) h.driver.visible = S.dir < 0 && h === (wide ? pcHosts[1] : pcHosts[0]);
+  const fpCab = orbit.fp?.name === 'driver' ? orbit.fp.obj : null;   // in the driver's place the driver is the viewer: not drawn
+  tgvDriver.visible = S.dir > 0 && tgvDriver.parent !== fpCab;   // the driver sits in the leading cab
+  for (const h of pcHosts) h.driver.visible = S.dir < 0 && h === (wide ? pcHosts[1] : pcHosts[0]) && h.driver.parent !== fpCab;
   updatePax(dt);
 }

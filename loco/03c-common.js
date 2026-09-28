@@ -74,11 +74,51 @@ definePart('shell', g => {
 
 /* ------------------------------------------------------------- cab interior */
 /* Two fit-outs in the same part: the loco cab (diesel, electric) and the TGV cab (raised floor, wide desk under the
-   windshield, driver in the middle). setTgvVisible shows one or the other; the TGV power cars' copies show the TGV one. */
+   windshield, driver in the middle). setTgvVisible shows one or the other; the TGV power cars' copies show the TGV one.
+   Each desk carries a dashboard turned to the driver's eyes: a line screen, a speed screen and a panel of push buttons
+   (horn, pantograph, doors, emergency stop). Screens, panel print and button icons are one canvas, redrawn by updateCab (03h). */
+const CAB = (() => {
+  const c = document.createElement('canvas'); c.width = 1024; c.height = 768;
+  const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
+  // blank gutters between cells that meet a different colour, or the mipmaps bleed one into the other along the edges
+  const cell = { speed:[0, 0, 512, 320], line:[512, 0, 512, 320], panel:[0, 384, 512, 320], horn:[576, 448, 128, 128], panto:[736, 448, 128, 128], doors:[896, 448, 128, 128] };
+  return { ctx:c.getContext('2d'), tex, cell, W:0.352, H:0.22, GAP:0.39, btns:[], mats:{},
+           cols:{ tgv:['horn', 'panto', 'doors', 'stop'], loco:['horn', 'panto', 'stop'] }, px:{ tgv:[64, 192, 320, 448], loco:[85, 256, 427] } };   // button columns, in panel pixels
+})();
+function atlasUV(geo, [x, y, w, h]){   // squeeze a geometry's 0..1 UVs into one cell of the cab canvas
+  const uv = geo.attributes.uv, { width:cw, height:ch } = CAB.ctx.canvas;
+  for (let i = 0; i < uv.count; i++) uv.setXY(i, (x + uv.getX(i) * w) / cw, 1 - (y + (1 - uv.getY(i)) * h) / ch);
+  return geo;
+}
+function lit(o){ const m = new THREE.MeshBasicMaterial(Object.assign({ toneMapped:false }, o)); clipMats.push(m); return m; }   // lights its own colour: screens and backlit buttons in a dark cab
+for (const [id, col] of [['horn', 0xffcf33], ['panto', 0xe8eef4], ['doors', 0x4c8dff]]) CAB.mats[id] = { body:lit({ color:col }), cap:lit({ map:CAB.tex }), base:new THREE.Color(col) };
+// the emergency stop is not backlit: a red mushroom on a yellow plate, always bright enough to find in a dark cab
+CAB.stopM = mat(0xe5484d, { roughness:0.35, metalness:0, emissive:0xe5484d, emissiveIntensity:0.45 });
+CAB.plateM = mat(0xffcf33, { roughness:0.6, metalness:0, emissive:0xffcf33, emissiveIntensity:0.3 });
+// The slab stands d metres from the eyes, el radians under them, tilted back by tilt; the button panel prints its labels around the real buttons
+function dashboard(parent, eye, d, el, tilt, kind){
+  const g = new THREE.Group(), { W, H, GAP } = CAB;
+  g.position.set(eye[0] + d * Math.cos(el), eye[1] - d * Math.sin(el), eye[2]); g.rotation.z = -tilt; parent.add(g);
+  g.add(box(0.04, H + 0.05, 2 * GAP + W + 0.08, mat(0x1c2229, { roughness:0.8 }), 0.022, 0, 0));
+  const scrM = lit({ map:CAB.tex });
+  [['line', -GAP], ['speed', 0], ['panel', GAP]].forEach(([id, z]) => { const q = new THREE.Mesh(atlasUV(new THREE.PlaneGeometry(W, H), CAB.cell[id]), scrM); q.rotation.y = -Math.PI / 2; q.position.z = z; g.add(q); });
+  CAB.cols[kind].forEach((id, i) => {
+    const b = new THREE.Group(), M = CAB.mats[id]; b.userData.cabBtn = id;
+    b.position.set(0, (0.5 - 130 / 320) * H, GAP + (CAB.px[kind][i] / 512 - 0.5) * W);
+    if (id === 'stop'){   // the mushroom sinks when pushed, its plate stays on the panel
+      g.add(cyl(0.048, 0.006, CAB.plateM, 'x', -0.003, b.position.y, b.position.z, 32));
+      b.add(cyl(0.016, 0.014, CAB.stopM, 'x', -0.007, 0, 0, 16));
+      const dome = new THREE.Mesh(new THREE.SphereGeometry(0.036, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2), CAB.stopM); dome.rotation.z = Math.PI / 2; dome.position.x = -0.014; b.add(dome);
+    } else {
+      b.add(cyl(0.03, 0.02, M.body, 'x', -0.01, 0, 0, 24));
+      const cap = new THREE.Mesh(atlasUV(new THREE.CircleGeometry(0.027, 24), CAB.cell[id]), M.cap); cap.rotation.y = -Math.PI / 2; cap.position.x = -0.0205; b.add(cap);
+    }
+    g.add(b); CAB.btns.push(b);
+  });
+  return g;
+}
 definePart('cab', g => {
   const dm = mat(pal.dark, { roughness:0.8 }), sm = mat(pal.steel);
-  const scr = mat(0x9fd8ff, { emissive:0x7fc8ff, emissiveIntensity:0, roughness:0.2 });
-  scr.userData.lamp = 1.2; lampMats.push(scr);
   const lever = (x, y, z) => {   // throttle lever (rotates with the notch)
     const l = new THREE.Group(); l.position.set(x, y, z); l.userData.lever = 1;
     l.add(box(0.04, 0.32, 0.04, sm, 0, 0.16, 0)); l.add(box(0.1, 0.08, 0.08, mat(pal.red), 0, 0.32, 0));
@@ -86,10 +126,9 @@ definePart('cab', g => {
   };
   const a = new THREE.Group(); a.name = 'cabLoco'; g.add(a);
   a.add(box(2.7, 0.05, 2.85, mat(0x2b3138, { roughness:0.9 }), 8.2, 1.68, 0));        // floor
-  a.add(box(0.55, 0.5, 2.5, dm, 9.15, 2.7, 0));                                        // desk
-  a.add(box(0.5, 0.05, 2.4, sm, 9.15, 2.96, 0));
-  [-0.55, 0.15].forEach(z => { const s = box(0.03, 0.34, 0.5, scr, 9.0, 3.2, z); s.rotation.z = 0.25; a.add(s); });
-  a.add(lever(9.05, 2.99, 0.7));
+  a.add(box(0.6, 1.1, 2.5, dm, 9.15, 2.26, 0));                                        // desk, its top under the dashboard
+  dashboard(a, [8.25, 3.2, 0.55], 0.72, 0.35, 0.45, 'loco');                            // in front of the driver's seat, under the windshield line
+  a.add(box(0.36, 0.95, 0.26, dm, 8.62, 2.18, 1.1)); a.add(lever(8.62, 2.655, 1.1));    // side console at the driver's right hand
   // seat
   a.add(box(0.5, 0.08, 0.5, dm, 8.2, 2.35, 0.55)); a.add(box(0.08, 0.6, 0.5, dm, 7.95, 2.65, 0.55)); a.add(cyl(0.05, 0.6, sm, 'y', 8.2, 2.0, 0.55));
   // rear cabinet
@@ -100,9 +139,10 @@ definePart('cab', g => {
   b.add(box(2.6, 0.34, 2.5, mat(0x2b3138, { roughness:0.9 }), 8.2, 1.83, 0));        // raised floor, top at 2.0
   b.add(box(0.6, 0.85, 2.2, dm, 9.15, 2.425, 0));                                      // desk
   { const t = box(0.5, 0.05, 2.2, panel, 9.1, 2.9, 0); t.rotation.z = 0.35; b.add(t); }   // sloped top panel
-  [-0.45, 0, 0.45].forEach(z => { const s = box(0.03, 0.3, 0.4, scr, 9.05, 3.08, z); s.rotation.z = 0.25; b.add(s); });
-  b.add(box(0.4, 0.8, 0.3, dm, 8.75, 2.45, -0.42));                                    // side console with the combined traction/brake lever
-  b.add(lever(8.75, 2.85, -0.42));
+  dashboard(b, [8.3, 3.45, 0], 0.8, 0.43, 0.5, 'tgv');                                  // just under the windshield
+  b.add(box(0.305, 0.15, 1.18, dm, 9.1275, 2.935, 0));                                 // under the dashboard, down to the desk
+  b.add(box(0.4, 0.7, 0.3, dm, 8.7, 2.35, -0.42));                                     // side console with the combined traction/brake lever,
+  b.add(lever(8.7, 2.7, -0.42));                                                       // low enough for its knob to pass under the screens
   b.add(box(0.5, 0.08, 0.5, dm, 8.15, 2.48, 0)); b.add(box(0.08, 0.65, 0.5, dm, 7.87, 2.85, 0)); b.add(cyl(0.05, 0.44, sm, 'y', 8.15, 2.22, 0));   // seat
   b.add(box(0.08, 1.8, 2.5, panel, 6.95, 2.9, 0));                                     // back wall of the cab
   // the driver, facing the line (only the one in the leading cab is shown)
@@ -123,7 +163,7 @@ definePart('cab', g => {
     d.add(box(0.24, 0.08, 0.11, shoe, 8.7, 2.04, z));                                  // shoe
   });
   const arm = (sh, el, ha) => { d.add(limb(sh, el, 0.055, suit)); d.add(limb(el, ha, 0.05, suit)); const h = new THREE.Mesh(new THREE.SphereGeometry(0.055, 8, 6), skin); h.position.set(...ha); d.add(h); };
-  arm([8.17, 3.16, -0.22], [8.4, 2.9, -0.34], [8.72, 3.12, -0.42]);                     // left hand on the lever
+  arm([8.17, 3.16, -0.22], [8.36, 2.85, -0.34], [8.7, 2.97, -0.42]);                    // left hand on the lever
   arm([8.17, 3.16, 0.22], [8.42, 2.85, 0.3], [8.85, 2.97, 0.3]);                        // right hand on the desk
 });
 

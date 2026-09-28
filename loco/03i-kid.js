@@ -17,7 +17,6 @@ const kt = k => KID_T[S.lang][k] ?? k;
 const KID_WX = [['sun', '☀️'], ['cloud', '☁️'], ['rain', '🌧️'], ['dusk', '🌆']];
 const KID_CAMS = ['overview', 'driver', 'door', 'seatUp', 'seatLo', 'side', 'train', 'far'], KID_TGV_CAMS = ['door', 'seatUp', 'seatLo'];   // one tap: next view (the door and the two window seats on the TGV only)
 Object.assign(CAMS, {
-  driver: () => S.mode === 'tgv' ? [[7.45, 3.45, 0.5], [60, 2.9, 0.1]] : [[10.3, 4.0, 0], [60, 2.4, 0]],   // TGV: in the cab over the driver's shoulder, through the windshield; loco: just above its windshield
   door: () => {   // on the platform just ahead of coach 1's door, over the heads of the queue: the leaf slides toward the camera
     const x = TGV.TRAILERS[0][0] + TR.doorX, V = THREE.Vector3;
     return [curveLocal(x + 5.5, 2.9, 6.0, new V()).toArray(), curveLocal(x, 1.7, 1.5, new V()).toArray()];
@@ -195,8 +194,7 @@ function kidPanto(){                                 // electric trains: pantogr
 }
 function kidTurn(){                                  // stopped train: face the other way (Paris <-> Bordeaux)
   if (S.speed > 0.3){ kidToast('hint_stopped', 2500); return; }
-  manual(); S.dir = -S.dir; S.notch = 0; S.brake = 4; $('kidLever').value = 0; syncControls();
-  if (KID_CAMS[camIdx] === 'driver') flyPreset('driver');
+  manual(); S.dir = -S.dir; S.notch = 0; S.brake = 4; $('kidLever').value = 0; syncControls();   // in the driver's place the frame loop moves the view to the other cab
   kidToast(S.dir > 0 ? 'dir_par' : 'dir_bdx', 2500);
 }
 function kidStation(){
@@ -208,12 +206,12 @@ function kidStation(){
   if ((mark - S.dist) * S.dir > 5500) jumpTo(mark - 5000 * S.dir);   // skip the long straight bits, keep the speed
   S.stopS = mark; S.autoStop = true; S.autoDoors = S.mode === 'tgv'; syncControls();
 }
-function kidDoors(){
+function kidDoors(stay){   // stay: pressed from the cab desk, the view stays in the cab
   if (S.mode !== 'tgv') return;
   if (S.speed > 0.1){ kidToast('hint_stopped', 2500); return; }
   if (S.doors && paxHolding()){ kidToast('hint_pax', 3000); PX.closeWhenDone = true; return; }
   S.doors = !S.doors; syncControls();
-  if (S.doors){ camIdx = KID_CAMS.indexOf('door'); flyPreset('door'); }   // opening: land beside the first door to watch it
+  if (S.doors && !stay){ camIdx = KID_CAMS.indexOf('door'); flyPreset('door'); }   // opening: land beside the first door to watch it
 }
 let camIdx = 0, wxIdx = 0;
 function kidCam(){
@@ -258,7 +256,7 @@ $('kidStop').addEventListener('click', kidStop);
 $('kidStation').addEventListener('click', kidStation);
 $('kidPanto').addEventListener('click', kidPanto);
 $('kidDir').addEventListener('click', kidTurn);
-$('kidDoors').addEventListener('click', kidDoors);
+$('kidDoors').addEventListener('click', () => kidDoors());
 $('kidCam').addEventListener('click', kidCam);
 $('kidWx').addEventListener('click', kidWx);
 $('kidXray').addEventListener('click', kidXray);
@@ -280,16 +278,10 @@ $('kidSound').addEventListener('click', e => { const b = e.target.closest('butto
 try { if (localStorage.getItem('kid.mute') === '1') kidMute(true); } catch (e) {}
 document.addEventListener('pointerdown', e => { if (!$('kidMenu').hidden && !e.target.closest('#kidMenu,#kidGear')){ $('kidMenu').hidden = true; $('kidGear').setAttribute('aria-expanded', 'false'); } });
 
-/* ---- hooks into the engine: both pantographs of the first TGV set follow the switch; the driver camera looks the way we go */
+/* ---- hooks into the engine: both pantographs of the first TGV set follow the switch; the desk buttons in the cab work as the kid buttons */
 pantoHook = f => { if (S.mode !== 'tgv') return false; for (const p of tgvSets[0].pantos) posePanto(p, f); posePanto(panto, f); return true; };   // kid mode: the front pantograph rises too, so the ⚡ button shows on the car the child looks at
-const _kv1 = new THREE.Vector3(), _kv2 = new THREE.Vector3();
-frameHook = () => {
-  if (S.mode !== 'diesel' && S.battery && S.lineOn && S.panto && !S.vcb) S.vcb = true;   // the child only handles the pantograph: the line breaker follows it
-  if (KID_CAMS[camIdx] !== 'driver' || S.dir > 0) return;   // toward Bordeaux the cab is at the far end of the train: the camera rides there, looking back down the line
-  const t = tailLen(), tgv = S.mode === 'tgv';
-  if (tgv) orbit.flyTo(curveLocal(-t + 3.85, 3.45, -0.5, _kv1), curveLocal(-t - 48.7, 2.9, -0.1, _kv2));   // the rear cab, mirrored: same seat as the forward view
-  else orbit.flyTo(curveLocal(-t + 1.5, 4.0, 0, _kv1), curveLocal(-t - 50, 2.4, 0, _kv2));
-};
+frameHook = () => { if (S.mode !== 'diesel' && S.battery && S.lineOn && S.panto && !S.vcb) S.vcb = true; };   // the child only handles the pantograph: the line breaker follows it
+Object.assign(cabActions, { panto:kidPanto, doors:() => kidDoors(true), stop:kidStop });
 
 /* ---- start: a TGV at Bordeaux, powered up, body opaque, ready to go */
 setMode('tgv'); Object.assign(SIM_MUL, KID_MUL.tgv); setShell(1); kidPower(true); S.brake = 4; syncControls();

@@ -239,7 +239,7 @@ class Orbit {
     this.tTarget = this.target.clone(); this.tSph = this.sph.clone();
     this.autoRotate = false; this.moved = 0;
     this.ptrs = new Map(); this.lastPinch = 0; this.lastMid = null;
-    this.onClick = null;
+    this.onClick = null; this.onPress = null;   // onPress(e) returns true when it took the press (a cab button), so the view does not turn
     this.fp = null; this.fpZoom = 1; this.fov = cam.fov;   // first person {obj, eye, yaw, pitch, t, from, fromQ}; fov: the orbit's own lens
     dom.addEventListener('pointerdown', e => this.down(e));
     dom.addEventListener('pointermove', e => this.move(e));
@@ -249,6 +249,7 @@ class Orbit {
     dom.addEventListener('contextmenu', e => e.preventDefault());
   }
   down(e){
+    if (this.onPress?.(e)) return;
     this.dom.setPointerCapture(e.pointerId);
     this.ptrs.set(e.pointerId, { x:e.clientX, y:e.clientY, b:e.button, shift:e.shiftKey });
     this.moved = 0; this.dom.classList.add('dragging');
@@ -352,5 +353,5 @@ const CAMS = {
 };
 function flyPreset(name){   // a preset is [eye, target] to orbit, or {obj, eye, yaw, pitch} to ride in first person
   let c = CAMS[name]; if (typeof c === 'function') c = c(); if (!c) return;
-  if (c.obj) orbit.look(c.obj, c.eye, c.yaw, c.pitch); else orbit.flyTo(new THREE.Vector3(...c[0]), new THREE.Vector3(...c[1]));
+  if (c.obj){ orbit.look(c.obj, c.eye, c.yaw, c.pitch); orbit.fp.name = name; } else orbit.flyTo(new THREE.Vector3(...c[0]), new THREE.Vector3(...c[1]));
 }
