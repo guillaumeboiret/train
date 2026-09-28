@@ -30,7 +30,7 @@ cd loco && python3 -m http.server 8765
 
 ## Site
 
-https://train.boiret.com serves the three pages plus a landing page. `site/build.sh` gives each built page a real document head and points its links to the other pages at the site paths (`/conducteur/`, `/locomotive/`, `/aiguillages/`); the root `Dockerfile` runs it and serves the result with Caddy (`site/Caddyfile`). Railway builds that image on every push to `main`. Local preview: `sh site/build.sh && python3 -m http.server -d site/public 8767`.
+https://train.boiret.com serves the three pages plus a landing page. `site/build.sh` gives each built page a real document head and points its links to the other pages at the site paths (`/conducteur/`, `/locomotive/`, `/aiguillages/`); the root `Dockerfile` runs it and serves the result with Caddy (`site/Caddyfile`). Railway builds that image on every push to `main`, and `/version.txt` gives the commit that is live. Local preview: `sh site/build.sh && python3 -m http.server -d site/public 8767`.
 
 ## Source layout
 

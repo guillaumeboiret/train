@@ -19,3 +19,5 @@ page locomotive-kid.html conducteur
 page locomotive-3d.html locomotive
 page aiguillages.html aiguillages
 cp "$SRC/site/index.html" "$SRC/site/favicon.svg" "$OUT/"
+# the deployed commit, to check what is live: Railway passes RAILWAY_GIT_COMMIT_SHA (Dockerfile ARG), a local build asks git
+printf '%s\n' "${RAILWAY_GIT_COMMIT_SHA:-$(git -C "$SRC" rev-parse HEAD 2>/dev/null || echo unknown)}" > "$OUT/version.txt"
