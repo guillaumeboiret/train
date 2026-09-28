@@ -140,7 +140,7 @@ definePart('rectifier', g => {
 });
 definePart('inverters', g => {
   [-0.85, 0.85].forEach(z => {
-    cabinet(g, 6.0, 1.0, z, 1.05, 0x6f4bb8);
+    cabinet(g, 6.0, 1.0, z, 0.66, 0x6f4bb8);   // 0.66 wide: the outer top edge stays inside the TGV's rounded roof side
     const fanM = mat(pal.fan);
     const f = fan(0.22, 6, fanM, mat(pal.dark)); f.position.set(6.0, 4.0, z); g.add(f); roofFans.push({ obj:f, axis:'y', kind:'inv' });
     g.add(torus(0.24, 0.02, mat(pal.dark), 'y', 6.0, 4.0, z));

@@ -93,10 +93,10 @@ definePart('roofResistors', g => {
 
 definePart('cooling', g => {
   const rm = mat(pal.radiator, { roughness:0.7 }), fm = mat(pal.dark), sm = mat(pal.steel);
-  [-1.25, 1.25].forEach(z => {
-    g.add(box(2.6, 1.6, 0.14, rm, -6.1, 3.0, z));
-    for (let i = 0; i < 11; i++) g.add(box(2.6, 0.02, 0.18, fm, -6.1, 2.27 + i * 0.145, z));
-    g.add(box(2.7, 0.08, 0.25, sm, -6.1, 3.85, z)); g.add(box(2.7, 0.08, 0.25, sm, -6.1, 2.15, z));
+  [-1.2, 1.2].forEach(z => {   // side radiators, low enough to sit inside the TGV's rounded roof side too
+    g.add(box(2.6, 1.5, 0.14, rm, -6.1, 2.95, z));
+    for (let i = 0; i < 10; i++) g.add(box(2.6, 0.02, 0.18, fm, -6.1, 2.27 + i * 0.145, z));
+    g.add(box(2.7, 0.08, 0.2, sm, -6.1, 3.75, z)); g.add(box(2.7, 0.08, 0.2, sm, -6.1, 2.15, z));
   });
   g.add(box(2.8, 0.06, 2.6, fm, -6.1, 4.3, 0));
   [-5.4, -6.8].forEach(x => {

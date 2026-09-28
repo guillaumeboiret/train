@@ -546,9 +546,9 @@ const PARTS = {
     fr:{ name:"Carrosserie", desc:"Caisse en tôle d'acier: elle protège la salle des machines et canalise l'air de refroidissement par ses persiennes. Elle porte peu de charge; le châssis fait le travail. Rendez-la transparente ou masquez-la dans l'onglet Vues pour voir l'intérieur." },
     en:{ name:"Body shell", desc:"Steel sheet body: it shelters the machine room and channels cooling air through its louvres. It carries little load; the underframe does the work. Make it see-through or hide it in the Views tab to look inside." } },
   tgvShell:{ cat:"struct", color:"#b7bcc2", modes:["tgv"], explode:[0,5.0,0], anchor:[-2,4.6,0],
-    fr:{ name:"Caisse de la motrice", desc:"Motrice TGV Duplex: 22 m, 68 t, nez profilé pour 320 km/h, livrée grise et carmin. Elle ne transporte aucun voyageur: tout le volume est pris par le transformateur, les convertisseurs et le refroidissement. Rendez-la transparente ou masquez-la dans l'onglet Vues pour voir l'intérieur." },
-    en:{ name:"Power car body", desc:"TGV Duplex power car: 22 m, 68 t, nose shaped for 320 km/h, grey and carmine livery. It carries no passengers: the whole volume is taken by the transformer, converters and cooling. Make it see-through or hide it in the Views tab to look inside." } },
-  powerCars:{ cat:"power", color:"#7a1224", modes:["tgv"], explode:[0,0,0], anchor:[-174,4.6,0],
+    fr:{ name:"Caisse de la motrice", desc:"Motrice TGV Duplex: 22 m, 68 t, nez profilé pour 320 km/h, livrée TGV inOui. Elle ne transporte aucun voyageur: tout le volume est pris par le transformateur, les convertisseurs et le refroidissement. Rendez-la transparente ou masquez-la dans l'onglet Vues pour voir l'intérieur." },
+    en:{ name:"Power car body", desc:"TGV Duplex power car: 22 m, 68 t, nose shaped for 320 km/h, TGV inOui livery. It carries no passengers: the whole volume is taken by the transformer, converters and cooling. Make it see-through or hide it in the Views tab to look inside." } },
+  powerCars:{ cat:"power", color:"#c8435f", modes:["tgv"], explode:[0,0,0], anchor:[-174,4.6,0],
     fr:{ name:"Motrice arrière", desc:"Chaque rame a deux motrices identiques, une à chaque bout, 4 400 kW chacune: 8 800 kW par rame, 17 600 kW en unité multiple. Celle de queue pousse pendant que celle de tête tire, toutes deux commandées depuis la cabine de tête par les câbles de télécommande. Sous 25 kV, c'est elle qui lève le pantographe; la motrice de tête est alimentée par la ligne de toiture." },
     en:{ name:"Rear power car", desc:"Each set has two identical power cars, one at each end, 4,400 kW each: 8,800 kW per set, 17,600 kW as a double set. The rear one pushes while the front one pulls, both driven from the leading cab through the remote-control cables. Under 25 kV it is the one raising the pantograph; the leading power car is fed through the roof line." } },
   roofLine:{ cat:"power", color:"#ffb347", modes:["tgv"], explode:[0,0,0], anchor:[-60,4.9,0],
@@ -1327,7 +1327,7 @@ definePart('rectifier', g => {
 });
 definePart('inverters', g => {
   [-0.85, 0.85].forEach(z => {
-    cabinet(g, 6.0, 1.0, z, 1.05, 0x6f4bb8);
+    cabinet(g, 6.0, 1.0, z, 0.66, 0x6f4bb8);   // 0.66 wide: the outer top edge stays inside the TGV's rounded roof side
     const fanM = mat(pal.fan);
     const f = fan(0.22, 6, fanM, mat(pal.dark)); f.position.set(6.0, 4.0, z); g.add(f); roofFans.push({ obj:f, axis:'y', kind:'inv' });
     g.add(torus(0.24, 0.02, mat(pal.dark), 'y', 6.0, 4.0, z));
@@ -1485,10 +1485,10 @@ definePart('roofResistors', g => {
 
 definePart('cooling', g => {
   const rm = mat(pal.radiator, { roughness:0.7 }), fm = mat(pal.dark), sm = mat(pal.steel);
-  [-1.25, 1.25].forEach(z => {
-    g.add(box(2.6, 1.6, 0.14, rm, -6.1, 3.0, z));
-    for (let i = 0; i < 11; i++) g.add(box(2.6, 0.02, 0.18, fm, -6.1, 2.27 + i * 0.145, z));
-    g.add(box(2.7, 0.08, 0.25, sm, -6.1, 3.85, z)); g.add(box(2.7, 0.08, 0.25, sm, -6.1, 2.15, z));
+  [-1.2, 1.2].forEach(z => {   // side radiators, low enough to sit inside the TGV's rounded roof side too
+    g.add(box(2.6, 1.5, 0.14, rm, -6.1, 2.95, z));
+    for (let i = 0; i < 10; i++) g.add(box(2.6, 0.02, 0.18, fm, -6.1, 2.27 + i * 0.145, z));
+    g.add(box(2.7, 0.08, 0.2, sm, -6.1, 3.75, z)); g.add(box(2.7, 0.08, 0.2, sm, -6.1, 2.15, z));
   });
   g.add(box(2.8, 0.06, 2.6, fm, -6.1, 4.3, 0));
   [-5.4, -6.8].forEach(x => {
@@ -1906,11 +1906,6 @@ function loftGeo(rings, vs){   // rings: [{x, pts}] ordered by increasing x; vs:
   };
   return { body, capRear:cap(rings[0], false), capFront:cap(rings[R - 1], true) };
 }
-function vAtY(pts, y, side){   // ring parameter (0..1) of the side wall at height y; side +1 = +z wall
-  let best = 0, bd = 1e9;
-  for (let j = 0; j < RING_N; j++){ const [z, py] = pts[j]; if (Math.sign(z) !== side || Math.abs(z) < 0.3) continue; const d = Math.abs(py - y); if (d < bd){ bd = d; best = j; } }
-  return best / RING_N;
-}
 function vAt(pts, vs, y, side){   // exact v of the side wall at height y on a body lofted with the ring v values vs; side +1 = +z wall
   const h = RING_N / 2;
   for (let k = 0; k < h; k++){
@@ -1948,7 +1943,45 @@ function doorLeafGeo(pts, s, y0, y1, w, out = 0.012, thick = 0.06){
   g.rotateY(-Math.PI / 2); g.translate(w / 2, 0, 0);   // local extrusion (+z) → world x, centred
   return g;
 }
-const LIV = { grey:'#b9bec4', greyDark:'#8d939a', carmine:'#7a1224', glass:'#1c2530', roof:'#6f767d', door:'#20262c', gasket:'#262b31' };
+const LIV = {   // TGV inOui (Duplex 2N2): off-white power cars with a black mask and a Carmillon stripe, silver and anthracite coaches
+  white:'#ecebe6', black:'#18191c', band:'#3e4043', rib:'#26282a', ribLit:'#6f7276', grille:'#1d1f22', blade:'#8d8f8e', skirt:'#3a3c3d', grey:'#9a9b99', roof:'#a6a9ab', seam:'#8f9398',
+  silver:'#d2d4d6', anthracite:'#4a4c50', low:'#a4a6a6', coachRoof:'#a9adb1', line:'#e0467a',
+  glass:'#1c2530', door:'#20262c', gasket:'#262b31',
+};
+/* The "TGV inOui" logo, built from strokes in metres (x-height 0.45, stroke 0.085; only "TGV" is set in a font) at k px/m: "!n" in
+   `ink` (the dot red), "Oui" in `red`, a small "TGV" over the "!n". Also returned: a copy turned half a turn, for the -z walls,
+   which show their part of the canvas upside down from outside, and the extent in metres about the start of the baseline. */
+function inouiLogo(k, ink, red){
+  const X0 = -0.01, X1 = 1.75, Y0 = -0.08, Y1 = 0.70, sw = 0.085, xh = 0.45;
+  const img = document.createElement('canvas'); img.width = Math.ceil((X1 - X0) * k); img.height = Math.ceil((Y1 - Y0) * k);
+  const c = img.getContext('2d');
+  c.setTransform(k, 0, 0, -k, -X0 * k, Y1 * k);   // metres, y up
+  const rect = (x0, y0, x1, y1, col) => { c.fillStyle = col; c.fillRect(x0, y0, x1 - x0, y1 - y0); };
+  const dot = (x, y, r, col) => { c.fillStyle = col; c.beginPath(); c.arc(x, y, r, 0, Math.PI * 2); c.fill(); };
+  const ring = (x, y, r0, r1, a0, a1, col) => { c.fillStyle = col; c.beginPath(); c.arc(x, y, r1, a0, a1); c.arc(x, y, r0, a1, a0, true); c.closePath(); c.fill(); };
+  rect(0, 0.11, sw, xh, ink); dot(sw / 2, 0.04, 0.04, red);                                                                  // "!", an i upside down
+  rect(0.135, 0, 0.135 + sw, xh, ink); rect(0.535 - sw, 0, 0.535, 0.25, ink); ring(0.335, 0.25, 0.2 - sw, 0.2, 0, Math.PI, ink);   // "n"
+  ring(0.889, 0.26, 0.324 - 0.095, 0.324, 0, Math.PI * 2, red);                                                              // "O", past the x-height both ways
+  rect(1.243, 0.18, 1.243 + sw, xh, red); rect(1.603 - sw, 0, 1.603, xh, red); ring(1.423, 0.18, 0.18 - sw, 0.18, Math.PI, Math.PI * 2, red);   // "u"
+  rect(1.653, 0, 1.653 + sw, 0.33, red); dot(1.653 + sw / 2, 0.41, 0.042, red);                                              // "i"
+  c.setTransform(1, 0, 0, 1, 0, 0);
+  c.font = `${(0.17 / 0.716 * k).toFixed(1)}px Arial, Helvetica, sans-serif`; c.fillStyle = ink; c.textBaseline = 'alphabetic';   // cap height 0.17
+  c.translate(-X0 * k, (Y1 - 0.524) * k); c.scale(0.42 * k / c.measureText('TGV').width, 1); c.fillText('TGV', 0, 0);   // 0.42 m wide
+  const rot = document.createElement('canvas'); rot.width = img.width; rot.height = img.height;
+  const r = rot.getContext('2d'); r.translate(img.width, img.height); r.rotate(Math.PI); r.drawImage(img, 0, 0);
+  return { img, rot, x0:X0, x1:X1, y0:Y0, y1:Y1 };
+}
+/* Lays the logo on a lofted skin one canvas column at a time, so that it follows the section: cx(x) is the canvas column of the car's
+   x (linear), cy(x, y, s) the canvas row of height y on wall s (+1: +z). The logo's baseline starts at (x0, y0); sc: car metres per logo metre. */
+function stampLogo(c, logo, cx, cy, s, x0, y0, sc){
+  const xa = x0 + logo.x0 * sc, xb = x0 + logo.x1 * sc, ya = y0 + logo.y0 * sc, yb = y0 + logo.y1 * sc;
+  const a = cx(0), k = cx(1) - a, src = s > 0 ? logo.img : logo.rot, sw = src.width / ((xb - xa) * k);
+  for (let col = Math.floor(cx(xa)); col < Math.ceil(cx(xb)); col++){
+    const x = (col + 0.5 - a) / k, f = (x - xa) / (xb - xa); if (f < 0 || f > 1) continue;
+    const t = cy(x, yb, s), b = cy(x, ya, s), sx = Math.min(src.width - sw, Math.max(0, f * src.width - sw / 2));
+    c.drawImage(src, sx, 0, sw, src.height, col, Math.min(t, b), 1, Math.abs(b - t));
+  }
+}
 const LIN = { floor:'#3a3f46', wall:'#d6d1c7', wallUp:'#dcd7ce', rack:'#8f959c', ceil:'#eeebe4', reveal:'#aaa59c', end:'#cbc5ba' };   // coach lining (inside of the shell)
 const PAX_COL = [0x3b5bdb, 0xc23b3b, 0x2f8f5b, 0xe0a030, 0x555c66, 0xd6d0c4, 0x7b3fa0, 0x1f6f8b];   // clothes, shared by the platform crowd and the seated passengers
 
@@ -1978,7 +2011,8 @@ function noseHatchGeo(bodyGeo, prev, dome){
     const j0 = s > 0 ? 0 : RING_N / 2, M = RING_N / 2 + 1, lp = [], ln = [], li = [];
     for (let i = 1; i < R; i++) for (let k = 0; k < M; k++){ const q = i * W + j0 + k; lp.push(pos[3 * q] - TGV.PC_TIP, pos[3 * q + 1] - NOSE.y0, pos[3 * q + 2] - s * hz); ln.push(n.getX(q), n.getY(q), n.getZ(q)); }
     for (let i = 0; i < R - 2; i++) for (let k = 0; k < M - 1; k++){ const a = i * M + k, b = a + M; li.push(a, b, b + 1, a, b + 1, a + 1); }
-    const lg = new THREE.BufferGeometry(); lg.setAttribute('position', new THREE.Float32BufferAttribute(lp, 3)); lg.setAttribute('normal', new THREE.Float32BufferAttribute(ln, 3)); lg.setIndex(li);
+    const lu = []; for (let i = 1; i < R; i++) for (let k = 0; k < M; k++) lu.push(0.5, pos[3 * (i * W + j0 + k) + 1] / 2);   // v: height / 2 m, for the two-tone paint
+    const lg = new THREE.BufferGeometry(); lg.setAttribute('position', new THREE.Float32BufferAttribute(lp, 3)); lg.setAttribute('normal', new THREE.Float32BufferAttribute(ln, 3)); lg.setAttribute('uv', new THREE.Float32BufferAttribute(lu, 2)); lg.setIndex(li);
     return lg;
   };
   return { hz, leaf:{ '1':leaf(1), '-1':leaf(-1) } };
@@ -1987,14 +2021,17 @@ const PC = (() => {
   const yBot = 1.0, yTop = 4.25, w = TGV.HALF_W;
   const sec = u => [yBot - 0.3 * u, Math.max(NOSE.y0 + 0.05, yTop - 2.55 * Math.pow(u, 1.5)), w * (1 - 0.5 * u * u), w * (0.9 - 0.42 * u * u), 4 - 1.8 * u];   // u 0 at PC_NOSE0, 1 at PC_TIP
   const nose = u => sectionPts(...sec(u)), uAt = x => (x - TGV.PC_NOSE0) / (TGV.PC_TIP - TGV.PC_NOSE0);
-  const rings = [{ x:TGV.PC_REAR, pts:sectionPts(yBot, yTop, w, w * 0.9, 4) }, { x:TGV.PC_NOSE0, pts:sectionPts(yBot, yTop, w, w * 0.9, 4) }];
+  const body = sectionPts(yBot, yTop, w, w * 0.9, 4), rings = [{ x:TGV.PC_REAR, pts:body }, { x:TGV.PC_NOSE0, pts:body }];
   for (let k = 1; k <= 12; k++){ const u = k / 12; rings.push({ x:TGV.PC_NOSE0 + (TGV.PC_TIP - TGV.PC_NOSE0) * u, pts:nose(u) }); }
   const dome = [];
   for (let k = 0; k <= 12; k++){
     const a = (k / 12) * Math.PI / 2, x = TGV.PC_TIP + NOSE.D * Math.sin(a), c = Math.cos(a);
     dome.push({ x, pts:nose(uAt(x)).map(([z, y]) => [z * c, NOSE.y0 + (y - NOSE.y0) * c]) });
   }
-  const geo = loftGeo(rings), hatch = noseHatchGeo(geo.body, rings[rings.length - 2], dome), body = rings[0].pts, L = TGV.PC_TIP - TGV.PC_REAR;
+  const vs = [0];   // v of each ring point by arc length round the body section, as on the trailers: texels keep their shape round the flanks
+  for (let j = 1; j <= RING_N; j++){ const [z0, y0] = body[j - 1], [z1, y1] = body[j % RING_N]; vs.push(vs[j - 1] + Math.hypot(z1 - z0, y1 - y0)); }
+  const per = vs[RING_N]; vs.forEach((v, j) => { vs[j] = v / per; });
+  const geo = loftGeo(rings, vs), hatch = noseHatchGeo(geo.body, rings[rings.length - 2], dome), L = TGV.PC_TIP - TGV.PC_REAR;
   /* lamp lenses: patches of the nose skin (x0..x1 along the car, t0..t1 around the section as in sectionPt) lifted 3 mm along
      its normal, so they sit flush on the curved nose. Flank lamps are given by their height range, taken at their middle. */
   const lens = (x0, x1, t0, t1) => {
@@ -2008,37 +2045,93 @@ const PC = (() => {
   };
   const tAt = (x, y) => { const [b, t, , , n] = sec(uAt(x)), yn = (2 * y - b - t) / (t - b); return Math.asin(Math.sign(yn) * Math.pow(Math.abs(yn), n / 2)); };   // on the +z flank
   const flank = (x0, x1, y0, y1) => { const t0 = tAt((x0 + x1) / 2, y0), t1 = tAt((x0 + x1) / 2, y1); return [lens(x0, x1, t0, t1), lens(x0, x1, Math.PI - t1, Math.PI - t0)]; };
-  const lamps = { head:flank(10.67, 10.97, 1.35, 1.55), tail:flank(10.77, 10.91, 1.09, 1.23), top:lens(9.02, 9.24, Math.PI / 2 - 0.025, Math.PI / 2 + 0.025) };   // top: above the windshield
+  const lamps = { head:flank(10.67, 10.97, 1.35, 1.55), tail:flank(10.50, 10.63, 1.37, 1.53), top:lens(9.02, 9.24, Math.PI / 2 - 0.025, Math.PI / 2 + 0.025) };   // tails beside the heads on the mask; top: above the windshield
+  /* Livery drawn in metres: x along the car, y up the wall on side s (+1: +z). u runs along x and v is read off the section at x (the
+     rings' own), so a shape lands where it is drawn, round the nose too; canvas rows run from v 1 at the top (flipY). Any height over
+     the roof maps onto its centre line, any under the floor onto the bottom one. */
   const ux = x => (x - TGV.PC_REAR) / L;
-  const windows = (c, W, H) => {   // windshield across the nose top + cab side windows: painted on the livery, cut out of the body on cars with a cab
-    c.beginPath(); c.moveTo(ux(9.3) * W, H * 0.40); c.lineTo(ux(10.75) * W, H * 0.455); c.lineTo(ux(10.75) * W, H * 0.545); c.lineTo(ux(9.3) * W, H * 0.60); c.closePath(); c.fill();
-    [1, -1].forEach(s => { const a = vAtY(body, 3.55, s) * H, b = vAtY(body, 2.75, s) * H; c.fillRect(ux(7.6) * W, Math.min(a, b), (ux(9.4) - ux(7.6)) * W, Math.abs(b - a)); });
+  const secAt = x => x <= TGV.PC_NOSE0 ? body : nose(Math.min(1, uAt(x)));
+  const vj = j => { const a = Math.floor(j); return vs[a] + (vs[a + 1] - vs[a]) * (j - a); };   // v at a fractional ring point
+  const painter = (c, W, H) => {
+    const cx = x => ux(x) * W, cy = (x, y, s) => (1 - vAt(secAt(x), vs, y, s)) * H;
+    const path = (s, xy, n = 8, closed = true) => {   // polygon (or polyline) with each edge cut in n, so that it bends with the section
+      c.beginPath();
+      for (let i = 0; i < (closed ? xy.length : xy.length - 1); i++){
+        const [x0, y0] = xy[i], [x1, y1] = xy[(i + 1) % xy.length];
+        for (let k = 0; k < n; k++){ const x = x0 + (x1 - x0) * k / n, y = y0 + (y1 - y0) * k / n; i || k ? c.lineTo(cx(x), cy(x, y, s)) : c.moveTo(cx(x), cy(x, y, s)); }
+      }
+      if (closed) c.closePath(); else { const [x, y] = xy[xy.length - 1]; c.lineTo(cx(x), cy(x, y, s)); }
+    };
+    const fill = (s, xy, col, n) => { path(s, xy, n); c.fillStyle = col; c.fill(); };
+    const line = (s, xy, col, px, closed = false) => { path(s, xy, 8, closed); c.strokeStyle = col; c.lineWidth = px; c.stroke(); };
+    return { cx, cy, path, fill, line };
   };
-  const tex = canvasTex(2048, 512, (c, W, H) => {
-    c.fillStyle = LIV.grey; c.fillRect(0, 0, W, H);
-    const band = (y0, y1, col) => [1, -1].forEach(s => { const a = vAtY(body, y0, s) * H, b = vAtY(body, y1, s) * H; c.fillStyle = col; c.fillRect(0, Math.min(a, b), ux(TGV.PC_NOSE0 + 1.6) * W, Math.abs(b - a)); });
-    band(yBot, 1.55, LIV.carmine);                                                       // carmine skirt
-    band(4.05, yTop, LIV.roof);                                                          // roof
-    c.fillStyle = LIV.roof; c.fillRect(0, H * 0.44, ux(TGV.PC_NOSE0 + 0.8) * W, H * 0.12);
-    c.fillStyle = LIV.carmine; c.fillRect(ux(TGV.PC_NOSE0 + 1.2) * W, 0, W, H);          // carmine nose
-    c.fillStyle = LIV.glass; windows(c, W, H);
-    [1, -1].forEach(s => {                                                               // louvres
-      const a = vAtY(body, 3.55, s) * H, b = vAtY(body, 2.75, s) * H;
-      c.fillStyle = LIV.greyDark; for (let i = 0; i < 6; i++) c.fillRect(ux(-8.4 + i * 2.7) * W, Math.min(a, b), (ux(1.6) - ux(0)) * W, Math.abs(b - a) * 0.8);
+  const rounded = (xy, r, n = 5) => xy.flatMap((b, i) => {   // polygon with its corners rounded r back along each edge (quadratic)
+    const a = xy[(i + xy.length - 1) % xy.length], d = xy[(i + 1) % xy.length], la = Math.hypot(a[0] - b[0], a[1] - b[1]), ld = Math.hypot(d[0] - b[0], d[1] - b[1]);
+    const p = [b[0] + (a[0] - b[0]) * r / la, b[1] + (a[1] - b[1]) * r / la], q = [b[0] + (d[0] - b[0]) * r / ld, b[1] + (d[1] - b[1]) * r / ld];
+    return Array.from({ length:n + 1 }, (_, k) => { const t = k / n, u = 1 - t; return [0, 1].map(e => u * u * p[e] + 2 * u * t * b[e] + t * t * q[e]); });
+  });
+  const SIDE_WIN = rounded([[8.32, 2.86], [8.32, 3.46], [8.86, 3.2], [8.98, 2.86]], 0.08);   // cab side window, under the mask
+  const windows = (c, W, H) => {   // windshield across the nose top + cab side windows: painted on the livery, cut out of the body on cars with a cab
+    const WS = [[9.3, 16], [10.75, 18.2], [10.75, 21.8], [9.3, 24]];   // windshield corners: x, ring point (20: the top centre)
+    c.beginPath();
+    WS.forEach(([x0, j0], i) => { const [x1, j1] = WS[(i + 1) % 4]; for (let k = 0; k < 8; k++){ const f = k / 8, X = ux(x0 + (x1 - x0) * f) * W, Y = (1 - vj(j0 + (j1 - j0) * f)) * H; i || k ? c.lineTo(X, Y) : c.moveTo(X, Y); } });
+    c.closePath(); c.fill();
+    const p = painter(c, W, H); [1, -1].forEach(s => { p.path(s, SIDE_WIN, 3); c.fill(); });
+  };
+  const EDGE = new THREE.SplineCurve([[7.35, 4.08], [8.2, 4.06], [8.6, 3.86], [9.0, 3.5], [9.4, 3.05], [9.8, 2.45], [10.2, 1.85], [10.45, 1.42], [10.62, 1.26], [11.0, 1.25], [11.35, 1.25]]
+    .map(([x, y]) => new THREE.Vector2(x, y))).getPoints(160).map(v => [v.x, v.y]);   // lower edge of the black mask: from the cab roof down past the lamps to the chin
+  const STRIPE = (() => {   // Carmillon stripe under the mask edge: fine at the roof, 0.26 m across near the nose, cut square just behind the lamps
+    const top = EDGE.filter(([x]) => x >= 7.5 && x <= 10.48);
+    const bot = top.map(([x, y], i) => {
+      const [xa, ya] = top[Math.max(0, i - 1)], [xb, yb] = top[Math.min(top.length - 1, i + 1)], d = Math.hypot(xb - xa, yb - ya), wS = 0.26 * Math.pow(Math.min(1, (x - 7.5) / 1.6), 0.7);
+      return [x + wS * (yb - ya) / d, y - wS * (xb - xa) / d];
     });
+    return [...top, ...bot.reverse()];
+  })();
+  const logo = inouiLogo(200, '#747572', '#b8304a');
+  const tex = canvasTex(2048, 1024, (c, W, H) => {
+    const p = painter(c, W, H), R = TGV.PC_REAR, UP = 9;
+    c.fillStyle = LIV.white; c.fillRect(0, 0, W, H);
+    [1, -1].forEach(s => {
+      p.fill(s, [[R, 3.95], [7.35, 3.95], [7.35, UP], [R, UP]], LIV.roof);
+      p.fill(s, [[R, -UP], [9.5, -UP], [9.5, 0.9], [9.1, 1.35], [R, 1.35]], LIV.skirt);                                // skirt, rising at its front end
+      p.fill(s, [[R, 1.35], [-6.6, 1.35], [-7.3, 1.85], [R, 1.85]], LIV.grey);                                         // grey wedge at the rear
+      p.fill(s, [[R, 1.85], [6.1, 1.85], [6.1, 2.72], [R, 2.72]], LIV.band);                                           // ribbed band along the machine room
+      for (let x = R + 0.08; x < 6.1; x += 0.08){ p.line(s, [[x, 1.85], [x, 2.72]], LIV.rib, 2); p.line(s, [[x + 0.025, 1.85], [x + 0.025, 2.72]], LIV.ribLit, 1.5); }   // lit edge: the ribs still show from afar
+      p.fill(s, [[R, 2.72], [6.1, 2.72], [6.1, 2.85], [R, 2.85]], LIV.black);
+      p.fill(s, [[R, 2.86], [-7.1, 2.86], [-7.1, 2.94], [R, 2.94]], LIV.line);                                         // the coaches' line, run onto the car
+      // cooling air intakes under the roof: one louvred strip in nine panels, pale blades on a dark recess (dark boxes apart read as windows)
+      p.fill(s, [[-6.36, 3.43], [6.01, 3.43], [6.01, 3.92], [-6.36, 3.92]], LIV.grille);
+      for (let y = 3.46; y < 3.91; y += 0.05) p.line(s, [[-6.36, y], [6.01, y]], LIV.blade, 2);
+      for (let k = 0; k <= 9; k++){ const x = 6.01 - k * 1.375; p.line(s, [[x, 3.43], [x, 3.92]], LIV.grille, 5); }
+      p.line(s, [[6.2, 1.42], [6.8, 1.42], [6.8, 3.18], [6.6, 3.38], [6.2, 3.38]], LIV.seam, 2.5, true);              // cab door
+      p.fill(s, [[6.71, 2.2], [6.76, 2.2], [6.76, 2.36], [6.71, 2.36]], LIV.band);                                     // its handle
+      p.line(s, rounded([[9.15, 1.4], [9.95, 1.4], [9.62, 2.3], [9.15, 2.3]], 0.06), LIV.seam, 2.5, true);            // hatch in the nose side
+      p.fill(s, [...EDGE, [11.35, UP], [7.35, UP]], LIV.black, 1);                                                   // black mask
+      const [x0, y0] = STRIPE[0], [x1, y1] = EDGE.filter(([x]) => x <= 10.48).pop(), gr = c.createLinearGradient(p.cx(x0), p.cy(x0, y0, s), p.cx(x1), p.cy(x1, y1, s));
+      gr.addColorStop(0, '#d9577a'); gr.addColorStop(0.5, '#c8435f'); gr.addColorStop(1, '#b8304a');                // lighter up at the roof
+      p.fill(s, STRIPE, gr, 1);
+      stampLogo(c, logo, p.cx, p.cy, s, 7.02, 1.98, 1);
+      p.line(s, SIDE_WIN, '#b4b8bc', 5, true);                                                                       // window rim (the glass covers its inner half)
+    });
+    c.fillStyle = LIV.glass; windows(c, W, H);
     c.fillStyle = 'rgba(0,0,0,0.35)'; c.fillRect(0, 0, ux(TGV.PC_REAR + 0.25) * W, H);   // rear end shading
   });
-  const mask = (bg, fg) => { const t = canvasTex(1024, 256, (c, W, H) => { c.fillStyle = bg; c.fillRect(0, 0, W, H); c.fillStyle = fg; windows(c, W, H); }); t.colorSpace = THREE.NoColorSpace; return t; };
-  return { geo, hatch, lamps, tex, alpha:mask('#fff', '#000'), glassAlpha:mask('#000', '#fff'), rings, yBot, yTop };
+  const mask = (bg, fg) => { const t = canvasTex(1024, 512, (c, W, H) => { c.fillStyle = bg; c.fillRect(0, 0, W, H); c.fillStyle = fg; windows(c, W, H); }); t.colorSpace = THREE.NoColorSpace; return t; };
+  const hatchTex = canvasTex(4, 128, (c, W, H) => { c.fillStyle = LIV.white; c.fillRect(0, 0, W, H); c.fillStyle = LIV.black; c.fillRect(0, 0, W, H * (1 - 1.25 / 2)); });   // snout (v: height / 2 m): the mask down to 1.25 m, the white chin under it
+  return { geo, hatch, hatchTex, lamps, tex, alpha:mask('#fff', '#000'), glassAlpha:mask('#000', '#fff'), rings, yBot, yTop };
 })();
 function buildPowerCarBody(parent, cx, dir, mk, withCoupler = true, cabin = false){   // mk: material factory (mat or pmat); dir +1 nose toward +x; cabin: windows cut out onto a fitted cab
   const g = new THREE.Group(); g.position.x = cx; if (dir < 0) g.rotation.y = Math.PI;
-  const bm = mk(0xffffff, Object.assign({ map:PC.tex, roughness:0.45, metalness:0.2 }, cabin ? { alphaMap:PC.alpha, alphaTest:0.5, side:THREE.DoubleSide } : {}));
+  const bm = mk(0xffffff, Object.assign({ map:PC.tex, roughness:0.45, metalness:0.2 }, cabin ? { alphaMap:PC.alpha, alphaTest:0.5, side:THREE.FrontSide } : {}));
   const bodyM = new THREE.Mesh(PC.geo.body, bm); bodyM.castShadow = true; bodyM.receiveShadow = true; g.add(bodyM);
   const capM = mk(0x22272c, { roughness:0.9 }), rearM = mk(0x2b3238, { roughness:0.8 });   // capM: the coupling face, dark, only seen with the hatch open
   const cf = new THREE.Mesh(PC.geo.capFront, capM), cr = new THREE.Mesh(PC.geo.capRear, rearM); cf.castShadow = cr.castShadow = true; g.add(cf, cr);
   const shell = { mats:[bm, capM, rearM], meshes:[bodyM, cf, cr] };   // what the shell opacity control drives on a plain power car
-  if (cabin){   // tinted glass in the openings, seen from outside only (front faces point out)
+  if (cabin){   // a plain lining inside the fitted cab instead of the livery's back, then tinted glass in the openings, seen from outside only (front faces point out)
+    const lm = mk(0x80868c, { alphaMap:PC.alpha, alphaTest:0.5, roughness:0.85, metalness:0, side:THREE.BackSide }), li = new THREE.Mesh(PC.geo.body, lm);
+    g.add(li); shell.mats.push(lm); shell.meshes.push(li);
     const gm = mk(0x1c2530, { alphaMap:PC.glassAlpha, transparent:true, opacity:0.45, roughness:0.1, metalness:0.3, depthWrite:false, alphaTest:0.01, side:THREE.FrontSide });
     const gl = new THREE.Mesh(PC.geo.body, gm); g.add(gl); shell.mats.push(gm); shell.meshes.push(gl);
   }
@@ -2135,7 +2228,7 @@ function equipPowerCar(pc, pantoX){
   pcShells.mats.push(...pc.shell.mats); pcShells.meshes.push(...pc.shell.meshes);
 }
 function buildNoseCoupler(g, mk){   // nose hatch (the rounded snout in two leaves) + Scharfenberg coupler behind it
-  const hatchM = mk(new THREE.Color(LIV.carmine), { roughness:0.45, metalness:0.2, side:THREE.DoubleSide }), cpM = mk(pal.dark, { metalness:0.6, roughness:0.4 });
+  const hatchM = mk(0xffffff, { map:PC.hatchTex, roughness:0.45, metalness:0.2, side:THREE.DoubleSide }), cpM = mk(pal.dark, { metalness:0.6, roughness:0.4 });
   const hatch = { leaves:[], head:null, mat:hatchM };
   [-1, 1].forEach(s => {
     const piv = new THREE.Group(); piv.position.set(TGV.PC_TIP, NOSE.y0, s * PC.hatch.hz);
@@ -2185,9 +2278,9 @@ const TR = (() => {
     o.push([1.05, 2.25, 3.4, 3.65, false], [DOOR[0] + 0.02, DOOR[1] - 0.02, DOOR[2] + 0.02, DOOR[3] - 0.02, true]);
     return o;
   };
-  const painter = (c, W, H, L) => {   // canvas helpers in metres: x along the car, y up the wall on side s (both sides alike, so flipY does not matter)
-    const px = W / L, pv = H / per;
-    const rect = (s, x0, x1, y0, y1, grow = 0) => { const a = vAt(pts, vs, y0 - grow, s) * H, b = vAt(pts, vs, y1 + grow, s) * H; return [(x0 - grow) * px, Math.min(a, b), (x1 - x0 + 2 * grow) * px, Math.abs(b - a)]; };
+  const painter = (c, W, H, L) => {   // canvas helpers in metres: x along the car, y up the wall on side s; rows run from v 1 at the top (flipY)
+    const px = W / L, pv = H / per, cx = x => x * px, cy = (x, y, s) => (1 - vAt(pts, vs, y, s)) * H;
+    const rect = (s, x0, x1, y0, y1, grow = 0) => { const a = cy(0, y0 - grow, s), b = cy(0, y1 + grow, s); return [(x0 - grow) * px, Math.min(a, b), (x1 - x0 + 2 * grow) * px, Math.abs(b - a)]; };
     const band = (s, y0, y1, col) => { const [x, y, ww, hh] = rect(s, 0, L, y0, y1); c.fillStyle = col; c.fillRect(x, y, ww, hh); };
     const round = (s, [x0, x1, y0, y1], grow, r, col) => { const [x, y, ww, hh] = rect(s, x0, x1, y0, y1, grow); rrect(c, x, y, ww, hh, r * px, r * pv); c.fillStyle = col; c.fill(); };
     const cut = (shrink, rWin) => {   // punch every opening through (alpha 0), shrunk by `shrink` all round
@@ -2195,17 +2288,19 @@ const TR = (() => {
       [1, -1].forEach(s => { for (const h of holes(L)) round(s, h, -shrink, h[4] ? 0 : rWin, '#000'); });
       c.globalCompositeOperation = 'source-over';
     };
-    return { band, round, cut };
+    return { band, round, cut, cx, cy };
   };
-  const geo = {}, tex = {}, lin = {}, pane = {}, lining = {};
+  const geo = {}, tex = {}, lin = {}, pane = {}, lining = {}, logo = inouiLogo(128, '#f2f1ee', '#e5415d');
   for (const L of Ls){
     geo[L] = loftGeo([{ x:0, pts }, { x:L, pts }], vs);
-    tex[L] = canvasTex(2048, 512, (c, W, H) => {   // livery: grey, carmine skirt, dark roof edge, black gaskets round the windows, dark door frame
+    tex[L] = canvasTex(2048, 1024, (c, W, H) => {   // inOui livery: silver over a Carmillon line, anthracite band (to the floor by the door), pale sill, dark gaskets and door frame, logo past the door
       const p = painter(c, W, H, L);
-      c.fillStyle = LIV.grey; c.fillRect(0, 0, W, H);
+      c.fillStyle = LIV.silver; c.fillRect(0, 0, W, H);
       [1, -1].forEach(s => {
-        p.band(s, yBot, 1.55, LIV.carmine); p.band(s, 4.1, yTop, LIV.roof);
+        p.band(s, yBot, 1.3, LIV.low); p.band(s, 1.3, 2.86, LIV.anthracite); p.band(s, 2.86, 2.94, LIV.line); p.band(s, 4.1, yTop, LIV.coachRoof);
+        p.round(s, [0, DOOR[1] + 0.05, yBot, 1.3], 0, 0, LIV.anthracite);
         for (const h of holes(L)) h[4] ? p.round(s, h, 0.04, 0, LIV.door) : p.round(s, h, 0.04, 0.14, LIV.gasket);
+        stampLogo(c, logo, p.cx, p.cy, s, 2.45, 1.72, 0.575);
       });
       c.fillStyle = 'rgba(0,0,0,0.3)'; c.fillRect(0, 0, 0.2 * W / L, H); c.fillRect((L - 0.2) * W / L, 0, 0.2 * W / L, H);   // end shading
       p.cut(0, 0.1);
@@ -2241,7 +2336,16 @@ const TR = (() => {
     };
     pane[L] = { glass:strips(false, -0.004), plug:strips(true, 0.07) };   // glass 4 mm proud of the skin, over the gasket; the plug sits behind the closed leaf (its back is 4.8 cm in)
   }
-  const leaf = { p:doorLeafGeo(pts, 1, ...DOOR.slice(2), DOOR[1] - DOOR[0]), n:doorLeafGeo(pts, -1, ...DOOR.slice(2), DOOR[1] - DOOR[0]) };
+  const paint = g => {   // inOui door: magenta at the top and bottom, coral a little over mid height (vertex colours by height)
+    const p = g.getAttribute('position'), st = [[0, '#dd4c8e'], [0.55, '#fa6951'], [1, '#e034a2']].map(([t, h]) => [t, new THREE.Color(h)]), q = new THREE.Color(), col = [];
+    for (let i = 0; i < p.count; i++){
+      const t = Math.min(1, Math.max(0, (p.getY(i) - DOOR[2]) / (DOOR[3] - DOOR[2]))), k = t < st[1][0] ? 0 : 1;
+      q.copy(st[k][1]).lerp(st[k + 1][1], (t - st[k][0]) / (st[k + 1][0] - st[k][0])); col.push(q.r, q.g, q.b);
+    }
+    g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+    return g;
+  };
+  const leaf = { p:paint(doorLeafGeo(pts, 1, ...DOOR.slice(2), DOOR[1] - DOOR[0])), n:paint(doorLeafGeo(pts, -1, ...DOOR.slice(2), DOOR[1] - DOOR[0])) };
   return { geo, tex, lin, pane, lining, pts, yBot, yTop, leaf, doorX:(DOOR[0] + DOOR[1]) / 2 };
 })();
 const carNumTex = {};
@@ -2263,7 +2367,7 @@ function buildSet(opts){
     linM[L] = mk(0xffffff, { map:TR.lin[L], alphaTest:0.5, side:THREE.BackSide, roughness:0.9, metalness:0, emissive:0xffffff, emissiveMap:TR.lin[L], emissiveIntensity:0.25 });   // inside of the shell, lit by the saloon lights
   }
   const endM = mk(0x2b3238, { roughness:0.85 }), capM = mk(0x2b3238, { roughness:0.85 });
-  const bellowsM = mk(0x23272c, { roughness:0.95 }), doorM = mk(0xaeb4ba, { roughness:0.5, metalness:0.25, side:THREE.DoubleSide }), glassM = mk(0x1c2530, { roughness:0.25, metalness:0.1 });
+  const bellowsM = mk(0x23272c, { roughness:0.95 }), doorM = mk(0xffffff, { vertexColors:true, roughness:0.45, metalness:0.15, side:THREE.DoubleSide }), glassM = mk(0x1c2530, { roughness:0.25, metalness:0.1 });
   const paneM = {   // glass in the openings: opaque from afar, tinted and clear near the camera; the doorway plug only from afar
     far:mk(0x27303a, { roughness:0.25, metalness:0.1 }), plug:mk(LIV.door, { roughness:0.8 }),
     near:mk(0x1c2530, { transparent:true, opacity:0.45, depthWrite:false, side:THREE.DoubleSide, forceSinglePass:true, roughness:0.05, metalness:0 }),   // one pass: every pane has the same tint, so the blend order does not matter
