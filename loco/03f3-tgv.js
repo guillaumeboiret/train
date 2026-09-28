@@ -309,8 +309,10 @@ function tgvBogie(parent, cx, mk, wheelbase = 3.0, jacobs = false){
 }
 
 /* ---- Duplex trailer body (shared geometry + textures per body length). The windows and the doorway are real openings: cut out of
-   the livery (alpha test) and of the lining that shows the inside of the shell, with glass set 2 cm in. Far from the camera the
-   glass is opaque and the doorway plugged, and the coach draws nothing inside (see coachLod). */
+   the livery (alpha test) and of the lining that shows the inside of the shell, glazed from just outside the skin so that from
+   inside the pane's edge stays hidden behind the lining (a pane in front of it showed a pale unglazed strip along one side of
+   every window, wider the more obliquely it was seen). Far from the camera the glass is opaque and the doorway plugged, and the
+   coach draws nothing inside (see coachLod). */
 const TR = (() => {
   const yBot = 0.75, yTop = 4.3, w = TGV.HALF_W;
   const pts = sectionPts(yBot, yTop, w, w * 0.87, 4);
@@ -367,7 +369,7 @@ const TR = (() => {
     }
     const lg = lining[L] = new THREE.BufferGeometry();
     lg.setAttribute('position', new THREE.Float32BufferAttribute(lp, 3)); lg.setAttribute('uv', new THREE.Float32BufferAttribute(lu, 2)); lg.setIndex(li); lg.computeVertexNormals();
-    const strips = (doorway, inset) => {   // quads following the section over each opening (2 cm larger all round), `inset` in from the skin, facing out
+    const strips = (doorway, inset) => {   // quads following the section over each opening (2 cm larger all round), `inset` in from the skin (< 0: out), facing out
       const pos = [], idx = [];
       for (const s of [1, -1]) for (const [x0, x1, y0, y1, d] of holes(L)){
         if (d !== doorway) continue;
@@ -378,7 +380,7 @@ const TR = (() => {
       const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
       return g;
     };
-    pane[L] = { glass:strips(false, 0.02), plug:strips(true, 0.07) };   // the plug sits behind the closed leaf (its back is 4.8 cm in)
+    pane[L] = { glass:strips(false, -0.004), plug:strips(true, 0.07) };   // glass 4 mm proud of the skin, over the gasket; the plug sits behind the closed leaf (its back is 4.8 cm in)
   }
   const leaf = { p:doorLeafGeo(pts, 1, ...DOOR.slice(2), DOOR[1] - DOOR[0]), n:doorLeafGeo(pts, -1, ...DOOR.slice(2), DOOR[1] - DOOR[0]) };
   return { geo, tex, lin, pane, lining, pts, yBot, yTop, leaf, doorX:(DOOR[0] + DOOR[1]) / 2 };
