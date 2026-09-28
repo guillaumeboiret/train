@@ -15,7 +15,12 @@
 }
 *{ box-sizing:border-box; }
 html, body{ margin:0; background:var(--bg); color:var(--fg); font:16px/1.5 'IBM Plex Sans', system-ui, sans-serif; }
-main{ max-width:920px; margin:0 auto; padding:56px 16px calc(32px + env(safe-area-inset-bottom, 0px)); }
+main{ max-width:920px; margin:0 auto; padding:16px 16px calc(32px + env(safe-area-inset-bottom, 0px)); }
+.langs{ display:flex; justify-content:flex-end; margin-bottom:4px; }
+.seg{ display:flex; border:1px solid var(--line); border-radius:999px; overflow:hidden; }
+.seg button{ font:500 13px/1 'IBM Plex Sans', system-ui, sans-serif; color:var(--mute); background:none; border:0; min-width:44px; min-height:36px; padding:0 12px; cursor:pointer; }
+.seg button[aria-pressed="true"]{ background:var(--card); color:var(--fg); }
+.seg button:focus-visible{ outline:2px solid var(--accent); outline-offset:-2px; }
 h1{ font:700 64px/0.95 'Barlow Condensed', system-ui, sans-serif; letter-spacing:0.01em; margin:0; }
 h1 span{ color:var(--accent); }
 .sub{ color:var(--mute); margin:12px 0 36px; max-width:560px; }
@@ -26,43 +31,81 @@ a.card.kid{ border-color:var(--carmine); }
 .ico{ font-size:40px; line-height:1; }
 h2{ font:700 28px/1.05 'Barlow Condensed', system-ui, sans-serif; margin:10px 0 0; }
 p{ margin:0; }
-.en{ color:var(--mute); font-size:14px; }
 .go{ margin-top:auto; padding-top:12px; color:var(--accent); font-weight:500; font-size:14px; }
 footer{ margin-top:44px; color:var(--mute); font-size:13px; line-height:1.6; }
 footer a{ color:var(--mute); }
-@media (max-width:480px){ main{ padding-top:36px; } h1{ font-size:52px; } }
+@media (max-width:480px){ main{ padding-top:8px; } h1{ font-size:52px; } }
 </style>
 </head>
 <body>
 <main>
+  <div class="langs">
+    <div class="seg" id="langSeg" role="group" aria-label="Langue">
+      <button type="button" data-lang="fr" aria-pressed="true">FR</button>
+      <button type="button" data-lang="en" aria-pressed="false">EN</button>
+    </div>
+  </div>
   <h1>Trains <span>Bordeaux ⇄ Paris</span></h1>
-  <p class="sub">Le vrai tracé de la ligne, 538 km, en 3D dans le navigateur.<br><span class="en">The real line, 538 km, in 3D in your browser.</span></p>
+  <p class="sub" data-i18n="sub">Le vrai tracé de la ligne, 538 km, en 3D dans le navigateur.</p>
   <div class="grid">
     <a class="card kid" href="/conducteur/">
       <div class="ico">🚄</div>
-      <h2>Conducteur de train</h2>
-      <p>Pour les enfants : un levier, un klaxon, les gares, les passagers.</p>
-      <p class="en">For kids: one lever, a horn, stations and passengers.</p>
-      <span class="go">Conduire →</span>
+      <h2 data-i18n="kid_t">Conducteur de train</h2>
+      <p data-i18n="kid_p">Pour les enfants : un levier, un klaxon, les gares, les passagers.</p>
+      <span class="go" data-i18n="kid_go">Conduire →</span>
     </a>
     <a class="card" href="/locomotive/">
       <div class="ico">⚙️</div>
-      <h2>Anatomie d'une locomotive</h2>
-      <p>Diesel, électrique, TGV Duplex : chaque pièce et chaque flux d'énergie.</p>
-      <p class="en">Diesel, electric, TGV Duplex: every part, every energy flow.</p>
-      <span class="go">Explorer →</span>
+      <h2 data-i18n="loco_t">Anatomie d'une locomotive</h2>
+      <p data-i18n="loco_p">Diesel, électrique, TGV Duplex : chaque pièce et chaque flux d'énergie.</p>
+      <span class="go" data-i18n="loco_go">Explorer →</span>
     </a>
     <a class="card" href="/aiguillages/">
       <div class="ico">🔀</div>
       <h2>Aiguillages</h2>
-      <p>Jeu de logique : envoie chaque train sur la bonne voie, 10 niveaux.</p>
-      <p class="en">Logic game: route every train to the right track, 10 levels.</p>
-      <span class="go">Jouer →</span>
+      <p data-i18n="game_p">Jeu de logique : envoie chaque train sur la bonne voie, 10 niveaux.</p>
+      <span class="go" data-i18n="game_go">Jouer →</span>
     </a>
   </div>
   <footer>
-    <a href="https://github.com/guillaumeboiret/train-3d">Code source</a> (MIT) · Voies et gares © contributeurs <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> (ODbL) · Relief : Terrain Tiles (Mapzen, AWS)
+    <a href="https://github.com/guillaumeboiret/train-3d" data-i18n="src">Code source</a> (MIT) · <span data-i18n="osm_a">Voies et gares © contributeurs </span><a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a><span data-i18n="osm_b"> (ODbL)</span> · <span data-i18n="dem">Relief : Terrain Tiles (Mapzen, AWS)</span>
   </footer>
 </main>
+<script>
+// The landing page in the site's language (site/lang.js picked it in the head); the switcher saves the pick for every page.
+(() => {
+  const T = {
+    fr:{ desc:"Le vrai tracé Bordeaux Paris en 3D : conduire un TGV, comprendre une locomotive, jouer aux aiguillages.", lang:"Langue",
+         sub:"Le vrai tracé de la ligne, 538 km, en 3D dans le navigateur.",
+         kid_t:"Conducteur de train", kid_p:"Pour les enfants : un levier, un klaxon, les gares, les passagers.", kid_go:"Conduire →",
+         loco_t:"Anatomie d'une locomotive", loco_p:"Diesel, électrique, TGV Duplex : chaque pièce et chaque flux d'énergie.", loco_go:"Explorer →",
+         game_p:"Jeu de logique : envoie chaque train sur la bonne voie, 10 niveaux.", game_go:"Jouer →",
+         src:"Code source", osm_a:"Voies et gares © contributeurs ", osm_b:" (ODbL)", dem:"Relief : Terrain Tiles (Mapzen, AWS)" },
+    en:{ desc:"The real Bordeaux Paris line in 3D: drive a TGV, understand a locomotive, play the railway switch game.", lang:"Language",
+         sub:"The real line, 538 km, in 3D in your browser.",
+         kid_t:"Train driver", kid_p:"For kids: one lever, a horn, stations and passengers.", kid_go:"Drive →",
+         loco_t:"Locomotive Anatomy", loco_p:"Diesel, electric, TGV Duplex: every part, every energy flow.", loco_go:"Explore →",
+         game_p:"Logic game: route every train to the right track, 10 levels.", game_go:"Play →",
+         src:"Source code", osm_a:"Tracks and stations © ", osm_b:" contributors (ODbL)", dem:"Terrain: Terrain Tiles (Mapzen, AWS)" },
+  };
+  const d = document.documentElement, seg = document.getElementById('langSeg');
+  function apply(l){
+    const t = T[l];
+    d.lang = l;
+    document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = t[el.dataset.i18n]; });
+    document.querySelector('meta[name="description"]').content = t.desc;
+    seg.setAttribute('aria-label', t.lang);
+    seg.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.lang === l)));
+    d.removeAttribute('data-i18n-wait');
+  }
+  seg.addEventListener('click', e => {
+    const b = e.target.closest('button');
+    if (!b || b.dataset.lang === d.lang) return;
+    try { localStorage.setItem('lang', b.dataset.lang); } catch (err) {}
+    apply(b.dataset.lang);
+  });
+  apply(T[d.lang] ? d.lang : 'en');
+})();
+</script>
 </body>
 </html>

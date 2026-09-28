@@ -16,7 +16,7 @@ function specNow(){   // a double TGV (UM) doubles power, adhesion, brakes and m
   return sp;
 }
 const S = {
-  mode:'diesel', lang:'fr',
+  mode:'diesel', lang:T[document.documentElement.lang] ? document.documentElement.lang : 'en',
   battery:false, engine:'off', crankT:0, rpm:0, rpmN:0, fuel:0,
   notch:0, brake:0, dir:1, throttleN:0, brakeN:0,
   panto:false, pantoF:0, lineOn:false, vcb:false,

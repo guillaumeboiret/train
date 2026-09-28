@@ -118,19 +118,19 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-off
       <button type="button" class="btn" id="btnLevels" data-i18n="levels">Niveaux</button>
       <button type="button" class="btn" id="btnRestart" data-i18n="restart">Recommencer</button>
       <button type="button" class="btn" id="btnPause" aria-pressed="false" data-i18n="pause">Pause</button>
-      <div class="seg" id="speedSeg" role="group" aria-label="Vitesse">
+      <div class="seg" id="speedSeg" role="group" aria-label="Vitesse" data-i18n-aria="aria_speed">
         <button type="button" data-speed="1" aria-pressed="true">×1</button>
         <button type="button" data-speed="2" aria-pressed="false">×2</button>
       </div>
       <a class="btn link" href="https://claude.ai/artifact/EMVu67YYfT7DzW8UozZAj6" target="_blank" rel="noopener"><span class="full" data-i18n="loco">Anatomie d'une locomotive ↗</span><span class="short" data-i18n="locoShort">Locomotive ↗</span></a>
-      <div class="seg" id="langSeg" role="group" aria-label="Langue">
+      <div class="seg" id="langSeg" role="group" aria-label="Langue" data-i18n-aria="aria_lang">
         <button type="button" data-lang="fr" aria-pressed="true">FR</button>
         <button type="button" data-lang="en" aria-pressed="false">EN</button>
       </div>
     </div>
   </header>
   <main class="stage" id="stage">
-    <canvas id="c3d" aria-label="Plan des voies"></canvas>
+    <canvas id="c3d" aria-label="Plan des voies" data-i18n-aria="aria_map"></canvas>
     <div id="labels"></div>
     <div class="status" id="status" aria-live="polite"></div>
     <div class="hint" id="hint"></div>
@@ -751,14 +751,16 @@ const I18N = {
        chooseLevel:'Choisir un niveau', close:'Fermer', level:'Niveau', arrived:'arrivés', tutorial:'Tutoriel', goal:'Objectif',
        win:'Niveau réussi', winText:'Tous les trains sont arrivés en {t} s.', next:'Niveau suivant', replay:'Rejouer', fail:'Raté', retry:'Réessayer',
        crash:'Collision entre deux trains.', wrong:'Le train → {to} est arrivé en {at}.', buffer:'Le train → {to} a heurté un butoir.',
-       allDone:'Bravo, les 10 niveaux sont terminés. Temps: {t} s.', trains:'{n} trains', train:'1 train' },
-  en:{ sub:'The railway switch game', levels:'Levels', restart:'Restart', pause:'Pause', resume:'Resume', loco:'Anatomy of a locomotive ↗', locoShort:'Locomotive ↗',
+       allDone:'Bravo, les 10 niveaux sont terminés. Temps: {t} s.', trains:'{n} trains', train:'1 train',
+       aria_speed:'Vitesse', aria_lang:'Langue', aria_map:'Plan des voies' },
+  en:{ sub:'The railway switch game', levels:'Levels', restart:'Restart', pause:'Pause', resume:'Resume', loco:'Locomotive Anatomy ↗', locoShort:'Locomotive ↗',
        chooseLevel:'Choose a level', close:'Close', level:'Level', arrived:'arrived', tutorial:'Tutorial', goal:'Goal',
        win:'Level complete', winText:'All trains arrived in {t} s.', next:'Next level', replay:'Replay', fail:'Failed', retry:'Retry',
        crash:'Two trains collided.', wrong:'Train → {to} arrived at {at}.', buffer:'Train → {to} hit a buffer stop.',
-       allDone:'Well done, all 10 levels finished. Time: {t} s.', trains:'{n} trains', train:'1 train' },
+       allDone:'Well done, all 10 levels finished. Time: {t} s.', trains:'{n} trains', train:'1 train',
+       aria_speed:'Speed', aria_lang:'Language', aria_map:'Track plan' },
 };
-let lang = 'fr';
+let lang = I18N[document.documentElement.lang] ? document.documentElement.lang : 'en';   // the site's language (site/lang.js)
 function tt(k, vars){ let s = (I18N[lang] && I18N[lang][k]) || I18N.fr[k] || k; if (vars) for (const [a, b] of Object.entries(vars)) s = s.split('{' + a + '}').join(b); return s; }
 
 const STORE_KEY = 'aiguillages.v1';
@@ -854,6 +856,8 @@ function showBanner(){
 function refreshTexts(){
   if (!G.spec) return;
   document.querySelectorAll('[data-i18n]').forEach(n => { const k = n.dataset.i18n; if (k === 'pause') n.textContent = tt(G.paused ? 'resume' : 'pause'); else n.textContent = tt(k); });
+  document.querySelectorAll('[data-i18n-aria]').forEach(n => n.setAttribute('aria-label', tt(n.dataset.i18nAria)));
+  document.documentElement.removeAttribute('data-i18n-wait');
   el.lvlNum.textContent = String(G.level + 1).padStart(2, '0');
   el.lvlName.textContent = G.spec.name[lang];
   el.hint.innerHTML = `<span class="k">${tt('goal')}</span>${G.spec.hint[lang]}`;
@@ -985,12 +989,16 @@ function setPaused(p){ G.paused = p; el.btnPause.setAttribute('aria-pressed', St
 el.btnPause.addEventListener('click', () => setPaused(!G.paused));
 el.speedSeg.addEventListener('click', (e) => { const b = e.target.closest('button[data-speed]'); if (!b) return; G.speedMul = +b.dataset.speed; el.speedSeg.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', String(x === b))); });
 function setLang(l){
-  lang = I18N[l] ? l : 'fr'; saveStore({ lang });
+  lang = I18N[l] ? l : 'en';
   el.langSeg.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', String(x.dataset.lang === lang)));
   document.documentElement.lang = lang;
   refreshTexts(); renderLevelsGrid();
 }
-el.langSeg.addEventListener('click', (e) => { const b = e.target.closest('button[data-lang]'); if (b) setLang(b.dataset.lang); });
+el.langSeg.addEventListener('click', (e) => {   // saved for every page of the site
+  const b = e.target.closest('button[data-lang]'); if (!b || b.dataset.lang === lang) return;
+  try { localStorage.setItem('lang', b.dataset.lang); } catch (err) {}
+  setLang(b.dataset.lang);
+});
 document.addEventListener('keydown', (e) => {
   if (e.target.matches('input,textarea')) return;
   if (e.key === 'Escape'){ el.levelsModal.hidden = true; }
@@ -1047,7 +1055,7 @@ function frame(now){
 /* ------------------------------------------------------------ boot */
 {
   const store = loadStore();
-  setLang(store.lang || ((navigator.language || 'fr').toLowerCase().startsWith('fr') ? 'fr' : 'en'));
+  setLang(lang);
   resize();
   loadLevel(Number.isInteger(store.last) ? store.last : 0);
   requestAnimationFrame(frame);

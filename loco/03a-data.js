@@ -35,6 +35,7 @@ const T = {
     ctl_time:"Vitesse du temps", horn:"Klaxon (H)", hud_pk:"PK", hud_alt:"Alt.", hud_grade:"Pente", hud_tracks:"Voies", hud_limit:"Limite", hud_next:"Prochaine gare", hud_end:"Terminus", hud_tp:"Aller au PK", hud_go:"Go", rb_title:"Cliquez ou glissez sur la ligne pour vous téléporter", ctl_weather:"Météo", wx_sun:"Soleil", wx_cloud:"Nuages", wx_rain:"Pluie", wx_dusk:"Crépuscule", hud_bridge:"Pont", hud_tunnel:"Tunnel", hud_cutting:"Tranchée", hud_viaduct:"Viaduc",
     cam_hint:"Clavier: W A S D déplacent le point de visée le long de la rame, R/F (ou E/Q) montent et descendent, Maj accélère. H ou Espace: klaxon.",
     route_src:"Ligne Bordeaux Saint-Jean à Paris Montparnasse, 537,8 km. Tracé, gares et nombre de voies: © OpenStreetMap contributors (ODbL). Relief: Mapzen/AWS Terrain Tiles (SRTM). Profil de la voie lissé et limité à 2,5 %. Champs, maisons et arbres générés; trains en face à intervalles aléatoires.",
+    aria_traction:"Type de traction", aria_lang:"Langue", aria_canvas:"Locomotive 3D", aria_line:"Ligne", aria_fold:"Replier", aria_hide:"Masquer", tip_hide:"Masquer / afficher",
   },
   en: {
     title:"Locomotive Anatomy", subtitle:"Interactive 3D explainer",
@@ -68,6 +69,7 @@ const T = {
     ctl_time:"Time scale", horn:"Horn (H)", hud_pk:"km", hud_alt:"Alt.", hud_grade:"Grade", hud_tracks:"Tracks", hud_limit:"Limit", hud_next:"Next station", hud_end:"Terminus", hud_tp:"Go to km", hud_go:"Go", rb_title:"Click or drag on the line to teleport", ctl_weather:"Weather", wx_sun:"Sun", wx_cloud:"Clouds", wx_rain:"Rain", wx_dusk:"Dusk", hud_bridge:"Bridge", hud_tunnel:"Tunnel", hud_cutting:"Cutting", hud_viaduct:"Viaduct",
     cam_hint:"Keys: W A S D move the focus along the train, R/F (or E/Q) up and down, Shift is faster. H or Space: horn.",
     route_src:"Bordeaux Saint-Jean to Paris Montparnasse, 537.8 km. Alignment, stations and track count: © OpenStreetMap contributors (ODbL). Relief: Mapzen/AWS Terrain Tiles (SRTM). Track profile smoothed and capped at 2.5%. Fields, houses and trees are generated; oncoming trains run at random intervals.",
+    aria_traction:"Traction type", aria_lang:"Language", aria_canvas:"3D locomotive", aria_line:"Line", aria_fold:"Collapse", aria_hide:"Hide", tip_hide:"Hide / show",
   }
 };
 

@@ -255,7 +255,7 @@ $('kidXray').addEventListener('click', kidXray);
   hb.addEventListener('keyup', e => { if (e.key === ' ' || e.key === 'Enter') horn.release(); });
 }
 $('kidGear').addEventListener('click', () => { const m = $('kidMenu'); m.hidden = !m.hidden; $('kidGear').setAttribute('aria-expanded', String(!m.hidden)); });
-$('kidLang').addEventListener('click', e => { const b = e.target.closest('button'); if (b && b.dataset.lang !== S.lang){ S.lang = b.dataset.lang; applyLang(); kidLang(); } });
+$('kidLang').addEventListener('click', e => { const b = e.target.closest('button'); if (b && b.dataset.lang !== S.lang){ setLang(b.dataset.lang); kidLang(); } });
 function kidMute(m){
   SND.setMuted(m);
   $('kidSound').querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(+b.dataset.m === +m)));

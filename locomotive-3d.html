@@ -175,27 +175,27 @@ body:not([data-mode="tgv"]) .tgv-only{display:none}
 <div id="app">
   <header class="topbar">
     <div class="brand"><span data-i18n="title">Anatomie d'une locomotive</span><small data-i18n="subtitle">Modèle 3D pédagogique</small></div>
-    <div class="seg" id="modeSeg" role="group" aria-label="Type de traction">
+    <div class="seg" id="modeSeg" role="group" aria-label="Type de traction" data-i18n-aria="aria_traction">
       <button type="button" data-mode="diesel" aria-pressed="true" data-i18n="mode_diesel">Diesel-électrique</button>
       <button type="button" data-mode="electric" aria-pressed="false" data-i18n="mode_electric">Électrique</button>
       <button type="button" data-mode="tgv" aria-pressed="false" data-i18n="mode_tgv">TGV</button>
     </div>
     <div class="spacer"></div>
     <a class="btn link" href="https://claude.ai/artifact/YTRJvuYiFZpzyjxXD6vqQR" target="_blank" rel="noopener" data-i18n="game">Jouer aux aiguillages ↗</a>
-    <div class="seg" id="langSeg" role="group" aria-label="Langue">
+    <div class="seg" id="langSeg" role="group" aria-label="Langue" data-i18n-aria="aria_lang">
       <button type="button" data-lang="fr" aria-pressed="true">FR</button>
       <button type="button" data-lang="en" aria-pressed="false">EN</button>
     </div>
   </header>
   <main class="stage">
-    <canvas id="c3d" aria-label="Locomotive 3D"></canvas>
+    <canvas id="c3d" aria-label="Locomotive 3D" data-i18n-aria="aria_canvas"></canvas>
     <div id="labels" aria-hidden="true"></div>
     <div id="hud" class="hud">
       <div class="hud-row"><span class="hk" data-i18n="hud_pk">PK</span><span class="hv"><b id="hudPk">0.9</b> km</span><span class="hk" data-i18n="hud_alt">Alt.</span><span class="hv"><b id="hudAlt">0</b> m</span><span class="hk" data-i18n="hud_grade">Pente</span><span class="hv"><b id="hudGrade">0</b> ‰</span></div>
       <div class="hud-row"><span class="hk" data-i18n="hud_tracks">Voies</span><span class="hv"><b id="hudTracks">2</b></span><span class="hk" data-i18n="hud_limit">Limite</span><span class="hv"><b id="hudLimit">160</b> km/h</span><span class="hud-kind" id="hudKind"></span></div>
       <div class="hud-row"><span class="hk" data-i18n="hud_next">Prochaine gare</span><span class="hv" id="hudNext"></span></div>
       <div class="hud-row hud-tp"><label class="hk" for="pkIn" data-i18n="hud_tp">Aller au PK</label><input id="pkIn" type="number" min="0" max="537.8" step="0.1" inputmode="decimal" placeholder="123.4"><button type="button" id="pkGo" class="go" data-i18n="hud_go">Go</button></div>
-      <div id="routeBar" role="group" aria-label="Ligne"></div>
+      <div id="routeBar" role="group" aria-label="Ligne" data-i18n-aria="aria_line"></div>
     </div>
     <aside class="dock" id="dock">
       <nav class="tabs" role="tablist">
@@ -203,7 +203,7 @@ body:not([data-mode="tgv"]) .tgv-only{display:none}
         <button type="button" role="tab" aria-selected="false" data-tab="controls" data-i18n="tab_controls">Commandes</button>
         <button type="button" role="tab" aria-selected="false" data-tab="parts" data-i18n="tab_parts">Pièces</button>
         <button type="button" role="tab" aria-selected="false" data-tab="views" data-i18n="tab_views">Vues</button>
-        <button type="button" id="sheetToggle" aria-label="Replier">▾</button>
+        <button type="button" id="sheetToggle" aria-label="Replier" data-i18n-aria="aria_fold">▾</button>
       </nav>
       <div class="panels">
         <section class="tabpanel" data-tab="guide" role="tabpanel">
@@ -363,7 +363,7 @@ body:not([data-mode="tgv"]) .tgv-only{display:none}
     </aside>
     <div class="infocard" id="infocard">
       <div class="eyebrow"><span id="infoEyebrow"></span><span class="mini" id="infoMini"></span></div>
-      <button type="button" class="close" id="infoClose" aria-label="Masquer" title="Masquer / afficher">×</button>
+      <button type="button" class="close" id="infoClose" aria-label="Masquer" title="Masquer / afficher" data-i18n-aria="aria_hide" data-i18n-title="tip_hide">×</button>
       <h2 id="infoTitle"></h2>
       <p id="infoText"></p>
       <div class="legend" id="infoLegend"></div>
@@ -414,6 +414,7 @@ const T = {
     ctl_time:"Vitesse du temps", horn:"Klaxon (H)", hud_pk:"PK", hud_alt:"Alt.", hud_grade:"Pente", hud_tracks:"Voies", hud_limit:"Limite", hud_next:"Prochaine gare", hud_end:"Terminus", hud_tp:"Aller au PK", hud_go:"Go", rb_title:"Cliquez ou glissez sur la ligne pour vous téléporter", ctl_weather:"Météo", wx_sun:"Soleil", wx_cloud:"Nuages", wx_rain:"Pluie", wx_dusk:"Crépuscule", hud_bridge:"Pont", hud_tunnel:"Tunnel", hud_cutting:"Tranchée", hud_viaduct:"Viaduc",
     cam_hint:"Clavier: W A S D déplacent le point de visée le long de la rame, R/F (ou E/Q) montent et descendent, Maj accélère. H ou Espace: klaxon.",
     route_src:"Ligne Bordeaux Saint-Jean à Paris Montparnasse, 537,8 km. Tracé, gares et nombre de voies: © OpenStreetMap contributors (ODbL). Relief: Mapzen/AWS Terrain Tiles (SRTM). Profil de la voie lissé et limité à 2,5 %. Champs, maisons et arbres générés; trains en face à intervalles aléatoires.",
+    aria_traction:"Type de traction", aria_lang:"Langue", aria_canvas:"Locomotive 3D", aria_line:"Ligne", aria_fold:"Replier", aria_hide:"Masquer", tip_hide:"Masquer / afficher",
   },
   en: {
     title:"Locomotive Anatomy", subtitle:"Interactive 3D explainer",
@@ -447,6 +448,7 @@ const T = {
     ctl_time:"Time scale", horn:"Horn (H)", hud_pk:"km", hud_alt:"Alt.", hud_grade:"Grade", hud_tracks:"Tracks", hud_limit:"Limit", hud_next:"Next station", hud_end:"Terminus", hud_tp:"Go to km", hud_go:"Go", rb_title:"Click or drag on the line to teleport", ctl_weather:"Weather", wx_sun:"Sun", wx_cloud:"Clouds", wx_rain:"Rain", wx_dusk:"Dusk", hud_bridge:"Bridge", hud_tunnel:"Tunnel", hud_cutting:"Cutting", hud_viaduct:"Viaduct",
     cam_hint:"Keys: W A S D move the focus along the train, R/F (or E/Q) up and down, Shift is faster. H or Space: horn.",
     route_src:"Bordeaux Saint-Jean to Paris Montparnasse, 537.8 km. Alignment, stations and track count: © OpenStreetMap contributors (ODbL). Relief: Mapzen/AWS Terrain Tiles (SRTM). Track profile smoothed and capped at 2.5%. Fields, houses and trees are generated; oncoming trains run at random intervals.",
+    aria_traction:"Traction type", aria_lang:"Language", aria_canvas:"3D locomotive", aria_line:"Line", aria_fold:"Collapse", aria_hide:"Hide", tip_hide:"Hide / show",
   }
 };
 
@@ -3353,7 +3355,7 @@ function specNow(){   // a double TGV (UM) doubles power, adhesion, brakes and m
   return sp;
 }
 const S = {
-  mode:'diesel', lang:'fr',
+  mode:'diesel', lang:T[document.documentElement.lang] ? document.documentElement.lang : 'en',
   battery:false, engine:'off', crankT:0, rpm:0, rpmN:0, fuel:0,
   notch:0, brake:0, dir:1, throttleN:0, brakeN:0,
   panto:false, pantoF:0, lineOn:false, vcb:false,
@@ -3578,18 +3580,22 @@ let selected = null, focusId = null, stepIdx = 0, autoOn = false, autoT = 0, she
 let cutAxis = 'none', cutPos = 0, cutFlip = false, cutPlane = null, infoCollapsed = false;
 const HIL = new THREE.Color(0xf28c28);
 
-/* ---- i18n */
+/* ---- i18n: the page starts in the site's language (site/lang.js); a switch here is saved for every page of the site */
+function setLang(l){ S.lang = l; try { localStorage.setItem('lang', l); } catch (e) {} applyLang(); }
 function applyLang(){
   document.documentElement.lang = S.lang;
   document.querySelectorAll('[data-i18n]').forEach(el => { const v = T[S.lang][el.dataset.i18n]; if (v != null) el.textContent = v; });
+  document.querySelectorAll('[data-i18n-aria]').forEach(el => el.setAttribute('aria-label', t(el.dataset.i18nAria)));
+  document.querySelectorAll('[data-i18n-title]').forEach(el => { el.title = t(el.dataset.i18nTitle); });
   $('lampSrcTxt').textContent = t(S.mode === 'diesel' ? 'lamp_engine' : 'lamp_line');
   $('gAk').textContent = t(S.mode === 'diesel' ? 'g_rpm' : 'g_line');
   $('gAu').textContent = t(S.mode === 'diesel' ? 'unit_rpm' : 'unit_kv');
   $('autoPlay').textContent = t(autoOn ? 'autoplay_on' : 'autoplay');
   document.title = t('title'); $('routeBar').title = t('rb_title');
   $('langSeg').querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.lang === S.lang)));
-  buildPartList(); buildStepList(); refreshInfo();
+  buildPartList(); buildStepList(); refreshInfo(); syncControls();   // syncControls: the control panel's state labels (doors, platform, coupling)
   for (const id in labels) labels[id].textContent = PARTS[id][S.lang].name;
+  document.documentElement.removeAttribute('data-i18n-wait');
 }
 
 /* ---- mode */
@@ -3633,7 +3639,7 @@ function buildPartList(){
     for (const id of ids){
       const row = document.createElement('div'); row.className = 'part'; row.dataset.part = id; row.setAttribute('role', 'button'); row.tabIndex = 0;
       row.setAttribute('aria-pressed', String(selected === id));
-      row.innerHTML = `<span class="sw" style="background:${PARTS[id].color}"></span><span>${PARTS[id][S.lang].name}</span><button type="button" class="eye" aria-pressed="${parts[id].hidden}" aria-label="${S.lang === 'fr' ? 'Masquer' : 'Hide'}">${EYE}</button>`;
+      row.innerHTML = `<span class="sw" style="background:${PARTS[id].color}"></span><span>${PARTS[id][S.lang].name}</span><button type="button" class="eye" aria-pressed="${parts[id].hidden}" aria-label="${t('aria_hide')}">${EYE}</button>`;
       row.addEventListener('click', e => {
         if (e.target.closest('.eye')){ toggleHidden(id); return; }
         select(selected === id ? null : id); flyToPart(id);
@@ -3905,7 +3911,7 @@ document.querySelectorAll('.tabs [role="tab"]').forEach(tab => tab.addEventListe
 }));
 $('sheetToggle').addEventListener('click', () => $('dock').classList.toggle('collapsed'));
 $('modeSeg').addEventListener('click', e => { const b = e.target.closest('button'); if (b && b.dataset.mode !== S.mode) setMode(b.dataset.mode); });
-$('langSeg').addEventListener('click', e => { const b = e.target.closest('button'); if (b && b.dataset.lang !== S.lang){ S.lang = b.dataset.lang; applyLang(); } });
+$('langSeg').addEventListener('click', e => { const b = e.target.closest('button'); if (b && b.dataset.lang !== S.lang) setLang(b.dataset.lang); });
 
 /* ---- picking */
 const ray = new THREE.Raycaster(), ptr = new THREE.Vector2();

@@ -32,12 +32,18 @@ cd loco && python3 -m http.server 8765
 
 https://train.boiret.com serves the three pages plus a landing page. `site/build.sh` gives each built page a real document head and points its links to the other pages at the site paths (`/conducteur/`, `/locomotive/`, `/aiguillages/`); the root `Dockerfile` runs it and serves the result with Caddy (`site/Caddyfile`). Railway builds that image on every push to `main`, and `/version.txt` gives the commit that is live. Local preview: `sh site/build.sh && python3 -m http.server -d site/public 8767`.
 
+### Languages
+
+The whole site speaks one language at a time, French or English. `site/lang.js`, inlined first in every page's head by `site/build.sh`, picks it before anything renders: a `?lang=fr` or `?lang=en` link wins and is remembered, then the visitor's last pick, then the browser's languages, then English. Every page's switcher saves the pick under the `lang` key of `localStorage`, so the next page opens in the same language. Each page starts in `<html lang>`; while its dictionary is not applied yet, its `[data-i18n]` markup text is hidden rather than shown in the wrong language.
+
+Adding a language: its code in `OK` in `site/lang.js`, a button in each switcher (`site/index.html`, `loco/02-markup.html`, `loco/03i-kid.js`, `game/g1-markup.html`), and its strings wherever `fr` has some: the landing dictionary in `site/index.html`, `T`, `PARTS` and `STEPS` in `loco/03a-data.js`, `KID_T` in `loco/03i-kid.js`, `I18N` in `game/g5-game.js` and the level texts in `game/g3-levels.js`.
+
 ## Source layout
 
 `loco/` is one module split into files, concatenated in this order. It is a single scope and `const` declarations do not hoist, so a file must not call a helper declared in a later file while loading.
 
 - `locomotive.html`, `02-markup.html`: title, styles, DOM
-- `03a-data.js`: FR/EN strings, guide steps, component data
+- `03a-data.js`: FR/EN strings (`T`), guide steps, component data
 - `03a2-route.js`: the baked route database (generated, see below)
 - `03b-scene.js`, `03c-common.js`: renderer, camera controls, shared builders
 - `03d-diesel.js`, `03e-electric.js`, `03f3-tgv.js`, `03f3b-landmarks.js`: the three trains and the terminus landmarks

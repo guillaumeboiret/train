@@ -6,18 +6,22 @@ let selected = null, focusId = null, stepIdx = 0, autoOn = false, autoT = 0, she
 let cutAxis = 'none', cutPos = 0, cutFlip = false, cutPlane = null, infoCollapsed = false;
 const HIL = new THREE.Color(0xf28c28);
 
-/* ---- i18n */
+/* ---- i18n: the page starts in the site's language (site/lang.js); a switch here is saved for every page of the site */
+function setLang(l){ S.lang = l; try { localStorage.setItem('lang', l); } catch (e) {} applyLang(); }
 function applyLang(){
   document.documentElement.lang = S.lang;
   document.querySelectorAll('[data-i18n]').forEach(el => { const v = T[S.lang][el.dataset.i18n]; if (v != null) el.textContent = v; });
+  document.querySelectorAll('[data-i18n-aria]').forEach(el => el.setAttribute('aria-label', t(el.dataset.i18nAria)));
+  document.querySelectorAll('[data-i18n-title]').forEach(el => { el.title = t(el.dataset.i18nTitle); });
   $('lampSrcTxt').textContent = t(S.mode === 'diesel' ? 'lamp_engine' : 'lamp_line');
   $('gAk').textContent = t(S.mode === 'diesel' ? 'g_rpm' : 'g_line');
   $('gAu').textContent = t(S.mode === 'diesel' ? 'unit_rpm' : 'unit_kv');
   $('autoPlay').textContent = t(autoOn ? 'autoplay_on' : 'autoplay');
   document.title = t('title'); $('routeBar').title = t('rb_title');
   $('langSeg').querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.lang === S.lang)));
-  buildPartList(); buildStepList(); refreshInfo();
+  buildPartList(); buildStepList(); refreshInfo(); syncControls();   // syncControls: the control panel's state labels (doors, platform, coupling)
   for (const id in labels) labels[id].textContent = PARTS[id][S.lang].name;
+  document.documentElement.removeAttribute('data-i18n-wait');
 }
 
 /* ---- mode */
@@ -61,7 +65,7 @@ function buildPartList(){
     for (const id of ids){
       const row = document.createElement('div'); row.className = 'part'; row.dataset.part = id; row.setAttribute('role', 'button'); row.tabIndex = 0;
       row.setAttribute('aria-pressed', String(selected === id));
-      row.innerHTML = `<span class="sw" style="background:${PARTS[id].color}"></span><span>${PARTS[id][S.lang].name}</span><button type="button" class="eye" aria-pressed="${parts[id].hidden}" aria-label="${S.lang === 'fr' ? 'Masquer' : 'Hide'}">${EYE}</button>`;
+      row.innerHTML = `<span class="sw" style="background:${PARTS[id].color}"></span><span>${PARTS[id][S.lang].name}</span><button type="button" class="eye" aria-pressed="${parts[id].hidden}" aria-label="${t('aria_hide')}">${EYE}</button>`;
       row.addEventListener('click', e => {
         if (e.target.closest('.eye')){ toggleHidden(id); return; }
         select(selected === id ? null : id); flyToPart(id);
@@ -333,7 +337,7 @@ document.querySelectorAll('.tabs [role="tab"]').forEach(tab => tab.addEventListe
 }));
 $('sheetToggle').addEventListener('click', () => $('dock').classList.toggle('collapsed'));
 $('modeSeg').addEventListener('click', e => { const b = e.target.closest('button'); if (b && b.dataset.mode !== S.mode) setMode(b.dataset.mode); });
-$('langSeg').addEventListener('click', e => { const b = e.target.closest('button'); if (b && b.dataset.lang !== S.lang){ S.lang = b.dataset.lang; applyLang(); } });
+$('langSeg').addEventListener('click', e => { const b = e.target.closest('button'); if (b && b.dataset.lang !== S.lang) setLang(b.dataset.lang); });
 
 /* ---- picking */
 const ray = new THREE.Raycaster(), ptr = new THREE.Vector2();

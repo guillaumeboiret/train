@@ -7,19 +7,19 @@
       <button type="button" class="btn" id="btnLevels" data-i18n="levels">Niveaux</button>
       <button type="button" class="btn" id="btnRestart" data-i18n="restart">Recommencer</button>
       <button type="button" class="btn" id="btnPause" aria-pressed="false" data-i18n="pause">Pause</button>
-      <div class="seg" id="speedSeg" role="group" aria-label="Vitesse">
+      <div class="seg" id="speedSeg" role="group" aria-label="Vitesse" data-i18n-aria="aria_speed">
         <button type="button" data-speed="1" aria-pressed="true">×1</button>
         <button type="button" data-speed="2" aria-pressed="false">×2</button>
       </div>
       <a class="btn link" href="https://claude.ai/artifact/EMVu67YYfT7DzW8UozZAj6" target="_blank" rel="noopener"><span class="full" data-i18n="loco">Anatomie d'une locomotive ↗</span><span class="short" data-i18n="locoShort">Locomotive ↗</span></a>
-      <div class="seg" id="langSeg" role="group" aria-label="Langue">
+      <div class="seg" id="langSeg" role="group" aria-label="Langue" data-i18n-aria="aria_lang">
         <button type="button" data-lang="fr" aria-pressed="true">FR</button>
         <button type="button" data-lang="en" aria-pressed="false">EN</button>
       </div>
     </div>
   </header>
   <main class="stage" id="stage">
-    <canvas id="c3d" aria-label="Plan des voies"></canvas>
+    <canvas id="c3d" aria-label="Plan des voies" data-i18n-aria="aria_map"></canvas>
     <div id="labels"></div>
     <div class="status" id="status" aria-live="polite"></div>
     <div class="hint" id="hint"></div>
