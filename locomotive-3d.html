@@ -2570,7 +2570,10 @@ const landmarks = {};
     }
     // passenger building against the west wall: two storeys, slate mansards, three pavilions, the clock on the middle one
     { const bx0 = -300, bx1 = -100, bl = bx1 - bx0, bxc = (bx0 + bx1) / 2, bz = -36, bd = 18, zf = bz + bd / 2;   // track-side face at z −27
-      G.add(box(bl, 13, bd, stoneM, bxc, 6.5, bz), box(bl + 1, 0.6, bd + 1, stoneM, bxc, 13.2, bz), box(bl + 1, 4.5, bd - 3, slateM, bxc, 15.5, bz), box(bl + 1, 0.5, bd - 8, slateM, bxc, 17.9, bz));
+      // the long wing runs between the end pavilions and stops 0.5 m inside them, so none of its ends shares a plane with a
+      // pavilion face (at 200 m the slate and the stone fought over the same pixels: the Saint-Jean flicker)
+      const wl = bl - 59;
+      G.add(box(wl, 13, bd, stoneM, bxc, 6.5, bz), box(wl, 0.6, bd + 1, stoneM, bxc, 13.2, bz), box(wl, 4.5, bd - 3, slateM, bxc, 15.5, bz), box(wl, 0.5, bd - 8, slateM, bxc, 17.9, bz));
       const pav = (cx, w, h) => { G.add(box(w, h, bd + 2, stoneM, cx, h / 2, bz), box(w + 1, 0.6, bd + 3, stoneM, cx, h + 0.2, bz), box(w - 2, 5, bd - 2, slateM, cx, h + 2.9, bz), box(w - 6, 0.6, bd - 8, slateM, cx, h + 5.6, bz)); };
       pav(-200, 40, 19); pav(bx0 + 15, 30, 16); pav(bx1 - 15, 30, 16);
       const clockTex = canvasTex(256, 256, (c) => {
