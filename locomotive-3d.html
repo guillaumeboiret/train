@@ -2312,11 +2312,11 @@ function poseWalker(c, w){   // walking in the coach: stands up over the first s
   _m4.compose(_p.set(x0 + (_pw.x - x0) * u, y0 + 1.12 + (_pw.y + 1.05 + bob - y0 - 1.12) * u, z0 + (_pw.z - z0) * u), Q0, _s.setScalar(1 + 0.08 * u)); c.heads.setMatrixAt(w.i, _m4);
   c.dirty = true;
 }
-function paxSeed(c){   // the passengers a coach starts with: 60% of the seats, the same people every time
+function paxSeed(c){   // the passengers a coach starts with: 30% of the seats, the same people every time
   for (let i = 0; i < c.n; i++){
     const h = hash32(c.id * 1000 + i); c.colB[i] = PAX_COL[h % PAX_COL.length]; c.colH[i] = SKIN[(h >>> 8) % SKIN.length];
     c.bodies.setColorAt(i, _pc.setHex(c.colB[i])); c.heads.setColorAt(i, _pc.setHex(c.colH[i]));
-    c.occ[i] = hash32(c.id * 7919 + i) % 100 < 60 ? 1 : 0; poseSeat(c, i, c.occ[i] === 1);   // occ: 0 free, 1 seated, 2 getting off, 3 taken by someone getting on
+    c.occ[i] = hash32(c.id * 7919 + i) % 100 < 30 ? 1 : 0; poseSeat(c, i, c.occ[i] === 1);   // occ: 0 free, 1 seated, 2 getting off, 3 taken by someone getting on
   }
   c.colDirty = true;
 }
@@ -2360,8 +2360,8 @@ function buildCrowd(st){   // people waiting on the platform, in two files besid
     c.crowd[0].length = c.crowd[1].length = 0;
     if (k >= S.sets) continue;
     let seated = 0; for (let i = 0; i < c.n; i++) if (c.occ[i] === 1) seated++;
-    const want = plan === 'terminus' ? 0.7 * c.n : plan === 'origin' ? Math.max(6, 0.85 * c.n - seated) : Math.max(0, 0.8 * c.n - 0.75 * seated);
-    const per = Math.min(42, Math.round(want / 2)), nd = c.xr + 1.65 + (k ? TGV.SET2_X : 0) - TGV.PLAT_FRONT;
+    const want = plan === 'terminus' ? 0.35 * c.n : plan === 'origin' ? Math.max(3, 0.43 * c.n - seated) : Math.max(0, 0.4 * c.n - 0.75 * seated);   // the coach leaves a third to two fifths full
+    const per = Math.min(21, Math.round(want / 2)), nd = c.xr + 1.65 + (k ? TGV.SET2_X : 0) - TGV.PLAT_FRONT;
     for (let l = 0; l < 2; l++) for (let j = 0; j < per; j++){
       const h = hash32((Math.random() * 1e9) | 0), col = Math.floor(j / 3);
       const a = poolSpawn(nd + (l ? 1 : -1) * (1.0 + 0.55 * col) + (Math.random() - 0.5) * 0.2, 0.55, [2.45, 2.95, 3.45][j % 3] + (Math.random() - 0.5) * 0.1, 'wait', PAX_COL[h % PAX_COL.length], SKIN[(h >>> 8) % SKIN.length]);
