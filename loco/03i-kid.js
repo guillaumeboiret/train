@@ -58,10 +58,13 @@ body.kid .lbl::after{background:#fff;height:18px}
 .kid-bottom>*{pointer-events:auto}
 .kid-route{padding:12px 22px 2px}
 body.kid #routeBar{height:46px;margin:0;cursor:pointer}
-body.kid #routeBar::before{top:10px;height:5px;border-radius:3px;background:#c9d0d8}
-body.kid .rb-st{font:700 13px/1 var(--font-display);letter-spacing:.04em;color:#1b2430;gap:4px}
-body.kid .rb-st i{width:16px;height:16px;border:3px solid #1b2430;background:#fff;margin-top:0}
-body.kid #rbTrain{width:24px;height:18px;top:-2px;border-radius:5px;background:#f28c28;box-shadow:0 0 0 3px #fff,0 2px 6px rgba(0,0,0,.3)}
+body.kid #routeBar::before{left:12px;right:12px;top:10px;height:5px;border-radius:3px;background:#c9d0d8}
+body.kid .rb-in{inset:0 12px}
+body.kid .rb-st{width:26px;height:25px}
+body.kid .rb-st i{width:18px;height:18px;border:3px solid #1b2430;background:#fff}
+body.kid .rb-lb{top:27px;font:700 13px/1 var(--font-display);letter-spacing:.04em;color:#1b2430}
+body.kid .rb-lb.first{transform:translateX(-9px)}body.kid .rb-lb.last{transform:translateX(calc(9px - 100%))}
+body.kid #rbTrain{width:24px;height:18px;top:3.5px;border-radius:5px;background:#f28c28;box-shadow:0 0 0 3px #fff,0 2px 6px rgba(0,0,0,.3)}
 body.kid #rbTip{font-size:13px;padding:5px 9px;top:-30px;border-radius:8px}
 .kid-controls{display:flex;gap:10px;align-items:stretch;justify-content:center;flex-wrap:wrap;padding:10px}
 .kb{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;min-width:86px;height:86px;padding:6px 10px;border-radius:20px;border:0;background:#f1f4f7;color:#1b2430;box-shadow:0 4px 0 rgba(0,0,0,.2);transition:transform .05s,box-shadow .05s}
@@ -103,8 +106,10 @@ body.kid #rbTip{font-size:13px;padding:5px 9px;top:-30px;border-radius:8px}
   .kid-bottom{left:6px;right:6px;bottom:calc(6px + env(safe-area-inset-bottom,0px));gap:6px}
   .kid-route{padding:4px 12px 0}
   body.kid #routeBar{height:34px}body.kid #routeBar::before{top:7px;height:4px}
-  body.kid .rb-st{font-size:11px;gap:2px}body.kid .rb-st i{width:12px;height:12px;border-width:2px}
-  body.kid #rbTrain{width:18px;height:14px;top:-1px}
+  body.kid #routeBar::before{left:10px;right:10px}body.kid .rb-in{inset:0 10px}
+  body.kid .rb-st{width:20px;height:18px}body.kid .rb-st i{width:14px;height:14px;border-width:2px}
+  body.kid .rb-lb{top:19px;font-size:11px}body.kid .rb-lb.first{transform:translateX(-7px)}body.kid .rb-lb.last{transform:translateX(calc(7px - 100%))}
+  body.kid #rbTrain{width:18px;height:14px;top:2px}
   .kid-controls{gap:6px;padding:6px;flex-wrap:nowrap}
   .kb{min-width:50px;height:52px;border-radius:14px;gap:0;padding:4px}.kb .ico{font-size:24px}.kb .lab{display:none}
   .kid-lever{flex:1 1 100px;min-width:100px;order:0;gap:0}.kid-lever-lab{display:none}

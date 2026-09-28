@@ -380,6 +380,16 @@ function updateLabels(){
 
 /* ---- route HUD, line bar, track choice, time scale, horn, free camera keys */
 const KIND_KEY = ['', 'hud_bridge', 'hud_tunnel', 'hud_cutting', 'hud_viaduct'];
+// The line bar is a line diagram, not a map: each stretch between two stops gets half its share of the bar from its length
+// and half from an even split, so the 14 km from Massy to Paris stays wide enough to aim at. The tip still shows the exact PK.
+const RB = (() => {
+  const st = ROUTE.stations, s = [0, ...st.map(x => x.s), ROUTE.L], inner = i => i > 0 && i < s.length - 2;
+  const w = s.slice(1).map((v, i) => (v - s[i]) / ROUTE.L * (inner(i) ? 0.5 : 1) + (inner(i) ? 0.5 / Math.max(1, st.length - 1) : 0));
+  const sum = w.reduce((a, b) => a + b, 0), f = [0];
+  for (const v of w) f.push(f[f.length - 1] + v / sum);
+  const lerp = (a, b, v) => { let i = 0; while (i < a.length - 2 && v > a[i + 1]) i++; const d = a[i + 1] - a[i]; return b[i] + (d > 0 ? (v - a[i]) / d : 0) * (b[i + 1] - b[i]); };
+  return { f:v => lerp(s, f, v), s:v => lerp(f, s, v) };   // PK in metres to 0..1 along the bar, and back
+})();
 function updateHud(){
   const s = S.dist;
   $('hudPk').textContent = (s / 1000).toFixed(1);
@@ -390,7 +400,7 @@ function updateHud(){
   const st = nextStation(0), d = st ? (st.s - TGV.PLAT_FRONT - s) * S.dir : 0;
   $('hudNext').textContent = st ? `${st.name} · ${d < 950 ? `${Math.round(d)} m` : `${(d / 1000).toFixed(d < 10000 ? 1 : 0)} km`}` : t('hud_end');
   const k = ROUTE.kindAt(s); $('hudKind').textContent = k ? t(KIND_KEY[k]) : '';
-  $('rbTrain').style.left = `${(s / ROUTE.L * 100).toFixed(2)}%`;
+  $('rbTrain').style.left = `${(RB.f(s) * 100).toFixed(2)}%`;
   $('throttleVal').textContent = `${S.notch} · ${Math.round(S.vMaxEff * S.notch / 8 * 3.6)} km/h`;
 }
 function tailLen(){ return S.mode === 'tgv' ? (S.sets === 2 || S.coupling !== 0 ? 382.5 - Math.min(0, S.set2Off) : 185.4) : 82; }
@@ -406,22 +416,42 @@ function jumpTo(s, stop = false){
 }
 function jumpToStation(st){ trk.from = trk.to = 0; trk.s0 = -1e9; jumpTo(st.s - TGV.PLAT_FRONT, true); S.doors = false; S.atStation = true; syncControls(); }
 {
-  const rb = $('routeBar'), SHORT = { bdx:'Bordeaux', vdm:'Vendôme', msy:'Massy', par:'Paris' };
-  for (const st of ROUTE.stations){
-    const b = document.createElement('button'); b.type = 'button'; b.className = 'rb-st' + (st.id === 'msy' ? ' minor' : ''); b.style.left = `${(st.s / ROUTE.L * 100).toFixed(2)}%`; b.title = st.name; b.setAttribute('aria-label', st.name);
-    b.innerHTML = `<i></i><span>${SHORT[st.id] || st.name}</span>`;
+  // SHORT order is the order labels win a place when they would overlap, after the two ends
+  const rb = $('routeBar'), bar = document.createElement('div'), SHORT = { bdx:'Bordeaux', par:'Paris', vdm:'Vendôme', msy:'Massy' };
+  const pct = s => `${(RB.f(s) * 100).toFixed(2)}%`, last = ROUTE.stations.length - 1;
+  bar.className = 'rb-in'; rb.appendChild(bar);
+  // only the dot stops the train at that platform; a press anywhere else, a label included, teleports to that point
+  const labels = ROUTE.stations.map((st, i) => {
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'rb-st'; b.dataset.i = i; b.style.left = pct(st.s); b.title = st.name; b.setAttribute('aria-label', st.name);
+    b.innerHTML = '<i></i>';
     b.addEventListener('click', () => jumpToStation(st));
-    rb.appendChild(b);
-  }
-  const tr = document.createElement('i'); tr.id = 'rbTrain'; rb.appendChild(tr);
-  const tip = document.createElement('span'); tip.id = 'rbTip'; rb.appendChild(tip);
-  // click or drag anywhere on the line to teleport there (the station dots keep their own stop-and-open behaviour)
+    const l = document.createElement('span'); l.className = 'rb-lb' + (i === 0 ? ' first' : i === last ? ' last' : ''); l.style.left = pct(st.s); l.textContent = SHORT[st.id] || st.name;
+    bar.append(b, l);
+    return l;
+  });
+  const rank = i => i === 0 || i === last ? -1 : (k => k < 0 ? 99 : k)(Object.keys(SHORT).indexOf(ROUTE.stations[i].id));
+  const order = labels.map((l, i) => i).sort((a, b) => rank(a) - rank(b));
+  new ResizeObserver(() => {
+    const kept = [];
+    for (const i of order){
+      labels[i].hidden = false;
+      const r = labels[i].getBoundingClientRect();
+      if (kept.some(k => r.left < k.right + 6 && r.right > k.left - 6)) labels[i].hidden = true; else kept.push(r);
+    }
+  }).observe(rb);
+  const tr = document.createElement('i'); tr.id = 'rbTrain';
+  const tip = document.createElement('span'); tip.id = 'rbTip';
+  bar.append(tr, tip);
+  // click or drag anywhere on the line to teleport there
   rb.title = t('rb_title');
-  const sAt = e => { const r = rb.getBoundingClientRect(); return clamp((e.clientX - r.left) / Math.max(1, r.width), 0, 1) * ROUTE.L; };
-  const showTip = e => { const s = sAt(e); tip.style.display = 'block'; tip.style.left = `${(s / ROUTE.L * 100).toFixed(2)}%`; tip.textContent = `PK ${(s / 1000).toFixed(1)}`; };
+  const sAt = e => { const r = bar.getBoundingClientRect(); return RB.s(clamp((e.clientX - r.left) / Math.max(1, r.width), 0, 1)); };
+  const showTip = e => {
+    const b = e.target.closest('.rb-st'), st = b && ROUTE.stations[+b.dataset.i], s = st ? st.s : sAt(e);
+    tip.style.display = 'block'; tip.style.left = pct(s); tip.textContent = st ? st.name : `PK ${(s / 1000).toFixed(1)}`;
+  };
   let dragging = false;
   rb.addEventListener('pointerdown', e => { if (e.target.closest('.rb-st')) return; dragging = true; rb.setPointerCapture(e.pointerId); showTip(e); });
-  rb.addEventListener('pointermove', e => { if (dragging || !e.target.closest('.rb-st')) showTip(e); });
+  rb.addEventListener('pointermove', showTip);
   rb.addEventListener('pointerup', e => { if (!dragging) return; dragging = false; tip.style.display = 'none'; jumpTo(sAt(e)); });
   for (const ev of ['pointercancel', 'pointerleave']) rb.addEventListener(ev, () => { if (!dragging) tip.style.display = 'none'; });
   // kilometre post input

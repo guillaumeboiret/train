@@ -134,13 +134,14 @@ body:not([data-mode="tgv"]) .tgv-only{display:none}
 .hud-tp{align-items:center;gap:6px}
 .hud-tp input{width:72px;background:var(--panel-2);border:1px solid var(--line);border-radius:5px;padding:3px 6px;font-family:var(--font-mono);font-size:12px;color:var(--ink)}
 .hud-tp .go{background:var(--accent);color:var(--accent-ink);border:0;border-radius:5px;padding:4px 9px;font-weight:600;font-size:11.5px;cursor:pointer}
-#routeBar::before{content:"";position:absolute;left:0;right:0;top:7px;height:2px;background:var(--line)}
-.rb-st{position:absolute;top:0;transform:translateX(-50%);background:transparent;border:0;color:var(--muted);cursor:pointer;padding:0;font:inherit;font-size:10px;display:grid;justify-items:center;gap:2px}
-.rb-st i{width:8px;height:8px;border-radius:50%;background:var(--panel-solid);border:2px solid var(--muted);display:block;margin-top:2px}
-.rb-st:hover{color:var(--ink)}.rb-st:hover i{border-color:var(--ink)}
-.rb-st:first-of-type{transform:none;justify-items:start}
-.rb-st:last-of-type{left:auto!important;right:0;transform:none;justify-items:end}
-.rb-st.minor span{display:none}
+#routeBar::before{content:"";position:absolute;left:7px;right:7px;top:7px;height:2px;background:var(--line)}
+.rb-in{position:absolute;inset:0 7px}
+.rb-st{position:absolute;top:0;width:16px;height:16px;transform:translateX(-50%);background:transparent;border:0;cursor:pointer;padding:0;display:grid;place-items:center}
+.rb-st i{width:10px;height:10px;border-radius:50%;background:var(--panel-solid);border:2px solid var(--muted);display:block}
+.rb-st:hover i,.rb-st:focus-visible i{border-color:var(--ink)}
+.rb-lb{position:absolute;top:17px;transform:translateX(-50%);color:var(--muted);font-size:10px;line-height:1;white-space:nowrap;pointer-events:none}
+.rb-lb.first{transform:translateX(-5px)}
+.rb-lb.last{transform:translateX(calc(5px - 100%))}
 #rbTrain{position:absolute;top:2px;width:12px;height:12px;border-radius:2px;background:var(--accent);transform:translateX(-50%);pointer-events:none;box-shadow:0 0 0 2px var(--panel-solid)}
 .btn.horn{width:100%;font-weight:600}
 .btn.horn.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
