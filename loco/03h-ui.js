@@ -284,7 +284,6 @@ function setShell(level){
   }
   p.group.traverse(o => { if (o.isMesh) o.castShadow = level >= 1; });
   for (const o of [...pcShells.meshes, ...trShells.meshes]){ o.castShadow = level >= 1; o.visible = level > 0; }
-  for (const set of tgvSets) for (const c of set.coaches) c.g.visible = level < 1;   // seats and passengers are only drawn once the skin lets them show
   applyVisibility(p);
 }
 const CUT_EXT = { x:[0, 10.4], y:[2.9, 2.9], z:[0, 1.75] };   // center, half extent along the cut axis
@@ -538,4 +537,4 @@ resize();
 setShell(0.18); setCut('none'); setExplode(0);
 setMode('diesel');
 requestAnimationFrame(loop);
-window.locoDebug = { S, simulate, animate, updateFlows, updateGauges, orbit, renderer, scene, camera, goStep, setMode, setCut, setExplode, setShell, select, parts, TGV, tgvSets, station, updateTgv, syncControls, tick:window.tick, ROUTE, horn, chunks, requestTrack, trk, opp, parked, cars, curveLocal, updateHud, jumpToStation, jumpTo, setWeather, pcHosts, pcShells, flowObjs, landmarks, flyPreset, SND, PX, pool, paxResolve, paxHolding };
+window.locoDebug = { S, simulate, animate, updateFlows, updateGauges, orbit, renderer, scene, camera, goStep, setMode, setCut, setExplode, setShell, select, parts, TGV, tgvSets, station, updateTgv, syncControls, tick:window.tick, ROUTE, horn, chunks, requestTrack, trk, opp, parked, cars, curveLocal, updateHud, jumpToStation, jumpTo, setWeather, pcHosts, pcShells, flowObjs, landmarks, flyPreset, SND, PX, pool, paxResolve, paxHolding, allCoaches };

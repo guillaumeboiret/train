@@ -212,6 +212,7 @@ function animate(dt){
   const darkness = S.engine === 'cranking' ? 0.85 : clamp(S.fuel * 0.6, 0.15, 0.55);
   smoke.update(dt, rate, darkness, clamp(-S.speed * S.dir, -12, 12) - 0.3);
   if (S.mode === 'tgv') updateTgv(dt);
+  coachLod();   // every mode: the parked and passing sets show their interiors near the camera too
 }
 
 /* -------------------------------------------------------------- gauges */

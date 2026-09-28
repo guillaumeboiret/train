@@ -1866,11 +1866,11 @@ function sectionPts(yBot, yTop, wBot, wTop, n){
   for (let i = 0; i < RING_N; i++) pts.push(sectionPt(yBot, yTop, wBot, wTop, n, -Math.PI / 2 + (i / RING_N) * Math.PI * 2));
   return pts;
 }
-function loftGeo(rings){   // rings: [{x, pts}] ordered by increasing x; returns {body, capRear, capFront}
+function loftGeo(rings, vs){   // rings: [{x, pts}] ordered by increasing x; vs: v of each ring point (RING_N + 1 values, default j / RING_N); returns {body, capRear, capFront}
   const R = rings.length, xMin = rings[0].x, xMax = rings[R - 1].x, pos = [], uv = [], idx = [];
   for (let i = 0; i < R; i++){
     const { x, pts } = rings[i], u = (x - xMin) / (xMax - xMin);
-    for (let j = 0; j <= RING_N; j++){ const [z, y] = pts[j % RING_N]; pos.push(x, y, z); uv.push(u, j / RING_N); }
+    for (let j = 0; j <= RING_N; j++){ const [z, y] = pts[j % RING_N]; pos.push(x, y, z); uv.push(u, vs ? vs[j] : j / RING_N); }
   }
   const W = RING_N + 1;
   for (let i = 0; i < R - 1; i++) for (let j = 0; j < RING_N; j++){
@@ -1897,6 +1897,21 @@ function vAtY(pts, y, side){   // ring parameter (0..1) of the side wall at heig
   for (let j = 0; j < RING_N; j++){ const [z, py] = pts[j]; if (Math.sign(z) !== side || Math.abs(z) < 0.3) continue; const d = Math.abs(py - y); if (d < bd){ bd = d; best = j; } }
   return best / RING_N;
 }
+function vAt(pts, vs, y, side){   // exact v of the side wall at height y on a body lofted with the ring v values vs; side +1 = +z wall
+  const h = RING_N / 2;
+  for (let k = 0; k < h; k++){
+    const a = side > 0 ? k : h + k, ya = pts[a][1], yb = pts[(a + 1) % RING_N][1];
+    if (ya !== yb && (y - ya) * (y - yb) <= 0) return vs[a] + (y - ya) / (yb - ya) * (vs[a + 1] - vs[a]);
+  }
+  return y > pts[h][1] - 1e-6 ? vs[h] : side > 0 ? vs[0] : vs[RING_N];
+}
+function rrect(c, x, y, w, h, rx, ry){   // rounded rectangle path with elliptic corners (canvas px per metre differ along u and v)
+  rx = Math.min(rx, w / 2); ry = Math.min(ry, h / 2);
+  c.beginPath();
+  c.ellipse(x + w - rx, y + ry, rx, ry, 0, -Math.PI / 2, 0); c.ellipse(x + w - rx, y + h - ry, rx, ry, 0, 0, Math.PI / 2);
+  c.ellipse(x + rx, y + h - ry, rx, ry, 0, Math.PI / 2, Math.PI); c.ellipse(x + rx, y + ry, rx, ry, 0, Math.PI, Math.PI * 1.5);
+  c.closePath();
+}
 function canvasTex(w, h, paint){
   const c = document.createElement('canvas'); c.width = w; c.height = h;
   paint(c.getContext('2d'), w, h);
@@ -1919,7 +1934,8 @@ function doorLeafGeo(pts, s, y0, y1, w, out = 0.012, thick = 0.06){
   g.rotateY(-Math.PI / 2); g.translate(w / 2, 0, 0);   // local extrusion (+z) → world x, centred
   return g;
 }
-const LIV = { grey:'#b9bec4', greyDark:'#8d939a', carmine:'#7a1224', glass:'#1c2530', roof:'#6f767d', door:'#20262c' };
+const LIV = { grey:'#b9bec4', greyDark:'#8d939a', carmine:'#7a1224', glass:'#1c2530', roof:'#6f767d', door:'#20262c', gasket:'#262b31' };
+const LIN = { floor:'#3a3f46', wall:'#d6d1c7', wallUp:'#dcd7ce', rack:'#8f959c', ceil:'#eeebe4', reveal:'#aaa59c', end:'#cbc5ba' };   // coach lining (inside of the shell)
 const PAX_COL = [0x3b5bdb, 0xc23b3b, 0x2f8f5b, 0xe0a030, 0x555c66, 0xd6d0c4, 0x7b3fa0, 0x1f6f8b];   // clothes, shared by the platform crowd and the seated passengers
 
 /* ---- power car body (shared geometry + texture) */
@@ -2031,33 +2047,60 @@ const PC_INTERNALS = ['frame', 'cab', 'bogies', 'motors', 'transformer', 'conver
 const pcHosts = [];                          // {ig, clones:{id:group}} per equipped power car
 const pcShells = { mats:[], meshes:[] };     // their body shells, so the shell opacity control covers every power car
 const trShells = { mats:[], meshes:[] };     // trailer skins (body, ends, gangways, doors): the shell control fades them too and reveals the interiors
-const DECK = { lo:0.92, up:2.3 };            // floor heights of the two decks (the painted windows sit at 1.65..2.35 and 3.0..3.75)
+const allCoaches = [], COACH_NEAR = 60;      // every trailer of every set (own, parked, opposing); interiors are drawn within COACH_NEAR m of the camera (further out a head is 3 px)
+const DECK = { lo:0.92, up:2.3 };            // floor heights of the two decks (the windows sit at 1.6..2.2 and 3.0..3.75)
 const SEAT_GEO = (() => {                    // cushion + backrest facing +x, origin on the floor at the seat centre, 0.44 wide
   const s = new THREE.Shape(); s.moveTo(-0.22, 0.28); s.lineTo(0.22, 0.28); s.lineTo(0.22, 0.42); s.lineTo(-0.12, 0.42); s.lineTo(-0.12, 0.95); s.lineTo(-0.22, 0.95); s.closePath();
   const g = new THREE.ExtrudeGeometry(s, { depth:0.44, bevelEnabled:false }); g.translate(0, 0, -0.22); return g;
 })();
 const SEAT_COL = [new THREE.Color(0x7a2233), new THREE.Color(0x24506b)];   // first class burgundy, second class blue
-/* Duplex coach interior, drawn only while the shell control fades the skin: two decks of 2+2 seats and a stair at the door
-   end. One group per coach, so the curve code carries each coach with its own car. One passenger slot per seat (instanced):
-   seated, empty, or walking between the seat and the platform-side door (see the passenger block below). */
+/* Duplex coach interior: floors, a stair at the door end and two decks of 2+2 seats. Drawn when the camera is near the coach
+   (seen through the windows or from inside) and while the shell control fades the skin. One group per coach, so the curve code
+   carries each coach with its own car. One passenger slot per seat (instanced): seated, empty, or walking between the seat and
+   the platform-side door (see the passenger block below). */
 const SKIN = [0xf1c9a5, 0xe0ac7e, 0xc68a5a, 0x9c6a43, 0x6e4a2f, 0xf6d7bd];
+const TROUSERS = [0x2b3140, 0x3b4a6b, 0x1f2328, 0x6b5a45, 0x4a4f57, 0x2f4a3a];
+const trousers = (colB, colH) => TROUSERS[(colB ^ colH) % TROUSERS.length];   // follows the person: derived from the shirt and the skin
 const PAX_BODY_GEO = new THREE.CapsuleGeometry(0.17, 0.35, 2, 6), PAX_HEAD_GEO = new THREE.SphereGeometry(0.12, 7, 5);
+function mergeGeos(geos, skip = []){   // one indexed geometry (position + normal) from several; skip[k]: index ranges [start, end) of geos[k] to leave out
+  const pos = [], nrm = [], idx = [];
+  geos.forEach((b, k) => {
+    const o = pos.length / 3, ix = b.index.array; pos.push(...b.getAttribute('position').array); nrm.push(...b.getAttribute('normal').array);
+    for (let i = 0; i < ix.length; i++) if (!(skip[k] && i >= skip[k][0] && i < skip[k][1])) idx.push(ix[i] + o);
+  });
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(nrm, 3)); g.setIndex(idx);
+  return g;
+}
+const PAX_LEG_GEO = mergeGeos([[0.42, 0.13, 0.28, 0.17, 0.485], [0.12, 0.46, 0.26, 0.33, 0.23], [0.22, 0.07, 0.28, 0.4, 0.035]].map(([w, h, d, x, y]) => new THREE.BoxGeometry(w, h, d).translate(x, y, 0)));   // seated legs facing +x, both in one block: thighs on the cushion, shins, feet. Origin on the floor under the body
+const DECK_GEO = {};
+function deckGeo(L){   // per body length, x from the car's -x end: lower floor + upper floor + stair in one mesh, the lower deck's ceiling (the upper floor's underside) in another
+  if (!DECK_GEO[L]){
+    const x0 = 3.4, w = L - 3.6;   // the upper floor is open over the vestibule and the stair
+    const st = new THREE.BoxGeometry(2.19, 0.06, 0.9).rotateZ(Math.atan2(DECK.up - DECK.lo, 1.7)).translate(2.7, (DECK.lo + DECK.up) / 2 - 0.03, -0.9);   // stair: vestibule (x 1.85) up to the upper deck (x 3.55)
+    DECK_GEO[L] = {
+      floor:mergeGeos([new THREE.BoxGeometry(L - 0.2, 0.06, 2.28).translate(L / 2, DECK.lo - 0.03, 0), new THREE.BoxGeometry(w, 0.08, 2.98).translate(x0 + w / 2, DECK.up, 0), st], [null, [18, 24]]),   // the upper floor without its -y face
+      ceil:new THREE.PlaneGeometry(w, 2.98).rotateX(Math.PI / 2).translate(x0 + w / 2, DECK.up - 0.04, 0),
+    };
+  }
+  return DECK_GEO[L];
+}
 const Q0 = new THREE.Quaternion(), _pc = new THREE.Color();
 const hash32 = i => { i = Math.imul(i ^ (i >>> 16), 0x45d9f3b); i = Math.imul(i ^ (i >>> 16), 0x45d9f3b); return (i ^ (i >>> 16)) >>> 0; };
 function buildCoach(parent, cm, xr, L, carNo){
   const g = new THREE.Group(); g.visible = false; parent.add(g);
-  g.add(box(L - 3.6, 0.08, 2.85, cm.floor, xr + 3.4 + (L - 3.6) / 2, DECK.up, 0));    // upper floor, open over the vestibule and the stair
-  const st = box(2.19, 0.06, 0.9, cm.floor, xr + 2.7, (DECK.lo + DECK.up) / 2 - 0.03, -0.9); st.rotation.z = Math.atan2(DECK.up - DECK.lo, 1.7); g.add(st);   // stair: vestibule (xr+1.85) up to the upper deck (xr+3.55)
+  const fl = new THREE.Mesh(deckGeo(L).floor, cm.floor), ce = new THREE.Mesh(deckGeo(L).ceil, cm.ceil); fl.position.x = ce.position.x = xr;
   const seat = [], deck = [];
   for (const [d, y] of [[0, DECK.lo], [1, DECK.up]]) for (let x = xr + 4.0; x < xr + L - 0.9; x += 0.9) for (const z of [-0.95, -0.48, 0.48, 0.95]){ seat.push(x, y, z); deck.push(d); }
   const n = deck.length, cls = carNo % 10 <= 3 ? 0 : 1;                                 // cars 1..3 (11..13) are first class
-  const seats = new THREE.InstancedMesh(SEAT_GEO, cm.seat, n), bodies = new THREE.InstancedMesh(PAX_BODY_GEO, cm.body, n), heads = new THREE.InstancedMesh(PAX_HEAD_GEO, cm.head, n);
+  const seats = new THREE.InstancedMesh(SEAT_GEO, cm.seat, n), bodies = new THREE.InstancedMesh(PAX_BODY_GEO, cm.body, n), heads = new THREE.InstancedMesh(PAX_HEAD_GEO, cm.head, n), legs = new THREE.InstancedMesh(PAX_LEG_GEO, cm.legs, n);
   const c = { g, id:carNo, xr, L, n, seat:new Float32Array(seat), deck:new Uint8Array(deck), occ:new Uint8Array(n), colB:new Uint32Array(n), colH:new Uint32Array(n),
-              bodies, heads, paths:[], walk:[], crowd:[[], []], dirty:false, colDirty:false };
+              bodies, heads, legs, paths:[], walk:[], crowd:[[], []], dirty:false, colDirty:false };
   for (let i = 0; i < n; i++){
     _m4.compose(_p.set(seat[3 * i], seat[3 * i + 1], seat[3 * i + 2]), Q0, _s.setScalar(1)); seats.setMatrixAt(i, _m4); seats.setColorAt(i, SEAT_COL[cls]);
   }
-  for (const m of [seats, bodies, heads]){ m.frustumCulled = false; m.castShadow = m.receiveShadow = false; g.add(m); }
+  const sphere = new THREE.Sphere(new THREE.Vector3(xr + L / 2, 2.5, 0), L / 2 + 1.5);   // people only move inside the coach and its doorway: one fixed bound for every instanced mesh
+  for (const m of [seats, bodies, heads, legs]) m.boundingSphere = sphere;
+  for (const m of [fl, ce, seats, bodies, heads, legs]) g.add(m);   // no shadows inside: the saloon is lit by its own lights (emissive lining and ceiling)
   paxSeed(c);
   return c;
 }
@@ -2110,28 +2153,80 @@ function tgvBogie(parent, cx, mk, wheelbase = 3.0, jacobs = false){
   });
 }
 
-/* ---- Duplex trailer body (shared geometry + texture) */
+/* ---- Duplex trailer body (shared geometry + textures per body length). The windows and the doorway are real openings: cut out of
+   the livery (alpha test) and of the lining that shows the inside of the shell, with glass set 2 cm in. Far from the camera the
+   glass is opaque and the doorway plugged, and the coach draws nothing inside (see coachLod). */
 const TR = (() => {
   const yBot = 0.75, yTop = 4.3, w = TGV.HALF_W;
   const pts = sectionPts(yBot, yTop, w, w * 0.87, 4);
-  const mk = L => loftGeo([{ x:0, pts }, { x:L, pts }]);
-  const geo = { 18.2:mk(18.2), 20.5:mk(20.5) };
-  const tex = canvasTex(2048, 512, (c, W, H) => {
-    const L = 20.5, ux = x => x / L * W;
-    c.fillStyle = LIV.grey; c.fillRect(0, 0, W, H);
-    [1, -1].forEach(s => {
-      const band = (y0, y1, x0, x1, col) => { const a = vAtY(pts, y0, s) * H, b = vAtY(pts, y1, s) * H; c.fillStyle = col; c.fillRect(ux(x0), Math.min(a, b), ux(x1) - ux(x0), Math.abs(b - a)); };
-      band(yBot, 1.55, 0, L, LIV.carmine);                                              // skirt
-      band(4.1, yTop, 0, L, LIV.roof);                                                  // roof edge
-      for (let x = 3.6; x < L - 1.2; x += 1.9){ band(1.65, 2.35, x, x + 1.25, LIV.glass); band(3.0, 3.75, x, x + 1.25, LIV.glass); }   // two decks of windows
-      band(0.95, 3.15, 1.0, 2.3, LIV.door);                                             // doorway (door leaf sits in it)
-      band(3.4, 3.65, 1.05, 2.25, LIV.glass);
+  const vs = [0];   // v of each ring point by arc length: one texel is the same size all round, and vAt lands exactly on the geometry
+  for (let j = 1; j <= RING_N; j++){ const [z0, y0] = pts[j - 1], [z1, y1] = pts[j % RING_N]; vs.push(vs[j - 1] + Math.hypot(z1 - z0, y1 - y0)); }
+  const per = vs[RING_N]; vs.forEach((v, j) => { vs[j] = v / per; });
+  const Ls = [18.2, 20.5], DOOR = [1.0, 2.3, 0.95, 3.15];   // door leaf x0, x1 (from the car's -x end), y0, y1
+  const holes = L => {   // [x0, x1, y0, y1, doorway]: two decks of windows over the saloon, the window over the door, the doorway 2 cm inside the leaf
+    const o = [], n = Math.round((L - 3.6) / 1.9), pitch = (L - 0.6 - 3.6 - 1.25) / (n - 1);
+    for (let i = 0; i < n; i++){ const x = 3.6 + i * pitch; o.push([x, x + 1.25, 1.6, 2.2, false], [x, x + 1.25, 3.0, 3.75, false]); }
+    o.push([1.05, 2.25, 3.4, 3.65, false], [DOOR[0] + 0.02, DOOR[1] - 0.02, DOOR[2] + 0.02, DOOR[3] - 0.02, true]);
+    return o;
+  };
+  const painter = (c, W, H, L) => {   // canvas helpers in metres: x along the car, y up the wall on side s (both sides alike, so flipY does not matter)
+    const px = W / L, pv = H / per;
+    const rect = (s, x0, x1, y0, y1, grow = 0) => { const a = vAt(pts, vs, y0 - grow, s) * H, b = vAt(pts, vs, y1 + grow, s) * H; return [(x0 - grow) * px, Math.min(a, b), (x1 - x0 + 2 * grow) * px, Math.abs(b - a)]; };
+    const band = (s, y0, y1, col) => { const [x, y, ww, hh] = rect(s, 0, L, y0, y1); c.fillStyle = col; c.fillRect(x, y, ww, hh); };
+    const round = (s, [x0, x1, y0, y1], grow, r, col) => { const [x, y, ww, hh] = rect(s, x0, x1, y0, y1, grow); rrect(c, x, y, ww, hh, r * px, r * pv); c.fillStyle = col; c.fill(); };
+    const cut = (shrink, rWin) => {   // punch every opening through (alpha 0), shrunk by `shrink` all round
+      c.globalCompositeOperation = 'destination-out';
+      [1, -1].forEach(s => { for (const h of holes(L)) round(s, h, -shrink, h[4] ? 0 : rWin, '#000'); });
+      c.globalCompositeOperation = 'source-over';
+    };
+    return { band, round, cut };
+  };
+  const geo = {}, tex = {}, lin = {}, pane = {}, lining = {};
+  for (const L of Ls){
+    geo[L] = loftGeo([{ x:0, pts }, { x:L, pts }], vs);
+    tex[L] = canvasTex(2048, 512, (c, W, H) => {   // livery: grey, carmine skirt, dark roof edge, black gaskets round the windows, dark door frame
+      const p = painter(c, W, H, L);
+      c.fillStyle = LIV.grey; c.fillRect(0, 0, W, H);
+      [1, -1].forEach(s => {
+        p.band(s, yBot, 1.55, LIV.carmine); p.band(s, 4.1, yTop, LIV.roof);
+        for (const h of holes(L)) h[4] ? p.round(s, h, 0.04, 0, LIV.door) : p.round(s, h, 0.04, 0.14, LIV.gasket);
+      });
+      c.fillStyle = 'rgba(0,0,0,0.3)'; c.fillRect(0, 0, 0.2 * W / L, H); c.fillRect((L - 0.2) * W / L, 0, 0.2 * W / L, H);   // end shading
+      p.cut(0, 0.1);
     });
-    c.fillStyle = LIV.roof; c.fillRect(0, H * 0.44, W, H * 0.12);
-    c.fillStyle = 'rgba(0,0,0,0.3)'; c.fillRect(0, 0, ux(0.2), H); c.fillRect(ux(L - 0.2), 0, ux(0.2), H);
-  });
-  const leaf = { p:doorLeafGeo(pts, 1, 0.95, 3.15, 1.3), n:doorLeafGeo(pts, -1, 0.95, 3.15, 1.3) };
-  return { geo, tex, pts, yBot, yTop, leaf };
+    lin[L] = canvasTex(1024, 512, (c, W, H) => {   // lining: floor edge, pale walls, luggage rack line, light ceiling, window reveals, end walls
+      const p = painter(c, W, H, L);
+      c.fillStyle = LIN.ceil; c.fillRect(0, 0, W, H);
+      [1, -1].forEach(s => {
+        p.band(s, yBot, DECK.lo + 0.05, LIN.floor); p.band(s, DECK.lo + 0.05, DECK.up + 0.05, LIN.wall); p.band(s, DECK.up + 0.05, 3.92, LIN.wallUp); p.band(s, 3.84, 3.92, LIN.rack);
+        for (const h of holes(L)) if (!h[4]) p.round(s, h, 0.03, 0.12, LIN.reveal);
+      });
+      c.fillStyle = LIN.end; c.fillRect(0, 0, 0.1 * W / L, H);   // sampled by the end walls
+      p.cut(0.02, 0.08);   // 2 cm inside the skin's openings: from inside, never a gap onto the skin's back
+    });
+    const body = geo[L].body, lp = [...body.getAttribute('position').array], lu = [...body.getAttribute('uv').array], li = [...body.index.array];
+    for (const [x, rear] of [[0.015, true], [L - 0.015, false]]){   // end walls, 1.5 cm in from the gangway faces, wound like the caps (seen from inside)
+      const o = lp.length / 3; lp.push(x, (yBot + yTop) / 2, 0); lu.push(0.004, 0.25);
+      for (let j = 0; j < RING_N; j++){ lp.push(x, pts[j][1], pts[j][0]); lu.push(0.004, 0.25); }
+      for (let j = 0; j < RING_N; j++){ const a = o + 1 + j, b = o + 1 + (j + 1) % RING_N; rear ? li.push(o, a, b) : li.push(o, b, a); }
+    }
+    const lg = lining[L] = new THREE.BufferGeometry();
+    lg.setAttribute('position', new THREE.Float32BufferAttribute(lp, 3)); lg.setAttribute('uv', new THREE.Float32BufferAttribute(lu, 2)); lg.setIndex(li); lg.computeVertexNormals();
+    const strips = (doorway, inset) => {   // quads following the section over each opening (2 cm larger all round), `inset` in from the skin, facing out
+      const pos = [], idx = [];
+      for (const s of [1, -1]) for (const [x0, x1, y0, y1, d] of holes(L)){
+        if (d !== doorway) continue;
+        const ys = [y0 - 0.02, ...pts.slice(1, RING_N / 2).map(q => q[1]).filter(y => y > y0 - 0.02 && y < y1 + 0.02), y1 + 0.02], o = pos.length / 3;
+        for (const y of ys){ const z = s * (zAtY(pts, y) - inset); pos.push(x0 - 0.02, y, z, x1 + 0.02, y, z); }
+        for (let k = 0; k + 1 < ys.length; k++){ const a = o + 2 * k; s > 0 ? idx.push(a, a + 1, a + 3, a, a + 3, a + 2) : idx.push(a, a + 3, a + 1, a, a + 2, a + 3); }
+      }
+      const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
+      return g;
+    };
+    pane[L] = { glass:strips(false, 0.02), plug:strips(true, 0.07) };   // the plug sits behind the closed leaf (its back is 4.8 cm in)
+  }
+  const leaf = { p:doorLeafGeo(pts, 1, ...DOOR.slice(2), DOOR[1] - DOOR[0]), n:doorLeafGeo(pts, -1, ...DOOR.slice(2), DOOR[1] - DOOR[0]) };
+  return { geo, tex, lin, pane, lining, pts, yBot, yTop, leaf, doorX:(DOOR[0] + DOOR[1]) / 2 };
 })();
 const carNumTex = {};
 function carNumber(n){
@@ -2146,31 +2241,44 @@ function buildSet(opts){
   // opts: {mk, groups:{power, trailers, jacobs, doors, roof}, withFront, firstCar}
   const { mk, groups:G, withFront, firstCar, internals = false } = opts;   // internals: full copy of the lead car's equipment
   const set = { doors:[], hatches:[], lamps:{}, pantos:[] };
-  const bodyM = mk(0xffffff, { map:TR.tex, roughness:0.45, metalness:0.2 }), endM = mk(0x2b3238, { roughness:0.85 }), capM = mk(0x2b3238, { roughness:0.85 });
+  const bodyM = {}, linM = {};
+  for (const L of Object.keys(TR.tex)){
+    bodyM[L] = mk(0xffffff, { map:TR.tex[L], alphaTest:0.5, roughness:0.45, metalness:0.2 });   // the openings are cut out (the shadow pass keeps the cut)
+    linM[L] = mk(0xffffff, { map:TR.lin[L], alphaTest:0.5, side:THREE.BackSide, roughness:0.9, metalness:0, emissive:0xffffff, emissiveMap:TR.lin[L], emissiveIntensity:0.25 });   // inside of the shell, lit by the saloon lights
+  }
+  const endM = mk(0x2b3238, { roughness:0.85 }), capM = mk(0x2b3238, { roughness:0.85 });
   const bellowsM = mk(0x23272c, { roughness:0.95 }), doorM = mk(0xaeb4ba, { roughness:0.5, metalness:0.25, side:THREE.DoubleSide }), glassM = mk(0x1c2530, { roughness:0.25, metalness:0.1 });
+  const paneM = {   // glass in the openings: opaque from afar, tinted and clear near the camera; the doorway plug only from afar
+    far:mk(0x27303a, { roughness:0.25, metalness:0.1 }), plug:mk(LIV.door, { roughness:0.8 }),
+    near:mk(0x1c2530, { transparent:true, opacity:0.45, depthWrite:false, side:THREE.DoubleSide, forceSinglePass:true, roughness:0.05, metalness:0 }),   // one pass: every pane has the same tint, so the blend order does not matter
+  };
   const skin = m => { if (internals) trShells.meshes.push(m); return m; };   // what the shell control fades: body, ends, gangways, doors (the underframe stays); the other trains stay opaque
-  if (internals) trShells.mats.push(bodyM, capM, bellowsM, doorM, glassM);
+  if (internals) trShells.mats.push(...Object.values(bodyM), capM, bellowsM, doorM, glassM);
   set.coaches = [];
-  const coachM = internals ? { floor:mk(0x3a3f46, { roughness:0.9 }), seat:mk(0xffffff, { roughness:0.85 }), body:mk(0xffffff, { roughness:0.8 }), head:mk(0xffffff, { roughness:0.7 }) } : null;
+  const coachM = { floor:mk(0x3a3f46, { roughness:0.9 }), ceil:mk(0xe6e2da, { roughness:0.9, emissive:0xe6e2da, emissiveIntensity:0.45 }), seat:mk(0xffffff, { roughness:0.85 }), body:mk(0xffffff, { roughness:0.8 }), head:mk(0xffffff, { roughness:0.7 }), legs:mk(0xffffff, { roughness:0.85 }) };
   const trailerRear = [];
   TGV.TRAILERS.forEach(([xr, L], i) => {
     const g = new THREE.Group(); g.position.x = xr;
-    const b = new THREE.Mesh(TR.geo[L].body, bodyM); b.castShadow = true; b.receiveShadow = true; g.add(skin(b));
+    const b = new THREE.Mesh(TR.geo[L].body, bodyM[L]); b.castShadow = true; b.receiveShadow = true; g.add(skin(b));
     const cr = new THREE.Mesh(TR.geo[L].capRear, capM), cf = new THREE.Mesh(TR.geo[L].capFront, capM); cf.position.x = 0; g.add(skin(cr), skin(cf));
+    const lining = new THREE.Mesh(TR.lining[L], linM[L]), glass = new THREE.Mesh(TR.pane[L].glass, paneM.far), plug = new THREE.Mesh(TR.pane[L].plug, paneM.plug);
+    lining.visible = false; glass.receiveShadow = plug.receiveShadow = true; g.add(lining, glass, plug);
     g.add(box(L - 1.0, 0.16, 2.6, endM, L / 2, 0.83, 0));                                 // underframe
     g.add(box(L - 3.0, 0.5, 2.9, endM, L / 2, 0.55, 0));                                  // low floor tanks/equipment
     if (i < TGV.TRAILERS.length - 1) g.add(skin(box(0.5, 3.3, 2.5, bellowsM, -0.25, 2.5, 0)));   // gangway bellows over the Jacobs bogie
     G.trailers.add(g); trailerRear.push(xr);
     // plug-sliding door at the -x end of each trailer, both sides; only +z (platform) leaves animate
     [1, -1].forEach(s => {
-      const d = new THREE.Group(); d.position.set(xr + 1.65, 0, 0);
+      const d = new THREE.Group(); d.position.set(xr + TR.doorX, 0, 0);
       const leaf = new THREE.Mesh(TR.leaf[s > 0 ? 'p' : 'n'], doorM); leaf.castShadow = true; d.add(skin(leaf));
       d.add(skin(box(0.8, 0.6, 0.02, glassM, 0, 2.0, s * (zAtY(TR.pts, 2.0) + 0.022))));  // door window, level with the lower deck
-      G.doors.add(d); set.doors.push({ g:d, s, x0:xr + 1.65, z0:0 });
+      G.doors.add(d); set.doors.push({ g:d, s, x0:xr + TR.doorX, z0:0 });
       const num = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.25), new THREE.MeshBasicMaterial({ map:carNumber(firstCar + i), side:THREE.DoubleSide }));
       num.position.set(xr + 2.75, 3.3, s * (zAtY(TR.pts, 3.3) + 0.012)); if (s < 0) num.rotation.y = Math.PI; G.trailers.add(num);
     });
-    if (internals) set.coaches.push(buildCoach(G.trailers, coachM, xr, L, firstCar + i));
+    const c = buildCoach(G.trailers, coachM, xr, L, firstCar + i);
+    Object.assign(c, { lining, glass, plug, paneM, own:internals, lod:0 });
+    set.coaches.push(c); allCoaches.push(c);
   });
   // bogies: end bogies + 7 Jacobs at the articulations
   tgvBogie(G.jacobs, -13.0, mk, 3.0, false);
@@ -2197,7 +2305,7 @@ function buildSet(opts){
     const cuts = [xA, -164.15, ...TGV.TRAILERS.map(([xr]) => xr - 0.25), xB].filter(x => x >= xA && x <= xB).sort((a, b) => a - b).filter((x, i, arr) => !i || x - arr[i - 1] > 0.5);
     for (let i = 0; i + 1 < cuts.length; i++) G.roof.add(cyl(0.035, cuts[i + 1] - cuts[i], lineM, 'x', (cuts[i] + cuts[i + 1]) / 2, 4.62, 0.25, 8));
   }
-  for (let x = -12; x > TGV.REAR_PC + 3; x -= 9.6) G.roof.add(cyl(0.06, 0.3, insM, 'y', x, 4.42, 0.25, 8));
+  for (let x = -12; x > TGV.REAR_PC + 3; x -= 9.6) G.roof.add(cyl(0.06, 0.3, insM, 'y', x, (x < TGV.REAR_PC + 9.6 ? 4.25 : 4.3) + 0.15, 0.25, 8));   // standing on the roof, not through it (seen from inside)
   G.roof.add(cable([[xA, 4.62, 0.25], [xA - 0.25, 4.6, 0.25], [xA - 0.4, 4.5, 0.15]], 0.03, lineM));   // to the rear panto base
   G.roof.add(cable([[-9.8, 4.62, 0.25], [-8.6, 4.58, 0.3], [-7.4, 4.5, 0.3]], 0.03, lineM));                                                  // down to the front car roof
   G.roof.add(cable([[-7.4, 4.5, 0.3], [-1.0, 4.55, 0.32], [3.6, 4.55, 0.32], [4.4, 4.5, 0.3]], 0.03, lineM));                                 // to the VCB
@@ -2303,6 +2411,7 @@ function poseSeat(c, i, on){
   const x = c.seat[3 * i] + 0.04, y = c.seat[3 * i + 1], z = c.seat[3 * i + 2], k = on ? 1 : 0;
   _m4.compose(_p.set(x, y + 0.72, z), Q0, _s.setScalar(k)); c.bodies.setMatrixAt(i, _m4);
   _m4.compose(_p.set(x, y + 1.12, z), Q0, _s.setScalar(k)); c.heads.setMatrixAt(i, _m4);
+  _m4.compose(_p.set(x, y, z), Q0, _s.setScalar(k)); c.legs.setMatrixAt(i, _m4);
   c.dirty = true;
 }
 function poseWalker(c, w){   // walking in the coach: stands up over the first step out of the seat, then walks upright
@@ -2310,12 +2419,13 @@ function poseWalker(c, w){   // walking in the coach: stands up over the first s
   pathAt(p, w.s, _pw); const bob = u >= 1 ? Math.abs(Math.sin(w.ph)) * 0.04 : 0;
   _m4.compose(_p.set(x0 + (_pw.x - x0) * u, y0 + 0.72 + (_pw.y + 0.465 + bob - y0 - 0.72) * u, z0 + (_pw.z - z0) * u), Q0, _s.set(1 + 0.12 * u, 1 + 0.35 * u, 1 + 0.12 * u)); c.bodies.setMatrixAt(w.i, _m4);
   _m4.compose(_p.set(x0 + (_pw.x - x0) * u, y0 + 1.12 + (_pw.y + 1.05 + bob - y0 - 1.12) * u, z0 + (_pw.z - z0) * u), Q0, _s.setScalar(1 + 0.08 * u)); c.heads.setMatrixAt(w.i, _m4);
+  _m4.makeScale(0, 0, 0); c.legs.setMatrixAt(w.i, _m4);   // the capsule stretched to standing height carries the legs
   c.dirty = true;
 }
 function paxSeed(c){   // the passengers a coach starts with: 30% of the seats, the same people every time
   for (let i = 0; i < c.n; i++){
     const h = hash32(c.id * 1000 + i); c.colB[i] = PAX_COL[h % PAX_COL.length]; c.colH[i] = SKIN[(h >>> 8) % SKIN.length];
-    c.bodies.setColorAt(i, _pc.setHex(c.colB[i])); c.heads.setColorAt(i, _pc.setHex(c.colH[i]));
+    c.bodies.setColorAt(i, _pc.setHex(c.colB[i])); c.heads.setColorAt(i, _pc.setHex(c.colH[i])); c.legs.setColorAt(i, _pc.setHex(trousers(c.colB[i], c.colH[i])));
     c.occ[i] = hash32(c.id * 7919 + i) % 100 < 30 ? 1 : 0; poseSeat(c, i, c.occ[i] === 1);   // occ: 0 free, 1 seated, 2 getting off, 3 taken by someone getting on
   }
   c.colDirty = true;
@@ -2458,7 +2568,7 @@ function paxAbort(){   // doors closing or the train moving: whoever is inside g
 }
 function enterCoach(a){   // a boarding agent reaches the doorway: the coach slot takes over and walks to the seat
   const e = a.e, c = e.c, i = a.seat;
-  c.colB[i] = a.colB; c.colH[i] = a.colH; c.bodies.setColorAt(i, _pc.setHex(a.colB)); c.heads.setColorAt(i, _pc.setHex(a.colH)); c.colDirty = true;
+  c.colB[i] = a.colB; c.colH[i] = a.colH; c.bodies.setColorAt(i, _pc.setHex(a.colB)); c.heads.setColorAt(i, _pc.setHex(a.colH)); c.legs.setColorAt(i, _pc.setHex(trousers(a.colB, a.colH))); c.colDirty = true;
   const p = seatPath(c, i), w = { i, p, s:p.len, v:a.v, ph:a.ph };
   c.walk.push(w); poseWalker(c, w);
   e.boarding--;
@@ -2497,8 +2607,8 @@ function updatePax(dt){
   pool.dirty = false;
   if (pool.colDirty){ pool.body.instanceColor.needsUpdate = pool.head.instanceColor.needsUpdate = true; pool.colDirty = false; }
   for (const set of tgvSets) for (const c of set.coaches){
-    if (c.dirty){ c.bodies.instanceMatrix.needsUpdate = c.heads.instanceMatrix.needsUpdate = true; c.dirty = false; }
-    if (c.colDirty){ c.bodies.instanceColor.needsUpdate = c.heads.instanceColor.needsUpdate = true; c.colDirty = false; }
+    if (c.dirty){ c.bodies.instanceMatrix.needsUpdate = c.heads.instanceMatrix.needsUpdate = c.legs.instanceMatrix.needsUpdate = true; c.dirty = false; }
+    if (c.colDirty){ c.bodies.instanceColor.needsUpdate = c.heads.instanceColor.needsUpdate = c.legs.instanceColor.needsUpdate = true; c.colDirty = false; }
   }
 }
 function paxHolding(){ return PX.phase === 'exchange' && PX.hold; }
@@ -2510,6 +2620,16 @@ function paxResolve(reset = false){   // settle everyone at once (teleport, rese
   }
   poolClear(); PX.list.length = 0;
   Object.assign(PX, { phase:'idle', hold:false, closeWhenDone:false, rebuild:true, visited:null });
+}
+
+function coachLod(){   // lod 0 far: opaque glass, plugged doorway, no interior; 1 near: interior, lining, clear glass; 2 own sets in x-ray: interior only
+  for (const c of allCoaches){
+    let lod;
+    if (c.own && shellLevel < 1) lod = 2;
+    else { _p.set(c.xr + c.L / 2, 2.5, 0).applyMatrix4(c.g.matrixWorld); lod = _p.distanceTo(camera.position) < COACH_NEAR + (c.lod === 1 ? 10 : 0) ? 1 : 0; }
+    if (lod === c.lod) continue;
+    c.lod = lod; c.g.visible = lod > 0; c.lining.visible = lod === 1; c.glass.visible = lod < 2; c.glass.material = lod ? c.paneM.near : c.paneM.far; c.plug.visible = lod === 0;
+  }
 }
 
 /* ---- cameras for the long train (functions: they depend on the formation) */
@@ -3674,6 +3794,7 @@ function animate(dt){
   const darkness = S.engine === 'cranking' ? 0.85 : clamp(S.fuel * 0.6, 0.15, 0.55);
   smoke.update(dt, rate, darkness, clamp(-S.speed * S.dir, -12, 12) - 0.3);
   if (S.mode === 'tgv') updateTgv(dt);
+  coachLod();   // every mode: the parked and passing sets show their interiors near the camera too
 }
 
 /* -------------------------------------------------------------- gauges */
@@ -3981,7 +4102,6 @@ function setShell(level){
   }
   p.group.traverse(o => { if (o.isMesh) o.castShadow = level >= 1; });
   for (const o of [...pcShells.meshes, ...trShells.meshes]){ o.castShadow = level >= 1; o.visible = level > 0; }
-  for (const set of tgvSets) for (const c of set.coaches) c.g.visible = level < 1;   // seats and passengers are only drawn once the skin lets them show
   applyVisibility(p);
 }
 const CUT_EXT = { x:[0, 10.4], y:[2.9, 2.9], z:[0, 1.75] };   // center, half extent along the cut axis
@@ -4235,5 +4355,5 @@ resize();
 setShell(0.18); setCut('none'); setExplode(0);
 setMode('diesel');
 requestAnimationFrame(loop);
-window.locoDebug = { S, simulate, animate, updateFlows, updateGauges, orbit, renderer, scene, camera, goStep, setMode, setCut, setExplode, setShell, select, parts, TGV, tgvSets, station, updateTgv, syncControls, tick:window.tick, ROUTE, horn, chunks, requestTrack, trk, opp, parked, cars, curveLocal, updateHud, jumpToStation, jumpTo, setWeather, pcHosts, pcShells, flowObjs, landmarks, flyPreset, SND, PX, pool, paxResolve, paxHolding };
+window.locoDebug = { S, simulate, animate, updateFlows, updateGauges, orbit, renderer, scene, camera, goStep, setMode, setCut, setExplode, setShell, select, parts, TGV, tgvSets, station, updateTgv, syncControls, tick:window.tick, ROUTE, horn, chunks, requestTrack, trk, opp, parked, cars, curveLocal, updateHud, jumpToStation, jumpTo, setWeather, pcHosts, pcShells, flowObjs, landmarks, flyPreset, SND, PX, pool, paxResolve, paxHolding, allCoaches };
 </script>
