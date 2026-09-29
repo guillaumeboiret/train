@@ -1,0 +1,15 @@
+Recorded TGV sounds used by /locomotive/ and /conducteur/. Cut, looped and re-encoded (mono MP3); everything else is synthesised in the pages.
+
+tgv_in.mp3     Inside a TGV coach at speed, looped.
+               "inside TGV train car" by bruno.auzet, Freesound 745896, CC0 1.0
+               https://freesound.org/people/bruno.auzet/sounds/745896/
+tgv_idle.mp3   A TGV power car at a standstill: blowers, compressor, air dryer. Looped.
+               "TGV_spitter-valve" by noisymichael, Freesound 750185, CC0 1.0
+               https://freesound.org/people/noisymichael/sounds/750185/
+tgv_doors.mp3  Door warning beeps, then the doors lock.
+               "Train door beeps" by Joseph Sardin, BigSoundBank 3343, CC0 1.0
+               https://bigsoundbank.com/train-door-beeps-s3343.html
+
+CC0 1.0: https://creativecommons.org/publicdomain/zero/1.0/
+The chime before announcements is SNCF's sound logo (Michaël Boumendil, 2005). It is not recorded here: the pages play the four notes
+with their own synthesis, for this personal, non-commercial site. Remove it if the site ever becomes commercial.

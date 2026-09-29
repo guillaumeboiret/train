@@ -445,7 +445,7 @@ const T = {
     ctl_track:"Voie", track_hint:"Changement par une communication 400 m devant la rame.", track_busy:"Communication déjà engagée, attendez.", track_occupied:"Voie occupée par un train en face.", track_2:"Voie 2 (sens Paris)", track_1:"Voie 1 (sens Toulouse)",
     ctl_time:"Vitesse du temps", horn:"Klaxon (H)", hud_pk:"PK", hud_alt:"Alt.", hud_grade:"Pente", hud_tracks:"Voies", hud_limit:"Limite", hud_next:"Prochaine gare", hud_end:"Terminus", hud_tp:"Aller au PK", hud_go:"Go", rb_title:"Cliquez ou glissez sur la ligne pour vous téléporter", ctl_weather:"Météo", wx_sun:"Soleil", wx_cloud:"Nuages", wx_rain:"Pluie", wx_dusk:"Crépuscule", hud_bridge:"Pont", hud_tunnel:"Tunnel", hud_cutting:"Tranchée", hud_viaduct:"Viaduc",
     cam_hint:"Clavier: W A S D déplacent le point de visée le long de la rame, R/F (ou E/Q) montent et descendent, Maj accélère. H ou Espace: klaxon. Aux places et au poste de conduite, glisser ou W A S D tournent la tête.",
-    route_src:"Ligne Toulouse Matabiau à Paris Montparnasse par Bordeaux Saint-Jean, 829,5 km. Tracé, gares et nombre de voies: © OpenStreetMap contributors (ODbL). Relief: Mapzen/AWS Terrain Tiles (SRTM). Profil de la voie lissé et limité à 2,5 %. Champs, maisons et arbres générés; trains en face à intervalles aléatoires.",
+    route_src:"Ligne Toulouse Matabiau à Paris Montparnasse par Bordeaux Saint-Jean, 829,5 km. Tracé, gares et nombre de voies: © OpenStreetMap contributors (ODbL). Relief: Mapzen/AWS Terrain Tiles (SRTM). Profil de la voie lissé et limité à 2,5 %. Champs, maisons et arbres générés; trains en face à intervalles aléatoires. Sons du TGV enregistrés par bruno.auzet et noisymichael (Freesound) et Joseph Sardin (BigSoundBank), CC0; le reste est synthétisé.",
     aria_traction:"Type de traction", aria_lang:"Langue", aria_canvas:"Locomotive 3D", aria_compass:"Boussole", cmp_w:"O", aria_line:"Ligne", aria_fold:"Replier", aria_hide:"Masquer", tip_hide:"Masquer / afficher",
   },
   en: {
@@ -479,7 +479,7 @@ const T = {
     ctl_track:"Track", track_hint:"Changes over a crossover 400 m ahead of the train.", track_busy:"Crossover already in use, wait.", track_occupied:"Track occupied by an oncoming train.", track_2:"Track 2 (to Paris)", track_1:"Track 1 (to Toulouse)",
     ctl_time:"Time scale", horn:"Horn (H)", hud_pk:"km", hud_alt:"Alt.", hud_grade:"Grade", hud_tracks:"Tracks", hud_limit:"Limit", hud_next:"Next station", hud_end:"Terminus", hud_tp:"Go to km", hud_go:"Go", rb_title:"Click or drag on the line to teleport", ctl_weather:"Weather", wx_sun:"Sun", wx_cloud:"Clouds", wx_rain:"Rain", wx_dusk:"Dusk", hud_bridge:"Bridge", hud_tunnel:"Tunnel", hud_cutting:"Cutting", hud_viaduct:"Viaduct",
     cam_hint:"Keys: W A S D move the focus along the train, R/F (or E/Q) up and down, Shift is faster. H or Space: horn. In a seat or the driver's seat, drag or W A S D turn your head.",
-    route_src:"Toulouse Matabiau to Paris Montparnasse via Bordeaux Saint-Jean, 829.5 km. Alignment, stations and track count: © OpenStreetMap contributors (ODbL). Relief: Mapzen/AWS Terrain Tiles (SRTM). Track profile smoothed and capped at 2.5%. Fields, houses and trees are generated; oncoming trains run at random intervals.",
+    route_src:"Toulouse Matabiau to Paris Montparnasse via Bordeaux Saint-Jean, 829.5 km. Alignment, stations and track count: © OpenStreetMap contributors (ODbL). Relief: Mapzen/AWS Terrain Tiles (SRTM). Track profile smoothed and capped at 2.5%. Fields, houses and trees are generated; oncoming trains run at random intervals. TGV sounds recorded by bruno.auzet and noisymichael (Freesound) and Joseph Sardin (BigSoundBank), CC0; the rest is synthesised.",
     aria_traction:"Traction type", aria_lang:"Language", aria_canvas:"3D locomotive", aria_compass:"Compass", cmp_w:"W", aria_line:"Line", aria_fold:"Collapse", aria_hide:"Hide", tip_hide:"Hide / show",
   }
 };
@@ -3995,6 +3995,9 @@ scene.remove(sky); world.add(sky);                 // the sky turns with the wor
 /* Every train sound but our own horn has a place: motors and blowers in each power car, rolling and wind at the point of our train nearest the camera,
    another train at its own nearest point. Each place is panned and fades with its distance to the camera; places, rain and birds pass through the car
    body, which muffles them when the camera is inside. */
+/* The TGV adds three recordings, fetched from ../audio (CC0, credited in site/audio/CREDITS.txt): a coach at speed, heard instead of the synthesised
+   rolling once inside; a power car at a standstill (blowers, compressor, air dryer); the door beeps and lock. Synthesised: the inverters' whine, the
+   transformer hum under 25 kV, the brake squeal and air, the two-tone air horn and the SNCF chime. Where a recording does not load, the synthesis stays. */
 const SND = { ctx:null, master:null, muted:false, v:null,
   setMuted(m){ SND.muted = m; if (SND.master) SND.master.gain.setTargetAtTime(m ? 0 : 0.9, SND.ctx.currentTime, 0.05); } };
 const _sc = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -4028,7 +4031,7 @@ function audioCtx(){
   const place = dest => { const g = ctx.createGain(); g.gain.value = 0; const pan = ctx.createStereoPanner(); g.connect(pan); pan.connect(dest); return { g, pan }; };
   const body = ctx.createBiquadFilter(); body.type = 'lowpass'; body.frequency.value = 16000; body.Q.value = 0;   // the car body: open outside, 700 Hz inside
   const bodyG = ctx.createGain(); body.connect(bodyG); bodyG.connect(master);
-  const v = SND.v = { body, bodyG, pc:[0, 1, 2, 3].map(() => place(body)), near:place(body), opp:[], birdT:2 };
+  const v = SND.v = { body, bodyG, pc:[0, 1, 2, 3].map(() => place(body)), near:place(body), opp:[], birdT:2, pinkB };
   // the power cars: traction motors (a soft harmonic hum, pitch with the speed; two motors a hair apart beat slowly) and the blowers (a breathy hum)
   const wave = ctx.createPeriodicWave(new Float32Array(6), new Float32Array([0, 1, 0.45, 0.2, 0.08, 0.03]));
   const mlp = ctx.createBiquadFilter(); mlp.type = 'lowpass'; mlp.frequency.value = 900; mlp.Q.value = 0;
@@ -4037,26 +4040,49 @@ function audioCtx(){
   v.blow = ctx.createGain(); v.blow.gain.value = 0;
   chain(noise(pinkB), 'lowpass', 420, 0, v.blow).g.gain.value = 1;
   osc('sine', 142, v.blow).g.gain.value = 0.1;   // the fans' blade tone
-  for (const s of v.pc){ v.motor.connect(s.g); v.blow.connect(s.g); }
+  // TGV power cars: the inverters' whine (three tones set per frame), the transformer's hum under 25 kV (twice 50 Hz and its harmonics), the recorded blowers
+  v.inv = ctx.createGain(); v.inv.gain.value = 0; v.invT = [0, 1, 2].map(() => osc('triangle', 700, v.inv));
+  v.hum = ctx.createGain(); v.hum.gain.value = 0;
+  for (const [f, a] of [[100, 1], [200, 0.5], [300, 0.25]]) osc('sine', f, v.hum).g.gain.value = a;
+  v.idle = ctx.createGain(); v.idle.gain.value = 0;
+  for (const s of v.pc){ v.motor.connect(s.g); v.blow.connect(s.g); v.inv.connect(s.g); v.hum.connect(s.g); v.idle.connect(s.g); }
   // diesel, in the loco (the first place): firing pulses and a faint turbo
   const dlp = ctx.createBiquadFilter(); dlp.type = 'lowpass'; dlp.frequency.value = 380; dlp.Q.value = 1.2; dlp.connect(v.pc[0].g); v.dslLp = dlp;
   v.diesel = osc('sawtooth', 60, dlp); v.turbo = osc('sine', 1100, v.pc[0].g);
-  // rolling and wind, under the car nearest the camera: a deep rumble, a mid roll opening with the speed, a soft rush at high speed
+  // rolling and wind, under the car nearest the camera: a deep rumble, a mid roll opening with the speed, a soft rush at high speed; the TGV's disc brakes sing there too
   const ps = noise(pinkB);
   v.rumble = chain(noise(brownB), 'lowpass', 140, 0, v.near.g); v.roll = chain(ps, 'lowpass', 400, 0, v.near.g); v.aero = chain(ps, 'bandpass', 800, 0.5, v.near.g);
+  v.squeal = [6800, 4150].map(f => osc('sine', f, v.near.g));
   v.rain = chain(noise(pinkB), 'bandpass', 2400, 0.35, body);
   for (const o of opp){   // the other trains: a rush each, at their nearest point; their horn plays into the same panner
     const p = place(body); p.g.gain.value = 1;
     const c = chain(noise(pinkB), 'lowpass', 600, 0, p.g);
     v.opp.push({ o, pan:p.pan, f:c.f, g:c.g, horn:null });
   }
+  // TGV coach and doors: the recorded coach goes straight out (it was recorded inside), the door beepers sit by the nearest door, both past the car body
+  v.cabin = ctx.createGain(); v.cabin.gain.value = 0; v.cabin.connect(master);
+  v.door = place(master);
+  v.airHorn = ctx.createPeriodicWave(new Float32Array(9), new Float32Array([0, 1, 0.8, 0.55, 0.4, 0.28, 0.18, 0.12, 0.08]));   // an air horn: a bright buzz
+  const ir = ctx.createBuffer(2, Math.round(ctx.sampleRate * 1.2), ctx.sampleRate);   // a hall for the chime: 1.2 s of decaying noise
+  for (let c = 0; c < 2; c++){ const d = ir.getChannelData(c); for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.exp(-i / ctx.sampleRate / 0.25); }
+  v.room = ctx.createConvolver(); v.room.buffer = ir; const wet = ctx.createGain(); wet.gain.value = 0.25; v.room.connect(wet); wet.connect(master);
+  // the recordings, next to the pages (XMLHttpRequest: fetch refuses file: pages); each loop file is a 0.3 s lead-in, the loop, a 0.3 s tail
+  const load = (name, then) => {
+    const x = new XMLHttpRequest(); x.open('GET', '../audio/' + name + '.mp3'); x.responseType = 'arraybuffer';
+    x.onload = () => { if ((x.status === 200 || x.status === 0) && x.response){ const p = ctx.decodeAudioData(x.response, then, () => {}); if (p && p.catch) p.catch(() => {}); } };
+    x.send();
+  };
+  const loop = (buf, len, dest) => { const s = ctx.createBufferSource(); s.buffer = buf; s.loop = true; s.loopStart = 0.3; s.loopEnd = 0.3 + len; s.connect(dest); s.start(0, 0.3 + Math.random() * len); return s; };
+  load('tgv_idle', b => { v.idleS = loop(b, 9.773, v.idle); });
+  load('tgv_in', b => { v.cabinS = loop(b, 14.5, v.cabin); });
+  load('tgv_doors', b => { v.doorB = b; });
   return ctx;
 }
 for (const ev of ['pointerdown', 'keydown']) window.addEventListener(ev, () => { const c = audioCtx(); if (c && c.state === 'suspended') c.resume(); }, { capture:true, passive:true });
 
-/* ---- our horn: two-tone chord, synthesised; H or Space, or the horn button */
+/* ---- our horn: two-tone chord, synthesised; the TGV's own two air horns (UIC 644, 660 and 370 Hz) play one after the other; H or Space, or the horn button */
 const horn = (() => {
-  let gain = null, holding = false, minUntil = 0, timer = 0;
+  let gain = null, hi = null, lo = null, holding = false, minUntil = 0, timer = 0;
   const build = () => {
     const ctx = audioCtx(); if (!ctx) return false;
     gain = ctx.createGain(); gain.gain.value = 0;
@@ -4067,11 +4093,23 @@ const horn = (() => {
       const o = ctx.createOscillator(); o.type = type; o.frequency.value = f; lfoG.connect(o.detune);
       const og = ctx.createGain(); og.gain.value = g; o.connect(og); og.connect(gain); o.start();
     }
+    const tlp = ctx.createBiquadFilter(); tlp.type = 'lowpass'; tlp.frequency.value = 3200; tlp.Q.value = 0.7; tlp.connect(SND.master);
+    [hi, lo] = [660, 370].map(f => {
+      const o = ctx.createOscillator(); o.setPeriodicWave(SND.v.airHorn); o.frequency.value = f; lfoG.connect(o.detune);
+      const g = ctx.createGain(); g.gain.value = 0; o.connect(g); g.connect(tlp); o.start(); return g;
+    });
     return true;
   };
-  const ramp = (v, t) => { const now = SND.ctx.currentTime; gain.gain.cancelScheduledValues(now); gain.gain.setValueAtTime(gain.gain.value, now); gain.gain.linearRampToValueAtTime(v, now + t); };
-  const on = () => { if (!gain && !build()) return; if (SND.ctx.state === 'suspended') SND.ctx.resume(); ramp(0.35, 0.06); document.getElementById('btnHorn')?.classList.add('on'); };
-  const off = () => { if (gain) ramp(0, 0.25); document.getElementById('btnHorn')?.classList.remove('on'); };
+  const ramp = (g, v, t) => { const now = SND.ctx.currentTime; g.gain.cancelScheduledValues(now); g.gain.setValueAtTime(g.gain.value, now); g.gain.linearRampToValueAtTime(v, now + t); };
+  const on = () => {
+    if (!gain && !build()) return; if (SND.ctx.state === 'suspended') SND.ctx.resume();
+    if (S.mode === 'tgv'){ const t = SND.ctx.currentTime;   // the high note, then the low one, held
+      ramp(hi, 0.25, 0.04); hi.gain.setValueAtTime(0.25, t + 0.4); hi.gain.linearRampToValueAtTime(0, t + 0.45);
+      ramp(lo, 0, 0.04); lo.gain.setValueAtTime(0, t + 0.4); lo.gain.linearRampToValueAtTime(0.25, t + 0.45);
+    } else ramp(gain, 0.35, 0.06);
+    document.getElementById('btnHorn')?.classList.add('on');
+  };
+  const off = () => { if (gain) for (const g of [gain, hi, lo]) ramp(g, 0, 0.25); document.getElementById('btnHorn')?.classList.remove('on'); };
   const settle = () => { clearTimeout(timer); const rem = minUntil - performance.now(); if (holding) return; if (rem > 0) timer = setTimeout(off, rem); else off(); };
   return {
     get active(){ return holding || performance.now() < minUntil; },
@@ -4094,34 +4132,76 @@ function bird(ctx){   // a short trill, somewhere left or right
   }
   o.start(t0); o.stop(t0 + n * d * 1.6 + 0.1);
 }
-function oppHorn(vo, lvl, dop){   // "tuu-tuuu": a high then a low note, our chord recipe, pitched by the Doppler factor, placed in that train's panner
+function oppHorn(vo, lvl, dop){   // "tuu-tuuu": the other trains are TGVs, so their high then low air horn, pitched by the Doppler factor, placed in that train's panner
   const ctx = SND.ctx, t0 = ctx.currentTime, g = ctx.createGain(); g.gain.value = lvl;
-  const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 1400; g.connect(lp); lp.connect(vo.pan);
-  for (const [f, st, len] of [[392, 0, 0.45], [311, 0.5, 0.75]]) for (const [r, type, gg] of [[1, 'sawtooth', 0.42], [1.19, 'sawtooth', 0.42], [2, 'square', 0.06], [2.38, 'square', 0.06]]){
-    const o = ctx.createOscillator(); o.type = type; o.frequency.value = f * r * dop; const og = ctx.createGain();
-    og.gain.setValueAtTime(0, t0 + st); og.gain.linearRampToValueAtTime(gg, t0 + st + 0.05); og.gain.setValueAtTime(gg, t0 + st + len - 0.1); og.gain.linearRampToValueAtTime(0, t0 + st + len);
+  const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 3200; lp.Q.value = 0.7; g.connect(lp); lp.connect(vo.pan);
+  for (const [f, st, len] of [[660, 0, 0.45], [370, 0.5, 0.75]]){
+    const o = ctx.createOscillator(); o.setPeriodicWave(SND.v.airHorn); o.frequency.value = f * dop; const og = ctx.createGain();
+    og.gain.setValueAtTime(0, t0 + st); og.gain.linearRampToValueAtTime(0.5, t0 + st + 0.04); og.gain.setValueAtTime(0.5, t0 + st + len - 0.1); og.gain.linearRampToValueAtTime(0, t0 + st + len);
     o.connect(og); og.connect(g); o.start(t0 + st); o.stop(t0 + st + len + 0.05);
   }
   vo.horn = { g, until:t0 + 1.4 };
 }
+function chime(ctx, lvl){   // SNCF's sound logo before an announcement (Michaël Boumendil, 2005): C, G, A flat, E flat, struck like a vibraphone, through the train's speakers
+  const t0 = ctx.currentTime + 0.05, out = ctx.createGain(), hp = ctx.createBiquadFilter();
+  out.gain.value = 0.16 * lvl; hp.type = 'highpass'; hp.frequency.value = 170; out.connect(hp); hp.connect(SND.master); hp.connect(SND.v.room);
+  for (const [f, st, last] of [[261.63, 0, 0], [392, 0.48, 0], [415.3, 0.98, 0], [311.13, 1.34, 1]]) for (const [h, a] of [[1, 1], [2, 0.5], [3, 0.2], [4, 0.1]]){
+    const o = ctx.createOscillator(), g = ctx.createGain(), t = t0 + st, tau = (last ? 0.6 : 0.35) / Math.sqrt(h);   // the upper partials die first
+    o.frequency.value = f * h; g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(a, t + 0.015); g.gain.setTargetAtTime(0, t + 0.015, tau);
+    o.connect(g); g.connect(out); o.start(t); o.stop(t + 0.015 + 7 * tau);
+  }
+}
+function doorsClose(ctx){   // the doors' warning beeps, then the lock: recorded, else square beeps
+  const v = SND.v, t0 = ctx.currentTime, g = ctx.createGain();
+  g.connect(v.door.g);
+  if (v.doorB){ const s = ctx.createBufferSource(); s.buffer = v.doorB; g.gain.value = 0.7; s.connect(g); s.start(t0); return; }
+  const o = ctx.createOscillator(); o.type = 'square'; o.frequency.value = 1450; g.gain.value = 0;
+  for (let i = 0; i < 21; i++){ const t = t0 + i * 0.143; g.gain.setValueAtTime(0.05, t); g.gain.setValueAtTime(0, t + 0.07); }
+  o.connect(g); o.start(t0); o.stop(t0 + 3.1);
+}
+function airSigh(ctx){   // the brakes' air as the train comes to rest
+  const t0 = ctx.currentTime, s = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+  s.buffer = SND.v.pinkB; s.loop = true; f.type = 'highpass'; f.frequency.value = 1800;
+  g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime(0.12, t0 + 0.05); g.gain.setTargetAtTime(0, t0 + 0.3, 0.35);
+  s.connect(f); f.connect(g); g.connect(SND.v.near.g); s.start(t0, Math.random() * 3); s.stop(t0 + 2.6);
+}
 
 /* ---- per frame: levels follow the sim, places follow the camera */
 function updateSound(dt){
-  const ctx = SND.ctx; if (!ctx || SND.muted) return;
-  const v = SND.v, now = ctx.currentTime, sp = S.speed, set = (p, val) => p.setTargetAtTime(val, now, 0.12);
+  const ctx = SND.ctx; if (!ctx) return;
+  const v = SND.v, now = ctx.currentTime, sp = S.speed, tgv = S.mode === 'tgv';
+  // TGV events, followed while muted too so that unmuting does not replay them: doors starting to close, the train coming to rest, the planned stop near
+  const shut = tgv && v.doorsWas && !S.doors && S.doorsF > 0.3;
+  if (shut && v.atWas) v.chimeAt = now + 3.4;   // leaving a platform (as of the last frame: the kid's station button jumps ahead): the welcome announcement once the doors are locked
+  v.doorsWas = S.doors; v.atWas = S.atStation;
+  const depart = tgv && v.chimeAt > 0 && now >= v.chimeAt; if (v.chimeAt && now >= v.chimeAt) v.chimeAt = 0;
+  const halt = tgv && v.run && sp < 0.02; if (sp > 1) v.run = true; else if (sp < 0.02) v.run = false;
+  const arrive = tgv && S.autoStop && !v.arrived && tgvRemaining() < Math.max(400, 25 * sp); if (arrive) v.arrived = true; if (!S.autoStop) v.arrived = false;   // about half a minute out
+  if (SND.muted) return;
+  const set = (p, val) => p.setTargetAtTime(val, now, 0.12);
   const cam = camera.position, camR = _sv1.set(1, 0, 0).applyQuaternion(camera.quaternion);
   const aim = (s, p, gain) => { p.sub(cam); const r = Math.max(0.5, p.length()); set(s.g.gain, gain(r)); set(s.pan.pan, 0.75 * _sc(p.dot(camR) / r, -1, 1)); return r; };   // p: where it is (scene), used up
-  const tgv = S.mode === 'tgv', two = tgv && tgvSets[1].group.visible, base2 = TGV.SET2_X + S.set2Off;
+  const two = tgv && tgvSets[1].group.visible, base2 = TGV.SET2_X + S.set2Off;
   const head = TGV.TIP_F, tail = tgv ? (two ? base2 : 0) + TGV.TIP_R : TGV.TIP_F - trainLen();
   const cx = _sc(cam.x, tail, head);   // our train's nearest point to the camera, in train coordinates
   curveLocal(cx, 0, 0, _sv2);
   const inside = cam.x > tail && cam.x < head && Math.hypot(cam.x - _sv2.x, cam.z - _sv2.z) < TGV.HALF_W - 0.05 && cam.y - _sv2.y > 0.7 && cam.y - _sv2.y < 4.4;
   set(v.body.frequency, inside ? 700 : 16000); set(v.bodyG.gain, inside ? 0.7 : 1);
   // power cars: the motors hum with the effort, the blowers run while the line breaker is closed; beyond 12 m a long car fades a little slower than a point
-  const live = S.mode === 'diesel' ? S.engine === 'running' : S.vcb && S.dcV > 2000, tr = _sc(S.tractionN, 0, 1);
-  set(v.motor.gain, live ? 0.13 * (0.2 + 0.8 * tr) * Math.min(1, sp / 3) : 0);
+  const live = S.mode === 'diesel' ? S.engine === 'running' : S.vcb && S.dcN > 0.7, tr = _sc(S.tractionN, 0, 1);
+  set(v.motor.gain, live ? (tgv ? 0.08 : 0.13) * (0.2 + 0.8 * tr) * Math.min(1, sp / 3) : 0);
   for (const o of v.mots) set(o.frequency, 20 + 2.6 * sp);
-  set(v.blow.gain, S.mode !== 'diesel' && S.vcb ? 0.16 * S.dcN : 0);
+  const idle = tgv && S.vcb && v.idleS;   // the TGV's recorded blowers replace the synthesised ones
+  set(v.blow.gain, S.mode !== 'diesel' && S.vcb && !idle ? 0.16 * S.dcN : 0);
+  set(v.idle.gain, idle ? 0.15 * S.dcN : 0);
+  // TGV inverters, from the motors' stator frequency f1 (speed, plus the slip under effort): at first a fixed switching tone with sidebands at +-2 f1, then
+  // synchronous steps (switching at N f1, the pitch dropping at each lower N), then full wave from about 190 km/h, where the 6 f1 ripple is left
+  const f1 = 1.51 * sp + (tr > 0.02 ? 1.2 : 0), N = f1 < 21 ? 0 : f1 < 30 ? 33 : f1 < 45 ? 21 : f1 < 60 ? 15 : f1 < 80 ? 9 : 1, fc = N ? N * f1 : 700;
+  for (const [k, f, a] of [[0, fc - 2 * f1, N === 1 ? 0 : 0.5], [1, fc + 2 * f1, N === 1 ? 0 : 0.5], [2, Math.max(30, 6 * f1), N === 1 ? 0.8 : 0.25 * Math.min(1, f1 / 40)]]){
+    v.invT[k].o.frequency.setTargetAtTime(f, now, 0.02); set(v.invT[k].g.gain, a);
+  }
+  set(v.inv.gain, tgv && live && tr > 0.02 ? 0.09 * (0.3 + 0.7 * tr) : 0);
+  set(v.hum.gain, tgv && live && !S.dc ? 0.012 * (0.4 + 0.6 * tr) : 0);
   const pcs = tgv ? (two ? [0, TGV.REAR_PC, base2, base2 + TGV.REAR_PC] : [0, TGV.REAR_PC]) : [0];
   v.pc.forEach((s, i) => { if (i < pcs.length) aim(s, curveLocal(pcs[i], 1.6, 0, _sv2), r => (12 / Math.max(12, r)) ** 0.8); else set(s.g.gain, 0); });
   const rpm = S.mode === 'diesel' ? S.rpm : 0, rn = S.mode === 'diesel' ? S.rpmN : 0;
@@ -4129,10 +4209,25 @@ function updateSound(dt){
   set(v.turbo.g.gain, 0.006 * rn * rn); set(v.turbo.o.frequency, 1100 + 1300 * rn);
   // rolling and wind: a line of bogies, so it fades slower than a point
   const tun = ROUTE.kindAt(S.dist) === 2, tunMul = tun ? 1.6 : 1;   // a tunnel throws the noise back
-  set(v.rumble.g.gain, 0.36 * Math.min(1, sp / 30) * tunMul);
-  set(v.roll.g.gain, 0.4 * Math.min(1, sp / 50) * tunMul); set(v.roll.f.frequency, 280 + 7 * sp);
-  set(v.aero.g.gain, 0.3 * (sp / 89) ** 2 * tunMul);
+  const kIn = tgv && inside && v.cabinS ? 1 : 0, cut = 1 - 0.8 * kIn * Math.min(1, sp / 30), vr = sp / 83;   // in a TGV coach the recording takes over as the speed builds
+  if (tgv){   // welded rails, no joints: the rolling grows as v^1.5 and the wind as v^3, level with each other near 300 km/h
+    set(v.rumble.g.gain, 0.3 * Math.min(1, sp / 30) * tunMul * cut);
+    set(v.roll.g.gain, 0.42 * Math.min(1.2, vr ** 1.5) * tunMul * cut); set(v.roll.f.frequency, 350 + 12 * sp);
+    set(v.aero.g.gain, 0.42 * Math.min(1.35, vr ** 3) * tunMul * cut); set(v.aero.f.frequency, 700 + 6 * sp);
+  } else {
+    set(v.rumble.g.gain, 0.36 * Math.min(1, sp / 30) * tunMul);
+    set(v.roll.g.gain, 0.4 * Math.min(1, sp / 50) * tunMul); set(v.roll.f.frequency, 280 + 7 * sp);
+    set(v.aero.g.gain, 0.3 * (sp / 89) ** 2 * tunMul);
+  }
+  set(v.cabin.gain, kIn * 0.75 * Math.min(1.15, vr) * tunMul);
+  if (v.cabinS) set(v.cabinS.playbackRate, 0.72 + 0.33 * Math.min(1.1, vr));
+  const sq = tgv && S.brakeN > 0.05 && sp > 0.15 && sp < 5 ? Math.min(1, (5 - sp) / 2) * Math.min(1, sp / 0.6) : 0;   // the disc brakes sing in the last metres
+  v.squeal.forEach((s, i) => { set(s.g.gain, (i ? 0.006 : 0.012) * sq); s.o.frequency.setTargetAtTime((i ? 4150 : 6800) * (1 + 0.008 * Math.sin(now * (i ? 5.3 : 7))), now, 0.05); });
   aim(v.near, curveLocal(cx, 0.8, 0, _sv2), r => (6 / Math.max(6, r)) ** 0.55);
+  aim(v.door, curveLocal(cx, 1.2, 0, _sv2), r => (8 / Math.max(8, r)) ** 0.7);
+  if (halt) airSigh(ctx);
+  if (shut) doorsClose(ctx);
+  if (arrive || depart) chime(ctx, inside ? 1 : 0.6);
   const rain = !!WEATHER[weatherId].rain;
   set(v.rain.g.gain, rain ? 0.12 : 0);
   v.birdT -= dt;
