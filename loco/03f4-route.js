@@ -392,8 +392,9 @@ function buildChunk(ci){
       for (let k = 1; k <= 9; k++){ if (ROUTE.kindAt(Math.max(0, s - DS * k)) === 2){ best = Math.min(best, DS * (k - 1)); break; } }
       return best > 45 ? 0 : ROUTE.sstep(1 - best / 45);
     };
-    const mkRow = (f, i, kind) => {
+    const mkRow = (f, i, kind, mouth = false) => {
       const yF = f.yAbs - 0.42, a = wMin[i] - 3.4, b = wMax[i] + 3.4, crown = f.yAbs + 0.3 + tubeR(i) + 1.5;
+      const head = mouth ? f.yAbs + 0.3 + tubeR(i) + 2.5 : 1e9;   // just inside a mouth the ground over the tube meets the top of the portal collar, never above it
       let yW = -1e9; if (kind === 4){ yW = 1e9; for (let w = -400; w <= 400; w += 50) yW = Math.min(yW, ROUTE.terAt(f.s, w)); yW += 1.2; }
       const pd = portalNear(f.s, kind), tz = kind === 0 ? trenchAt(f.s) : 0;
       const cover = (t, d) => { const cov = Math.max(t, crown); if (d <= 4) return cov; const bl = Math.min(60, Math.max(22, 1.5 * (cov - t))); return cov + (t - cov) * ROUTE.sstep((d - 4) / bl); };
@@ -407,7 +408,7 @@ function buildChunk(ci){
       };
       const vert = (w, d) => {
         const t0 = ROUTE.terAt(f.s, w), wet = kind === 4 && Math.abs(w) <= 400 && t0 < yW, t = landmarkGround(f.s, w, yF, wet ? yW : t0);
-        return [f.p.x + f.r.x * w, shape(t, d) - O.y, f.p.z + f.r.z * w, w, d, wet ? 1 : 0];
+        return [f.p.x + f.r.x * w, (d <= 4 ? Math.min(head, shape(t, d)) : shape(t, d)) - O.y, f.p.z + f.r.z * w, w, d, wet ? 1 : 0];
       };
       const dOf = c => tz > 0 && c === 5 ? 26.01 : TERR_D[c];   // trench: the 40 m column becomes the top of the wall, right above the 26 m one
       const v = [];
@@ -422,7 +423,7 @@ function buildChunk(ci){
       for (const side of [-1, 1]){
         const s = sp + 0.3 * side; if (s < s0 || s > s1 + 0.5) continue;
         const kind = side === dirIn ? 2 : ROUTE.kindAt(sp - dirIn * DS) === 2 ? 0 : ROUTE.kindAt(sp - dirIn * DS);
-        const row = mkRow(frameFor(s), i, kind); row.hole = side < 0; rows.push(row);
+        const row = mkRow(frameFor(s), i, kind, side === dirIn); row.hole = side < 0; rows.push(row);
       }
     }
     rows.sort((p, q) => p.s - q.s);
@@ -432,7 +433,7 @@ function buildChunk(ci){
       for (let c = 0; c < NC - 1; c++){
         const a0 = A.v[c], a1 = A.v[c + 1], b0 = B.v[c], b1 = B.v[c + 1];
         const cx = (a0[0] + a1[0] + b0[0] + b1[0]) / 4 + O.x, cz = (a0[2] + a1[2] + b0[2] + b1[2]) / 4 + O.z, d = (a0[4] + a1[4]) / 2;
-        if (A.hole && c >= TERR_D.length - 2 && c <= TERR_D.length + 1) continue;   // the tube mouth: the portal collar fills this
+        if (A.hole && c >= TERR_D.length - 2 && c <= TERR_D.length + 1) continue;   // the tube mouth: the portal collar fills this, up to the capped inside row
         let type = landType(cx, cz), rgb;
         const inner = c === TERR_D.length - 1 || c === TERR_D.length, wall = Math.abs(a1[3] - a0[3]) < 0.06 && Math.abs(b1[3] - b0[3]) < 0.06;
         if (wall) rgb = WALL_COL;
