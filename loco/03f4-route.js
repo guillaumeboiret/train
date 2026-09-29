@@ -530,10 +530,10 @@ function buildChunk(ci){
     }
     const tg = new THREE.BufferGeometry(); tg.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); tg.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); tg.computeVertexNormals();
     addMesh(tg, terrainMat).receiveShadow = true;
-    const tm = trees.map(([x, y, z], i) => { const sc = 0.8 + 0.7 * hash2(i, ci, 23); return new THREE.Matrix4().compose(_cp.set(x, y - 0.2, z), _cq.setFromAxisAngle(Y_UP, hash2(i, ci, 29) * 6.283), _cs.set(sc, sc, sc)); }).filter((m, i) => windClear(trees[i][0] + O.x, trees[i][2] + O.z, 20));
+    const tm = trees.map(([x, y, z], i) => { const sc = 0.8 + 0.7 * hash2(i, ci, 23); return new THREE.Matrix4().compose(_cp.set(x, y - 0.2, z), _cq.setFromAxisAngle(Y_UP, hash2(i, ci, 29) * 6.283), _cs.set(sc, sc, sc)); }).filter((m, i) => windClear(trees[i][0] + O.x, trees[i][2] + O.z, 20) && sightClear(trees[i][0] + O.x, trees[i][2] + O.z));
     _cs.set(1, 1, 1);
     instanced(GEO.crown, treeCrownM, tm, g, false); instanced(GEO.trunk, treeTrunkM, tm, g, false);
-    const hm = houses.map(([x, y, z], i) => new THREE.Matrix4().compose(_cp.set(x, y - 0.1, z), _cq.setFromAxisAngle(Y_UP, hash2(i, ci, 31) * 6.283), _cs)).filter((m, i) => windClear(houses[i][0] + O.x, houses[i][2] + O.z, 500));
+    const hm = houses.map(([x, y, z], i) => new THREE.Matrix4().compose(_cp.set(x, y - 0.1, z), _cq.setFromAxisAngle(Y_UP, hash2(i, ci, 31) * 6.283), _cs)).filter((m, i) => windClear(houses[i][0] + O.x, houses[i][2] + O.z, 500) && sightClear(houses[i][0] + O.x, houses[i][2] + O.z));
     instanced(GEO.house, houseWallM, hm, g, false); instanced(GEO.roof, houseRoofM, hm, g, false);
     if (blocks.length){   // city blocks: merged facades with window UVs + roofs, two draw calls per chunk
       const walls = new GeoAcc(true), roofs = new GeoAcc(false), par = cityKey === 'par';
@@ -541,6 +541,7 @@ function buildChunk(ci){
         const { a0, a1, b0, b1, u } = b;
         const x = a0[0] + (a1[0] - a0[0]) * u, y = a0[1] + (a1[1] - a0[1]) * u, z = a0[2] + (a1[2] - a0[2]) * u;
         const x2 = b0[0] + (b1[0] - b0[0]) * u, y2 = b0[1] + (b1[1] - b0[1]) * u, z2 = b0[2] + (b1[2] - b0[2]) * u;
+        if (!sightClear((x + x2) / 2 + O.x, (z + z2) / 2 + O.z)) continue;
         const yaw = Math.atan2(-(b0[2] - a0[2]), b0[0] - a0[0]);
         const along = 12 + 7 * hash2(b.r, b.c, 81), deep = Math.max(6, Math.min(b.width - 0.5, 9 + 5 * hash2(b.r, b.c, 83))), hh = hash2(b.r, b.c, 85);
         const h = par ? (b.s > ROUTE.L - 3000 && hh < 0.06 ? 30 + 15 * hash2(b.r, b.c, 87) : 14 + 10 * hh) : 5 + 6 * hh;
@@ -783,6 +784,6 @@ function updateRoute(dt){
     for (const c of parked.cars){ const s = so - c.xc; poseWorld(c.pv, s, ROUTE.laneW(lane, s), true); }
     if (parked.side !== st.side){ parked.side = st.side; for (const d of parked.set.doors){ const k = d.s === st.side ? 1 : 0; d.g.position.z = d.z0 + 0.13 * k * d.s; d.g.position.x = d.x0 + 1.35 * k; } }   // turned round, it faces its platform with the doors on the same side number as ours
     if (parked.set.pantos[1].f !== dcUp(so)) posePanto(parked.set.pantos[1], dcUp(so)); }
-  updateOpposing(dt); updateWind(dt);
+  updateOpposing(dt); updateWind(dt); updateSights(dt);
 }
 scene.remove(sky); world.add(sky);                 // the sky turns with the world so its horizon stays level

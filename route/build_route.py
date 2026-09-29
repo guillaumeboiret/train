@@ -378,21 +378,23 @@ WIND_W = 6000
 SEN = [en_at(min(i * ES, L)) for i in range(NS)]
 cells = {}
 for i, (la, lo, b) in enumerate(samples): cells.setdefault((math.floor(la * 10), math.floor(lo * 10)), []).append(i)
-wind = []
-for e in json.load(open('wind.json'))['elements']:
-    la, lo, t = e['lat'], e['lon'], e.get('tags', {})
+def place(la, lo):   # -> (distance to the nearest sample, E, N, s, w), or None when no sample lies within about 10 km
     ci, cj = math.floor(la * 10), math.floor(lo * 10)
     best = min(((hav((la, lo), samples[i][:2]), i) for a in (ci - 1, ci, ci + 1) for b in (cj - 1, cj, cj + 1) for i in cells.get((a, b), ())), default=None)
-    if best is None or best[0] > WIND_W + 100: continue
+    if best is None: return None
     i = best[1]; sla, slo, _ = samples[i]
     de = (lo - slo) * D2R * R * math.cos(sla * D2R); dn = (la - sla) * D2R * R
     (ea, na), (eb, nb) = SEN[max(0, i - 1)], SEN[min(NS - 1, i + 1)]
     tl = math.hypot(eb - ea, nb - na) or 1; tx, ty = (eb - ea) / tl, (nb - na) / tl
-    w = de * ty - dn * tx
-    if abs(w) > WIND_W: continue
+    return best[0], SEN[i][0] + de, SEN[i][1] + dn, min(max(i * ES + de * tx + dn * ty, 0), L), de * ty - dn * tx
+wind = []
+for e in json.load(open('wind.json'))['elements']:
+    la, lo, t = e['lat'], e['lon'], e.get('tags', {})
+    p = place(la, lo)
+    if p is None or p[0] > WIND_W + 100 or abs(p[4]) > WIND_W: continue
     D = tnum(t, 'rotor:diameter') or model_d(t); H = tnum(t, 'height'); hub = tnum(t, 'height:hub')
     if (D is not None and D < 20) or (H is not None and H < 40 and hub is None): continue
-    wind.append({ 'E': SEN[i][0] + de, 'N': SEN[i][1] + dn, 'la': la, 'lo': lo, 's': min(max(i * ES + de * tx + dn * ty, 0), L), 'w': w, 'D': D, 'H': H, 'hub': hub,
+    wind.append({ 'E': p[1], 'N': p[2], 'la': la, 'lo': lo, 's': p[3], 'w': p[4], 'D': D, 'H': H, 'hub': hub,
                   'tagged': any(k in t for k in ('model', 'height', 'height:hub', 'rotor:diameter', 'manufacturer', 'generator:output:electricity')) })
 farm = list(range(len(wind)))
 def froot(k):
@@ -416,6 +418,30 @@ for grp in farms.values():
     for u in grp: WIND.append([round(u['E'], 1), round(u['N'], 1), round(elev(u['la'], u['lo']), 1), round(u['hub'] or mH, 1), round(u['D'] or mD, 1), round(u['s']), round(u['w'])])
 WIND.sort(key=lambda v: v[5])
 print('wind turbines', len(WIND), 'in', sum(1 for g in farms.values() if len(g) >= 3), 'farms; tiles used', len(tile_cache))
+
+# ------------------------------------------------------------------ landmarks: the famous buildings a passenger sees from the line (loco/03f4c-sights.js models
+# them). Key points from OpenStreetMap outlines and Wikipedia, placed like the turbines; each keeps [E, N, DEM elevation, s, w].
+SIGHT_PTS = {
+    'golfech':    { 'towerN':(44.108479, 0.841871), 'towerS':(44.103568, 0.845635), 'unit1':(44.105784, 0.845742), 'unit2':(44.106450, 0.843921) },   # OSM ways 157455738, 157455734, 450677160, 450677161
+    'passerelle': { 'sw':(44.830324, -0.553607), 'ne':(44.833858, -0.550105) },   # the ends left by the 2008 cuts, OSM way 459203955
+    'aquitaine':  { 'pylonW':(44.880168, -0.538449), 'pylonE':(44.879242, -0.533638), 'anchW':(44.880505, -0.540200), 'anchE':(44.878905, -0.531886),
+                    'endE':(44.878864, -0.531439), 'viaW':(44.881875, -0.547334) },   # OSM ways 458707283, 459006992; anchorages 143 m beyond the pylons
+    'futuroscope':{ 'kinemax':(46.670310, 0.369513), 'omnimax':(46.669648, 0.372506), 'pavillon':(46.669722, 0.370811), 'gyrotour':(46.671453, 0.368404),
+                    'robots':(46.670514, 0.372006) },   # OSM ways 56215644, 56215637, 56215619, 56215631, 56215608
+    'eiffel':     { 'c':(48.858262, 2.294496) },   # OSM way 5013364
+    'angouleme':  { 'dome':(45.648954, 0.151728), 'tower':(45.649255, 0.151801) },   # OSM ways 44773604, 389712198
+    'stmichel':   { 'c':(44.834355, -0.565933) },   # OSM way 116379139
+    'chaban':     { 'p1':(44.857764, -0.551440), 'p2':(44.857915, -0.551160), 'p3':(44.858836, -0.552110), 'p4':(44.858690, -0.552402) },   # OSM ways 364739756 to 364739759
+    'citevin':    { 'c':(44.862373, -0.550021) },   # OSM way 421965158
+    'triangle':   { 'c':(48.831546, 2.285790) },   # OSM way 1334598502, the site outline
+}
+SIGHTS = {}
+for sid, pts in SIGHT_PTS.items():
+    SIGHTS[sid] = {}
+    for k, (la, lo) in pts.items():
+        _, pe, pn, sv, w = place(la, lo)
+        SIGHTS[sid][k] = [round(pe, 1), round(pn, 1), round(elev(la, lo), 1), round(sv), round(w)]
+    print('sight', sid, SIGHTS[sid])
 
 # ------------------------------------------------------------------ simplify path (Douglas-Peucker on the local plane), cap segment length
 pts = list(zip(E, N))
@@ -456,7 +482,7 @@ route = {
     'TS': TS, 'TW': TW, 'ter': b64i16([v * 10 for v in ter]),
     'tracks': [[round(a, 1), b] for a, b in tracks], 'vmax': [[round(a, 1), b] for a, b in vmax], 'volt': [[round(a, 1), b] for a, b in volt],
     'structs': [[round(a, 1), round(b, 1), k, n] for a, b, k, n in structs],
-    'stations': stations, 'fast': FAST, 'wind': WIND,
+    'stations': stations, 'fast': FAST, 'wind': WIND, 'sights': SIGHTS,
     'src': 'Tracé: © OpenStreetMap contributors (ODbL). Relief: Mapzen/AWS Terrain Tiles (SRTM). Profil de la voie lissé et limité à 2,5 %.',
 }
 js = 'const ROUTE_DATA = ' + json.dumps(route, ensure_ascii=False, separators=(',', ':')) + ';\n'
