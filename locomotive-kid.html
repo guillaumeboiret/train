@@ -2264,13 +2264,22 @@ const pcShells = { mats:[], meshes:[] };     // their body shells, so the shell 
 const trShells = { mats:[], meshes:[] };     // trailer skins (body, ends, gangways, doors): the shell control fades them too and reveals the interiors
 const allCoaches = [], COACH_NEAR = 60;      // every trailer of every set (own, parked, opposing); interiors are drawn within COACH_NEAR m of the camera (further out a head is 3 px)
 const DECK = { lo:0.92, up:2.3 };            // floor heights of the two decks (the windows sit at 1.6..2.2 and 3.0..3.75)
-const SEAT_VIEW = 9.4;                       // x from the coach's rear end of the window seat kept free for the viewer, on both decks of every coach (row 7, beside window 3)
+const SEAT_VIEW = [9.4, 16.5];               // x from the coach's rear end of the window seats kept free for the viewer, on both decks of every coach: row 7 faces +x, row 14 faces -x (in coach 1 each looks onto a window)
+const SEAT_ROWS = {};
+function seatRows(L){   // per body length, x from the car's -x end: rows [x, facing ±1] 0.9 m apart from x 4.0 to short of L - 0.9, bay the x of the tables
+  if (!SEAT_ROWS[L]){
+    const n = Math.floor((L - 6.6) / 0.9) + 2, h = Math.ceil(n / 2), rows = [];
+    for (let k = 0; k < n; k++) rows.push(k < h ? [4.0 + 0.9 * k, 1] : [4.8 + 0.9 * k, -1]);   // the rear half faces +x, the front half -x: they meet face to face over the tables (1.7 m seat to seat), so half the saloon rides forward either way
+    SEAT_ROWS[L] = { rows, bay:3.95 + 0.9 * h };
+  }
+  return SEAT_ROWS[L];
+}
 const SEAT_GEO = (() => {                    // cushion + backrest facing +x, origin on the floor at the seat centre, 0.44 wide
   const s = new THREE.Shape(); s.moveTo(-0.22, 0.28); s.lineTo(0.22, 0.28); s.lineTo(0.22, 0.42); s.lineTo(-0.12, 0.42); s.lineTo(-0.12, 0.95); s.lineTo(-0.22, 0.95); s.closePath();
   const g = new THREE.ExtrudeGeometry(s, { depth:0.44, bevelEnabled:false }); g.translate(0, 0, -0.22); return g;
 })();
 const SEAT_COL = [new THREE.Color(0x7a2233), new THREE.Color(0x24506b)];   // first class burgundy, second class blue
-/* Duplex coach interior: floors, a stair at the door end and two decks of 2+2 seats. Drawn when the camera is near the coach
+/* Duplex coach interior: floors, a stair at the door end and two decks of 2+2 seats facing both ways (seatRows). Drawn when the camera is near the coach
    (seen through the windows or from inside) and while the shell control fades the skin. One group per coach, so the curve code
    carries each coach with its own car. One passenger slot per seat (instanced): seated, empty, or walking between the seat and
    the platform-side door (see the passenger block below). */
@@ -2289,33 +2298,36 @@ function mergeGeos(geos, skip = []){   // one indexed geometry (position + norma
 }
 const PAX_LEG_GEO = mergeGeos([[0.42, 0.13, 0.28, 0.17, 0.485], [0.12, 0.46, 0.26, 0.33, 0.23], [0.22, 0.07, 0.28, 0.4, 0.035]].map(([w, h, d, x, y]) => new THREE.BoxGeometry(w, h, d).translate(x, y, 0)));   // seated legs facing +x, both in one block: thighs on the cushion, shins, feet. Origin on the floor under the body
 const DECK_GEO = {};
-function deckGeo(L){   // per body length, x from the car's -x end: lower floor + upper floor + stair in one mesh, the lower deck's ceiling (the upper floor's underside) in another
+function deckGeo(L){   // per body length, x from the car's -x end: lower floor + upper floor + stair + tables in one mesh, the lower deck's ceiling (the upper floor's underside) in another
   if (!DECK_GEO[L]){
-    const x0 = 3.4, w = L - 3.6;   // the upper floor is open over the vestibule and the stair
+    const x0 = 3.4, w = L - 3.6, xb = seatRows(L).bay;   // the upper floor is open over the vestibule and the stair
     const st = new THREE.BoxGeometry(2.19, 0.06, 0.9).rotateZ(Math.atan2(DECK.up - DECK.lo, 1.7)).translate(2.7, (DECK.lo + DECK.up) / 2 - 0.03, -0.9);   // stair: vestibule (x 1.85) up to the upper deck (x 3.55)
+    const tb = [];   // the bay's tables on both decks and sides, on a pedestal: top 0.7 over the floor, clear of the aisle, the feet and the wall
+    for (const y of [DECK.lo, DECK.up]) for (const s of [1, -1]) tb.push(new THREE.BoxGeometry(0.4, 0.04, 1.08).translate(xb, y + 0.68, s * 0.84), new THREE.BoxGeometry(0.06, 0.66, 0.06).translate(xb, y + 0.33, s * 0.72));
     DECK_GEO[L] = {
-      floor:mergeGeos([new THREE.BoxGeometry(L - 0.2, 0.06, 2.28).translate(L / 2, DECK.lo - 0.03, 0), new THREE.BoxGeometry(w, 0.08, 2.98).translate(x0 + w / 2, DECK.up, 0), st], [null, [18, 24]]),   // the upper floor without its -y face
+      floor:mergeGeos([new THREE.BoxGeometry(L - 0.2, 0.06, 2.28).translate(L / 2, DECK.lo - 0.03, 0), new THREE.BoxGeometry(w, 0.08, 2.98).translate(x0 + w / 2, DECK.up, 0), st, ...tb], [null, [18, 24]]),   // the upper floor without its -y face
       ceil:new THREE.PlaneGeometry(w, 2.98).rotateX(Math.PI / 2).translate(x0 + w / 2, DECK.up - 0.04, 0),
     };
   }
   return DECK_GEO[L];
 }
-const Q0 = new THREE.Quaternion(), _pc = new THREE.Color();
+const Q0 = new THREE.Quaternion(), QB = new THREE.Quaternion(0, 1, 0, 0), _pc = new THREE.Color();   // QB: half a turn about y, for what faces -x
 const hash32 = i => { i = Math.imul(i ^ (i >>> 16), 0x45d9f3b); i = Math.imul(i ^ (i >>> 16), 0x45d9f3b); return (i ^ (i >>> 16)) >>> 0; };
 function buildCoach(parent, cm, xr, L, carNo){
   const g = new THREE.Group(); g.visible = false; parent.add(g);
   const fl = new THREE.Mesh(deckGeo(L).floor, cm.floor), ce = new THREE.Mesh(deckGeo(L).ceil, cm.ceil); fl.position.x = ce.position.x = xr;
-  const seat = [], deck = [], view = [];
-  for (const [d, y] of [[0, DECK.lo], [1, DECK.up]]) for (let x = xr + 4.0; x < xr + L - 0.9; x += 0.9) for (const z of [-0.95, -0.48, 0.48, 0.95]){
-    if (z === 0.95 && Math.abs(x - xr - SEAT_VIEW) < 0.1) view.push(deck.length);
-    seat.push(x, y, z); deck.push(d);
+  const seat = [], deck = [], face = [], view = [];   // view[2 * deck + (facing -x ? 1 : 0)]: the viewer's seats
+  for (const [d, y] of [[0, DECK.lo], [1, DECK.up]]) for (const [x, f] of seatRows(L).rows) for (const z of [-0.95, -0.48, 0.48, 0.95]){
+    const v = f > 0 ? 0 : 1;
+    if (z === 0.95 && Math.abs(x - SEAT_VIEW[v]) < 0.1) view[2 * d + v] = deck.length;
+    seat.push(xr + x, y, z); deck.push(d); face.push(f);
   }
   const n = deck.length, cls = carNo % 10 <= 3 ? 0 : 1;                                 // cars 1..3 (11..13) are first class
   const seats = new THREE.InstancedMesh(SEAT_GEO, cm.seat, n), bodies = new THREE.InstancedMesh(PAX_BODY_GEO, cm.body, n), heads = new THREE.InstancedMesh(PAX_HEAD_GEO, cm.head, n), legs = new THREE.InstancedMesh(PAX_LEG_GEO, cm.legs, n);
-  const c = { g, id:carNo, xr, L, n, seat:new Float32Array(seat), deck:new Uint8Array(deck), occ:new Uint8Array(n), view, colB:new Uint32Array(n), colH:new Uint32Array(n),
+  const c = { g, id:carNo, xr, L, n, seat:new Float32Array(seat), deck:new Uint8Array(deck), face:new Int8Array(face), occ:new Uint8Array(n), view, colB:new Uint32Array(n), colH:new Uint32Array(n),
               bodies, heads, legs, paths:[], walk:[], crowd:[[], []], dirty:false, colDirty:false };
   for (let i = 0; i < n; i++){
-    _m4.compose(_p.set(seat[3 * i], seat[3 * i + 1], seat[3 * i + 2]), Q0, _s.setScalar(1)); seats.setMatrixAt(i, _m4); seats.setColorAt(i, SEAT_COL[cls]);
+    _m4.compose(_p.set(seat[3 * i], seat[3 * i + 1], seat[3 * i + 2]), face[i] > 0 ? Q0 : QB, _s.setScalar(1)); seats.setMatrixAt(i, _m4); seats.setColorAt(i, SEAT_COL[cls]);
   }
   const sphere = new THREE.Sphere(new THREE.Vector3(xr + L / 2, 2.5, 0), L / 2 + 1.5);   // people only move inside the coach and its doorway: one fixed bound for every instanced mesh
   for (const m of [seats, bodies, heads, legs]) m.boundingSphere = sphere;
@@ -2648,22 +2660,22 @@ function pathAt(p, s, out){   // point at arc length s along a polyline path
   const u = C[k] > C[k - 1] ? Math.min(1, Math.max(0, (s - C[k - 1]) / (C[k] - C[k - 1]))) : 1, i = 3 * (k - 1);
   return out.set(P[i] + (P[i + 3] - P[i]) * u, P[i + 1] + (P[i + 4] - P[i + 1]) * u, P[i + 2] + (P[i + 5] - P[i + 2]) * u);
 }
-function seatPath(c, i){   // seat -> step out -> aisle -> (upper deck: stair down) -> doorway, set-local
+function seatPath(c, i){   // seat -> step out (the way the seat faces) -> aisle -> (upper deck: stair down) -> doorway, set-local
   if (c.paths[i]) return c.paths[i];
-  const x = c.seat[3 * i], y = c.seat[3 * i + 1], z = c.seat[3 * i + 2], xr = c.xr, lo = DECK.lo, up = DECK.up;
+  const x = c.seat[3 * i], y = c.seat[3 * i + 1], z = c.seat[3 * i + 2], o = x + 0.42 * c.face[i], xr = c.xr, lo = DECK.lo, up = DECK.up;
   return c.paths[i] = mkPath(c.deck[i]
-    ? [x, y, z, x + 0.42, y, z, x + 0.42, y, 0, xr + 3.75, up, 0, xr + 3.55, up, -0.9, xr + 1.85, lo, -0.9, xr + 1.35, lo, -0.4, xr + 1.35, lo, 1.25]
-    : [x, y, z, x + 0.42, y, z, x + 0.42, y, 0, xr + 2.2, lo, 0, xr + 1.95, lo, 0.35, xr + 1.95, lo, 1.25]);
+    ? [x, y, z, o, y, z, o, y, 0, xr + 3.55, up, 0, xr + 3.55, up, -0.9, xr + 1.85, lo, -0.9, xr + 1.35, lo, -0.4, xr + 1.35, lo, 1.25]   // along the aisle to the stair head before turning into it, clear of the first row
+    : [x, y, z, o, y, z, o, y, 0, xr + 2.2, lo, 0, xr + 1.95, lo, 0.35, xr + 1.95, lo, 1.25]);
 }
 function poseSeat(c, i, on){
-  const x = c.seat[3 * i] + 0.04, y = c.seat[3 * i + 1], z = c.seat[3 * i + 2], k = on ? 1 : 0;
-  _m4.compose(_p.set(x, y + 0.72, z), Q0, _s.setScalar(k)); c.bodies.setMatrixAt(i, _m4);
-  _m4.compose(_p.set(x, y + 1.12, z), Q0, _s.setScalar(k)); c.heads.setMatrixAt(i, _m4);
-  _m4.compose(_p.set(x, y, z), Q0, _s.setScalar(k)); c.legs.setMatrixAt(i, _m4);
+  const f = c.face[i], x = c.seat[3 * i] + 0.04 * f, y = c.seat[3 * i + 1], z = c.seat[3 * i + 2], k = on ? 1 : 0, q = f > 0 ? Q0 : QB;
+  _m4.compose(_p.set(x, y + 0.72, z), q, _s.setScalar(k)); c.bodies.setMatrixAt(i, _m4);
+  _m4.compose(_p.set(x, y + 1.12, z), q, _s.setScalar(k)); c.heads.setMatrixAt(i, _m4);
+  _m4.compose(_p.set(x, y, z), q, _s.setScalar(k)); c.legs.setMatrixAt(i, _m4);
   c.dirty = true;
 }
 function poseWalker(c, w){   // walking in the coach: stands up over the first step out of the seat, then walks upright
-  const p = w.p, u = Math.min(1, w.s / p.C[1]), x0 = c.seat[3 * w.i] + 0.04, y0 = c.seat[3 * w.i + 1], z0 = c.seat[3 * w.i + 2];
+  const p = w.p, u = Math.min(1, w.s / p.C[1]), x0 = c.seat[3 * w.i] + 0.04 * c.face[w.i], y0 = c.seat[3 * w.i + 1], z0 = c.seat[3 * w.i + 2];
   pathAt(p, w.s, _pw); const bob = u >= 1 ? Math.abs(Math.sin(w.ph)) * 0.04 : 0;
   _m4.compose(_p.set(x0 + (_pw.x - x0) * u, y0 + 0.72 + (_pw.y + 0.465 + bob - y0 - 0.72) * u, z0 + (_pw.z - z0) * u), Q0, _s.set(1 + 0.12 * u, 1 + 0.35 * u, 1 + 0.12 * u)); c.bodies.setMatrixAt(w.i, _m4);
   _m4.compose(_p.set(x0 + (_pw.x - x0) * u, y0 + 1.12 + (_pw.y + 1.05 + bob - y0 - 1.12) * u, z0 + (_pw.z - z0) * u), Q0, _s.setScalar(1 + 0.08 * u)); c.heads.setMatrixAt(w.i, _m4);
@@ -2902,9 +2914,10 @@ function driverView(){   // first person in the driver's place, the dashboard at
   const pitch = -0.57 + Math.atan((1 - 2 * drvCover) * Math.tan(fpFov(camera.aspect) * Math.PI / 360));   // the dashboard's lower edge (about -32°) at the edge of the page's bottom controls
   return S.mode === 'tgv' ? { obj, eye:new V(8.3, 3.45, 0), yaw:0, pitch } : { obj, eye:new V(8.25, 3.2, 0.55), yaw:0, pitch };
 }
-function seatView(d){   // first person in the viewer's seat of coach 1, head over the seat, the seat in front on the left, the window on the right
-  const c = tgvSets[0].coaches[0];
-  return { obj:c.g, eye:new THREE.Vector3(c.xr + SEAT_VIEW + 0.12, (d ? DECK.up : DECK.lo) + 1.16, 0.95), yaw:-0.75, pitch:-0.14 };
+let seatFace = 1;   // the way the viewer's seat faces: the way the train ran when the view was taken (updateTgv moves the viewer when it turns round)
+function seatView(d){   // first person in the viewer's seat of coach 1 (deck d), facing the way the train runs, head over the seat, looking ahead toward the window beside it
+  const c = tgvSets[0].coaches[0], f = seatFace = S.dir < 0 ? -1 : 1, i = c.view[2 * d + (f > 0 ? 0 : 1)];
+  return { obj:c.g, eye:new THREE.Vector3(c.seat[3 * i] + 0.12 * f, c.seat[3 * i + 1] + 1.16, c.seat[3 * i + 2]), yaw:f > 0 ? -0.75 : 0.75 - Math.PI, pitch:-0.14 };
 }
 
 /* ---- per-frame update (tgv mode only) + mode switch hook */
@@ -2941,6 +2954,8 @@ function updateTgv(dt){
   const fpCab = orbit.fp?.name === 'driver' ? orbit.fp.obj : null;   // in the driver's place the driver is the viewer: not drawn
   tgvDriver.visible = S.dir > 0 && tgvDriver.parent !== fpCab;   // the driver sits in the leading cab
   for (const h of pcHosts) h.driver.visible = S.dir < 0 && h === (wide ? pcHosts[1] : pcHosts[0]) && h.driver.parent !== fpCab;
+  const fp = orbit.fp?.name;
+  if ((fp === 'seatUp' || fp === 'seatLo') && seatFace !== S.dir) flyPreset(fp);   // the train turned round: the viewer moves to the seat facing the new way
   updatePax(dt);
 }
 
