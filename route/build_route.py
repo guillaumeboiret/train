@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-"""Bake the Bordeaux Saint-Jean -> Paris Montparnasse alignment from OSM + terrain tiles into loco/03a2-route.js.
-Inputs: rails_*.json (Overpass, out body + skel nodes), stations.json. Elevation: AWS terrarium tiles (cached in ./tiles).
+"""Bake the Toulouse Matabiau -> Bordeaux Saint-Jean -> Paris Montparnasse alignment from OSM + terrain tiles into loco/03a2-route.js.
+Inputs: rails_*.json (Overpass, out body + skel nodes), stations.json, stations_sud.json. Elevation: AWS terrarium tiles (cached in ./tiles).
+Two legs: Toulouse -> the old Bordeaux start, then the old Bordeaux -> Paris path, so the northern half stays metre for metre what it was.
 """
 import json, math, heapq, base64, struct, sys, os, io, urllib.request, time, glob
 from PIL import Image
@@ -74,28 +75,50 @@ def dijkstra(src, dst):
     path.append((src, None)); path.reverse()
     return path   # list of (node, way used to arrive)
 
-SRC = tuple(float(x) for x in sys.argv[1].split(',')) if len(sys.argv) > 1 else (44.8190, -0.5495)   # ~700 m south of Bordeaux Saint-Jean
-DST = tuple(float(x) for x in sys.argv[2].split(',')) if len(sys.argv) > 2 else (48.8412, 2.3195)   # Paris Montparnasse buffer stops
-s = nearest_node(*SRC, 600); t = nearest_node(*DST, 600)
-print('src', s, 'dst', t)
-path = dijkstra(s[1], t[1])
-if not path: print('NO PATH'); sys.exit(1)
-print('path nodes', len(path))
+SRC = (43.6012823, 1.4585053)   # Toulouse: main line 1.1 km south of the Matabiau building, past the platforms on the Narbonne side
+MID = (44.8190, -0.5495)        # ~700 m south of Bordeaux Saint-Jean: the start of the old Bordeaux -> Paris route
+DST = (48.8412, 2.3195)         # Paris Montparnasse buffer stops
+s = nearest_node(*SRC, 600); m = nearest_node(*MID, 600); t = nearest_node(*DST, 600)
+print('src', s, 'mid', m, 'dst', t)
+leg1 = dijkstra(s[1], m[1]); leg2 = dijkstra(m[1], t[1])
+if not leg1 or not leg2: print('NO PATH'); sys.exit(1)
+path = leg1 + leg2[1:]
+print('path nodes', len(path), 'legs', len(leg1), len(leg2))
 
 # ------------------------------------------------------------------ project along the path (bearing integration keeps true lengths)
 P = [nodes[n] for n, _ in path]
+W = [wid for _, wid in path]      # way used to arrive at node i
+def run_s(P):
+    S = [0.0]
+    for i in range(1, len(P)): S.append(S[-1] + hav(P[i - 1], P[i]))
+    return S
+# cut the first metres so the old start lands on a multiple of 200 m: its 100 m samples and 200 m terrain rows then fall where they did
+S = run_s(P); cut = S[len(leg1) - 1] % 200
+j = next(i for i in range(1, len(S)) if S[i] > cut)
+f = (cut - S[j - 1]) / (S[j] - S[j - 1])
+P = [(P[j - 1][0] + (P[j][0] - P[j - 1][0]) * f, P[j - 1][1] + (P[j][1] - P[j - 1][1]) * f)] + P[j:]
+W = [None] + W[j:]
+OFF = run_s(P)[len(leg1) - j]     # the old start (Bordeaux, 700 m south of Saint-Jean) on the new route
+print('trimmed', round(cut, 1), 'm at the Toulouse end; old start at s =', round(OFF, 1))
 E = [0.0]; N = [0.0]; S = [0.0]
 for i in range(1, len(P)):
     d = hav(P[i - 1], P[i]); b = bearing(P[i - 1], P[i])
     E.append(E[-1] + d * math.sin(b)); N.append(N[-1] + d * math.cos(b)); S.append(S[-1] + d)
 L = S[-1]
 print('route length km', round(L / 1000, 2))
+# no reversal through a switch: the heading may turn, never fold back
+kinks = []
+for i in range(1, len(P) - 1):
+    if S[i] - S[i - 1] < 0.5 or S[i + 1] - S[i] < 0.5: continue
+    a = bearing(P[i - 1], P[i]); b = bearing(P[i], P[i + 1]); da = abs((b - a + math.pi) % (2 * math.pi) - math.pi)
+    if da > 0.5: kinks.append((round(S[i]), round(da / D2R)))
+print('kinks > 29 deg', kinks[:20])
 # way tags along the path
-wtags = [use[wid].get('tags', {}) if wid else {} for _, wid in path]   # tag of the edge arriving at node i
+wtags = [use[wid].get('tags', {}) if wid else {} for wid in W]   # tag of the edge arriving at node i
 
 def runs_from(fn, default):
     out = []; cur = None
-    for i in range(1, len(path)):
+    for i in range(1, len(P)):
         v = fn(wtags[i]); v = default if v is None else v
         if v != cur: out.append([S[i - 1], v]); cur = v
     return out
@@ -122,9 +145,19 @@ def clean_runs(rs, minlen):
         out.append(r)
     return out
 vmax = clean_runs(vmax, 400)
+# supply voltage (1500 V DC on the classic lines into Bordeaux and Paris and all the way south, 25 kV AC on the LGV); untagged ways keep the one before
+def volts(t):
+    v = (t.get('voltage') or '').split(';')[0]
+    return int(v) if v.isdigit() else None
+volt = []; cur = None
+for i in range(1, len(P)):
+    v = volts(wtags[i]) or cur or 1500
+    if v != cur: volt.append([S[i - 1], v]); cur = v
+volt = clean_runs(volt, 1000)
+print('voltage runs', [(round(a), v) for a, v in volt])
 structs = []
 cur = None
-for i in range(1, len(path)):
+for i in range(1, len(P)):
     t = wtags[i]
     kind = 'b' if t.get('bridge') in ('yes', 'viaduct') else ('t' if t.get('tunnel') in ('yes', 'building_passage') else ('c' if t.get('cutting') == 'yes' else None))
     key = (kind, t.get('name', '')) if kind else None
@@ -270,8 +303,9 @@ for i in range(0, NS, 2):
 print('terrain samples', len(ter), 'tiles used', len(tile_cache))
 
 # ------------------------------------------------------------------ stations
-st = json.load(open('stations.json'))['elements']
-WANT = { 'Bordeaux-Saint-Jean':('bdx', 'Bordeaux Saint-Jean', 2), 'Vendôme-Villiers TGV':('vdm', 'Vendôme-Villiers-sur-Loir TGV', 1), 'Massy-TGV':('msy', 'Massy TGV', 1) }
+st = json.load(open('stations.json'))['elements'] + json.load(open('stations_sud.json'))['elements']
+WANT = { 'Toulouse-Matabiau':('tls', 'Toulouse Matabiau', 2), 'Montauban Ville Bourbon':('mtb', 'Montauban Ville Bourbon', 1), 'Agen':('agn', 'Agen', 1),
+         'Bordeaux-Saint-Jean':('bdx', 'Bordeaux Saint-Jean', 2), 'Vendôme-Villiers TGV':('vdm', 'Vendôme-Villiers-sur-Loir TGV', 1), 'Massy-TGV':('msy', 'Massy TGV', 1) }
 stations = []
 def nearest_s(lat, lon):
     best = None
@@ -324,16 +358,16 @@ for (x, y) in simp:
     xi, yi = int(round(x * 10)), int(round(y * 10))
     dxy += [xi - px, yi - py]; px, py = xi, yi
 route = {
-    'name': 'Bordeaux Saint-Jean → Paris Montparnasse',
+    'name': 'Toulouse Matabiau → Bordeaux Saint-Jean → Paris Montparnasse',
     'L': round(L, 1), 'np': len(simp), 'xy': b64i16(dxy),
     'ES': ES, 'elev': b64i16([v * 10 for v in prof]),
     'TS': TS, 'TW': TW, 'ter': b64i16([v * 10 for v in ter]),
-    'tracks': [[round(a, 1), b] for a, b in tracks], 'vmax': [[round(a, 1), b] for a, b in vmax],
+    'tracks': [[round(a, 1), b] for a, b in tracks], 'vmax': [[round(a, 1), b] for a, b in vmax], 'volt': [[round(a, 1), b] for a, b in volt],
     'structs': [[round(a, 1), round(b, 1), k, n] for a, b, k, n in structs],
     'stations': stations,
     'src': 'Tracé: © OpenStreetMap contributors (ODbL). Relief: Mapzen/AWS Terrain Tiles (SRTM). Profil de la voie lissé et limité à 2,5 %.',
 }
 js = 'const ROUTE_DATA = ' + json.dumps(route, ensure_ascii=False, separators=(',', ':')) + ';\n'
 open('../loco/03a2-route.js', 'w').write('\n/* ============================================================ ROUTE DATA (baked by route/build_route.py) */\n' + js)
-json.dump({ 'L': L, 'stations': stations, 'tracks': tracks, 'vmax': vmax, 'structs': structs, 'prof': prof[::10], 'raw': raw[::10] }, open('route_debug.json', 'w'), ensure_ascii=False)
+json.dump({ 'L': L, 'OFF': OFF, 'stations': stations, 'tracks': tracks, 'vmax': vmax, 'volt': volt, 'structs': structs, 'prof': prof[::10], 'raw': raw[::10] }, open('route_debug.json', 'w'), ensure_ascii=False)
 print('wrote 03a2-route.js', len(js), 'bytes; stations', stations)

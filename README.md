@@ -4,7 +4,7 @@ Three static [Three.js](https://threejs.org) pages about trains, in French and E
 
 | Page | What it is | Live |
 |---|---|---|
-| `locomotive-3d.html` | **Anatomie d'une locomotive**: an interactive explainer of a diesel-electric locomotive, an electric locomotive and a TGV Duplex, driven along the real Bordeaux Saint-Jean to Paris Montparnasse line (537.8 km), with a nine-step guide, energy-flow animations, station autopilot, weather and time scale | [train.boiret.com/locomotive](https://train.boiret.com/locomotive/) |
+| `locomotive-3d.html` | **Anatomie d'une locomotive**: an interactive explainer of a diesel-electric locomotive, an electric locomotive and a TGV Duplex, driven along the real Toulouse Matabiau to Paris Montparnasse line via Agen, Montauban and Bordeaux Saint-Jean (794.8 km: the classic line under 1.5 kV DC to Bordeaux, then the LGV under 25 kV AC), with a nine-step guide, energy-flow animations, station autopilot, weather and time scale | [train.boiret.com/locomotive](https://train.boiret.com/locomotive/) |
 | `locomotive-kid.html` | **Conducteur de train**: the same engine with one screen of big buttons for young children (lever, horn, pantograph, next station autopilot in both directions, cameras, weather, sound) | [train.boiret.com/conducteur](https://train.boiret.com/conducteur/) |
 | `aiguillages.html` | **Aiguillages**: a railway switch puzzle game, 10 levels plus a tutorial | [train.boiret.com/aiguillages](https://train.boiret.com/aiguillages/) |
 
@@ -61,7 +61,7 @@ Adding a language: its code in `OK` in `site/lang.js`, a button in each switcher
 
 ```sh
 cd route
-python3 fetch_rails.py    # Overpass: the high-speed line plus the Bordeaux, Paris and Monts approaches, about 7 MB of JSON
+python3 fetch_rails.py    # Overpass: the high-speed line, the Bordeaux and Paris approaches, the Bordeaux to Toulouse line (640000) and the Agen, Montauban and Toulouse stations, about 9 MB of JSON; fetches only the missing files, or the names given as arguments
 python3 build_route.py    # needs Pillow; downloads terrain tiles into route/tiles/ (about 12 MB, cached) and rewrites loco/03a2-route.js
 cd .. && node route/analyze.mjs   # sanity statistics on the baked data
 ```
@@ -71,7 +71,7 @@ The bake finds the alignment through the OpenStreetMap rail graph, resamples it,
 ## Data and licences
 
 - Code: MIT, see `LICENSE`.
-- Track alignment, stations and structures: © OpenStreetMap contributors, [ODbL 1.0](https://opendatacommons.org/licenses/odbl/1-0/). The baked database in `loco/03a2-route.js` and the extract in `route/stations.json` are derivative databases and remain under ODbL.
+- Track alignment, stations and structures: © OpenStreetMap contributors, [ODbL 1.0](https://opendatacommons.org/licenses/odbl/1-0/). The baked database in `loco/03a2-route.js` and the extracts in `route/stations.json` and `route/stations_sud.json` are derivative databases and remain under ODbL.
 - Elevation: [Mapzen Terrain Tiles](https://registry.opendata.aws/terrain-tiles/) (Terrarium format) hosted by the AWS Open Data programme, built from SRTM and the other public sources listed on that page.
 - Three.js: MIT.
 
@@ -79,6 +79,7 @@ The bake finds the alignment through the OpenStreetMap rail graph, resamples it,
 
 - The track profile is smoothed terrain, not the real rail profile. Tunnels come from OSM tags; where the smoothed terrain dips below rail level the tunnel lid is forced.
 - Massy TGV is modelled as its real open-air trench between two tunnels, with a forced depth of 5 m.
+- Toulouse Matabiau is a through station in reality; the line here ends at a buffer stop 1.2 km south of the building. The TGV has one pantograph for both voltages, where the real one has a second, DC only.
 - Scenery, towns and landmarks are procedural on real relief. Station layouts are simplified.
 - Opposing trains are random. Speed limits per section are approximated from public line data.
 - The kid build boosts the physics on purpose: a TGV reaches 320 km/h in 80 s.

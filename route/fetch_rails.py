@@ -1,13 +1,22 @@
-import json, time, urllib.request, urllib.parse, sys
-MIRRORS = ['https://lz4.overpass-api.de/api/interpreter', 'https://z.overpass-api.de/api/interpreter', 'https://overpass-api.de/api/interpreter']
-Q = {
+import json, os, time, urllib.request, urllib.parse, sys
+MIRRORS = ['https://overpass.openstreetmap.fr/api/interpreter', 'https://overpass.kumi.systems/api/interpreter', 'https://lz4.overpass-api.de/api/interpreter',
+           'https://overpass.private.coffee/api/interpreter', 'https://z.overpass-api.de/api/interpreter', 'https://overpass-api.de/api/interpreter']
+Q = {   # name: Overpass body, saved as rails_<name>.json for build_route.py
  'hs':   'way["railway"="rail"]["highspeed"="yes"](44.70,-0.95,48.90,2.50);',
  'bdx':  'way["railway"="rail"](44.78,-0.66,45.05,-0.40);',
  'paris':'way["railway"="rail"](48.70,2.15,48.85,2.36);',
- 'monts':'way["railway"="rail"](47.20,0.55,47.40,0.80);',
+ # south to Toulouse: the Bordeaux - Sete line (640000) by number, and every track around the stations the TGV calls at
+ 'sud':  'way["railway"="rail"]["ref"="640000"](43.55,-0.62,44.85,1.50);',
+ 'agn':  'way["railway"="rail"](44.192,0.595,44.218,0.650);',
+ 'mtb':  'way["railway"="rail"](43.995,1.318,44.022,1.358);',
+ 'tls':  'way["railway"="rail"](43.592,1.425,43.632,1.478);',
 }
-def fetch(name, body):
-    q = f'[out:json][timeout:240][maxsize:1073741824];({body});out body;>;out skel qt;'
+EXTRA = {   # not rails: name: (Overpass body, output file, output statement)
+ 'wind': ('node["power"="generator"]["generator:source"="wind"](44.70,-0.95,48.90,2.50);', 'wind.json', 'out body;'),
+ 'stations_sud': ('nwr["railway"="station"]["name"~"^(Agen|Montauban Ville Bourbon|Toulouse-Matabiau)$"](43.55,0.55,44.25,1.50);', 'stations_sud.json', 'out center;'),
+}
+def fetch(name, body, out=None, stmt='out body;>;out skel qt;'):
+    q = f'[out:json][timeout:240][maxsize:1073741824];({body});{stmt}'
     for attempt in range(8):
         url = MIRRORS[attempt % len(MIRRORS)]
         try:
@@ -17,12 +26,17 @@ def fetch(name, body):
                 raw = r.read()
             d = json.loads(raw)
             if 'elements' not in d: raise ValueError('no elements')
-            open(f'rails_{name}.json', 'wb').write(raw)
+            open(out or f'rails_{name}.json', 'wb').write(raw)
             print(name, 'OK', len(raw), 'bytes', len(d['elements']), 'elements', round(time.time() - t0, 1), 's', url, flush=True)
             return
         except Exception as e:
             print(name, 'attempt', attempt, url, 'FAIL', str(e)[:120], flush=True)
             time.sleep(15 + 15 * attempt)
     print(name, 'GAVE UP', flush=True)
-for k, v in Q.items(): fetch(k, v)
+# No argument: fetch what is missing. Names as arguments: refetch those.
+only = sys.argv[1:]
+for k, v in Q.items():
+    if k in only or (not only and not os.path.exists(f'rails_{k}.json')): fetch(k, v)
+for k, (v, out, stmt) in EXTRA.items():
+    if k in only or (not only and not os.path.exists(out)): fetch(k, v, out, stmt)
 print('DONE')

@@ -6,12 +6,12 @@ const KID_T = {
        back:"Retour à Bordeaux", auto:"Pilote auto…", doors:"Portes", cam:"Caméra", wx:"Météo", xray:"Rayons X", hint:"Pousse la manette pour partir !",
        hint_doors:"Ferme les portes… et c'est parti !", hint_pax:"Attends, tout le monde descend !", hint_end:"Terminus ! Appuie sur 🔄 pour faire demi-tour.", hint_stopped:"Le train doit être arrêté.",
        terminus:"Terminus", next:"Prochaine gare", full:"Version complète ↗", game:"Jeu des aiguillages ↗", lang:"Langue",
-       panto:"Pantographe", dir_par:"Vers Paris", dir_bdx:"Vers Bordeaux", turn:"Demi-tour", hint_panto:"Lève le pantographe !", hint_wait:"Le pantographe monte…", sound:"Son" },
+       panto:"Pantographe", dir_par:"Vers Paris", dir_tls:"Vers Toulouse", turn:"Demi-tour", hint_panto:"Lève le pantographe !", hint_wait:"Le pantographe monte…", sound:"Son" },
   en:{ title:"Train driver", diesel:"Diesel", electric:"Electric", tgv:"TGV", stop:"Stop", horn:"Horn", lever:"Lever", station:"Next station",
        back:"Back to Bordeaux", auto:"Autopilot…", doors:"Doors", cam:"Camera", wx:"Weather", xray:"X-ray", hint:"Push the lever to go!",
        hint_doors:"Closing the doors… off we go!", hint_pax:"Wait, everyone is getting off!", hint_end:"End of the line! Press 🔄 to turn around.", hint_stopped:"The train must be stopped first.",
        terminus:"Terminus", next:"Next station", full:"Full version ↗", game:"Switch game ↗", lang:"Language",
-       panto:"Pantograph", dir_par:"To Paris", dir_bdx:"To Bordeaux", turn:"Turn around", hint_panto:"Raise the pantograph!", hint_wait:"Pantograph rising…", sound:"Sound" },
+       panto:"Pantograph", dir_par:"To Paris", dir_tls:"To Toulouse", turn:"Turn around", hint_panto:"Raise the pantograph!", hint_wait:"Pantograph rising…", sound:"Sound" },
 };
 const kt = k => KID_T[S.lang][k] ?? k;
 const KID_WX = [['sun', '☀️'], ['cloud', '☁️'], ['rain', '🌧️'], ['dusk', '🌆']];
@@ -192,10 +192,10 @@ function kidPanto(){                                 // electric trains: pantogr
   if (!S.panto){ S.notch = 0; $('kidLever').value = 0; }
   syncControls();
 }
-function kidTurn(){                                  // stopped train: face the other way (Paris <-> Bordeaux)
+function kidTurn(){                                  // stopped train: face the other way (Paris <-> Toulouse)
   if (S.speed > 0.3){ kidToast('hint_stopped', 2500); return; }
   manual(); S.dir = -S.dir; S.notch = 0; S.brake = 4; $('kidLever').value = 0; syncControls();   // in the driver's place the frame loop moves the view to the other cab
-  kidToast(S.dir > 0 ? 'dir_par' : 'dir_bdx', 2500);
+  kidToast(S.dir > 0 ? 'dir_par' : 'dir_tls', 2500);
 }
 function kidStation(){
   const st = nextStation(0);
@@ -242,7 +242,7 @@ function kidTick(){
   $('kidNext').textContent = st ? `🚉 ${st.name} · ${d < 950 ? `${Math.round(d)} m` : `${(d / 1000).toFixed(d < 10000 ? 1 : 0)} km`}` : `🏁 ${kt('terminus')}`;
   const sb = $('kidStation'); sb.classList.toggle('auto', S.autoStop); sb.disabled = S.autoStop;
   $('kidStationLab').textContent = kt(S.autoStop ? 'auto' : st ? 'station' : 'turn');
-  $('kidDirLab').textContent = kt(S.dir > 0 ? 'dir_par' : 'dir_bdx');
+  $('kidDirLab').textContent = kt(S.dir > 0 ? 'dir_par' : 'dir_tls');
   $('kidPanto').setAttribute('aria-pressed', String(S.panto));
   const lv = $('kidLever'); if (document.activeElement !== lv) lv.value = S.notch; $('kidLeverBox').classList.toggle('auto', S.autoStop);
   $('kidDoors').setAttribute('aria-pressed', String(S.doorsF > 0.5)); $('kidDoors').disabled = S.speed > 0.1 && S.doorsF < 0.02;

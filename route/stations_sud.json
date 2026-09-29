@@ -1,0 +1,88 @@
+{
+  "version": 0.6,
+  "generator": "Overpass API 0.7.62.7 375dc00a",
+  "osm3s": {
+    "timestamp_osm_base": "2026-09-28T17:39:51Z",
+    "copyright": "The data included in this document is from www.openstreetmap.org. The data is made available under ODbL."
+  },
+  "elements": [
+
+{
+  "type": "node",
+  "id": 6132514816,
+  "lat": 43.6114306,
+  "lon": 1.4542101,
+  "tags": {
+    "alt_name": "Toulouse",
+    "name": "Toulouse-Matabiau",
+    "name:oc": "Tolosa-Matabiau",
+    "official_name": "Toulouse Matabiau",
+    "operator": "SNCF Gares & Connexions",
+    "operator:wikidata": "Q3098278",
+    "operator:wikipedia": "fr:SNCF Gares & Connexions",
+    "public_transport": "station",
+    "railway": "station",
+    "railway:ref": "TE",
+    "ref": "OCE87611004",
+    "ref:FR:sncf:resarail": "FRXYT",
+    "ref:FR:uic8": "87 611 004",
+    "train": "yes",
+    "uic_ref": "8761100",
+    "wheelchair": "yes",
+    "wikidata": "Q373449",
+    "wikipedia": "fr:Gare de Toulouse-Matabiau"
+  }
+},
+{
+  "type": "node",
+  "id": 8330376184,
+  "lat": 44.0143078,
+  "lon": 1.3411846,
+  "tags": {
+    "addr:city": "Montauban",
+    "addr:postcode": "82000",
+    "addr:street": "Place de la Gare",
+    "importance": "national",
+    "internet_access": "wlan",
+    "name": "Montauban Ville Bourbon",
+    "official_name": "Montauban Ville Bourbon",
+    "operator": "SNCF Gares & Connexions",
+    "operator:wikidata": "Q3098278",
+    "operator:wikipedia": "fr:SNCF Gares & Connexions",
+    "public_transport": "station",
+    "railway": "station",
+    "railway:ref": "MBN",
+    "railway:ref:DB": "XFMBN",
+    "ref:FR:sncf:resarail": "FRXMW",
+    "train": "yes",
+    "uic_ref": "8761124",
+    "wheelchair": "yes",
+    "wikidata": "Q2373429",
+    "wikipedia": "fr:Gare de Montauban-Ville-Bourbon"
+  }
+},
+{
+  "type": "node",
+  "id": 13290560063,
+  "lat": 44.2083546,
+  "lon": 0.6209784,
+  "tags": {
+    "name": "Agen",
+    "official_name": "Agen",
+    "operator": "SNCF Gares & Connexions",
+    "operator:wikidata": "Q3098278",
+    "operator:wikipedia": "fr:SNCF Gares & Connexions",
+    "public_transport": "station",
+    "railway": "station",
+    "railway:ref": "AN",
+    "ref:FR:sncf:resarail": "FRAGF",
+    "train": "yes",
+    "uic_ref": "8758600",
+    "wheelchair": "yes",
+    "wikidata": "Q2244575",
+    "wikipedia": "fr:Gare d'Agen"
+  }
+}
+
+  ]
+}

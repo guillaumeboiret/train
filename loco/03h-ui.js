@@ -5,6 +5,10 @@ const t = key => T[S.lang][key] ?? key;
 let selected = null, focusId = null, stepIdx = 0, autoOn = false, autoT = 0, shellLevel = 0.18;
 let cutAxis = 'none', cutPos = 0, cutFlip = false, cutPlane = null, infoCollapsed = false;
 const HIL = new THREE.Color(0xf28c28);
+const kvLine = () => S.dc ? t('kv_dc') : '25';
+const T5_S = 290000;   // where step 5 carries the tour: the LGV 32 km north of Bordeaux, 25 kV, cleared for 320 from 286.2 km
+const stepV = st => S.dc && st.dc ? { ...st, ...st.dc } : st;   // under 1.5 kV DC some steps tell another story (text, and sometimes camera and focus)
+function voltChanged(){ buildStepList(); refreshInfo(); if (!selected) setFocus(stepV(STEPS[S.mode][stepIdx]).focus); }
 
 /* ---- i18n: the page starts in the site's language (site/lang.js); a switch here is saved for every page of the site */
 function setLang(l){ S.lang = l; try { localStorage.setItem('lang', l); } catch (e) {} applyLang(); }
@@ -26,13 +30,14 @@ function applyLang(){
 
 /* ---- mode */
 function applyVisibility(p){ p.group.visible = p.modes.includes(S.mode) && !p.hidden && !((p.id === 'shell' || p.id === 'tgvShell') && shellLevel === 0); }
-function resetSim(){
+function resetSim(){   // home is Bordeaux Saint-Jean, where the tour starts, even though the line now begins at Toulouse
+  const home = (ROUTE.stations.find(x => x.id === 'bdx') || ROUTE.stations[0]).s - TGV.PLAT_FRONT;
   Object.assign(S, { battery:false, engine:'off', crankT:0, rpm:0, rpmN:0, fuel:0, notch:0, brake:0, throttleN:0, brakeN:0, panto:false, pantoF:0, lineOn:false, vcb:false,
     dcV:0, dcN:0, excitation:0, powerN:0, tractionN:0, regenN:0, current:0, effort:0, speed:0, temp:0.2, fans:0, fanOn:false, gridHeat:0, gridFan:0, autoShutdown:false, shutdownT:0,
     sets:1, coupling:0, set2Off:-40, hatchF:0, doors:false, doorsF:0, autoStop:false, atStation:true, autoDoors:false, stationT:0,
-    dist:ROUTE.stations[0].s - TGV.PLAT_FRONT, stopS:ROUTE.stations[0].s - TGV.PLAT_FRONT, dir:1, timeScale:1, holdN:0, track:0, trackF:0 });
+    dist:home, stopS:home, dir:1, timeScale:1, holdN:0, track:0, trackF:0 });
   trk.from = trk.to = 0; trk.s0 = -1e9;
-  S.vMaxEff = Math.min(specNow().vMax, ROUTE.lineLimit(S.dist) / 3.6);
+  voltSnap(); S.vMaxEff = Math.min(specNow().vMax, ROUTE.lineLimit(S.dist) / 3.6);
   setPanto(0); paxResolve(true); syncControls();
 }
 function setMode(mode){
@@ -43,7 +48,7 @@ function setMode(mode){
   fogK = tgv ? 1.6 : 1; applyTheme();
   wagons.visible = !tgv;
   setTgvVisible(tgv);
-  stopAuto(); resetSim();
+  stopAuto(); stepIdx = 0; resetSim();   // the new mode may have fewer steps: the info card must not read past its end
   for (const p of Object.values(parts)) applyVisibility(p);
   setShell(shellLevel);
   buildFlows(); selected = null; setFocus(null);
@@ -108,14 +113,14 @@ function setFocus(id){
 function select(id){
   selected = id && parts[id] ? id : null;
   if (selected) infoCollapsed = false;
-  setFocus(selected ?? STEPS[S.mode][stepIdx].focus);
+  setFocus(selected ?? stepV(STEPS[S.mode][stepIdx]).focus);
   $('partList').querySelectorAll('.part').forEach(r => r.setAttribute('aria-pressed', String(r.dataset.part === selected)));
   refreshInfo();
 }
 function legendFor(partIds){
   const seen = new Set(), out = [];
   for (const f of FLOW_DEFS[S.mode]){
-    if (!partIds || !f.parts.some(p => partIds.includes(p))) continue;
+    if (!partIds || !flowLive(f) || !f.parts.some(p => partIds.includes(p))) continue;
     if (seen.has(f.key)) continue; seen.add(f.key);
     out.push(`<span><i style="background:var(${f.token})"></i>${t(f.key)}</span>`);
   }
@@ -132,7 +137,7 @@ function refreshInfo(){
     $('infoLegend').innerHTML = legendFor([selected]);
     $('infoMini').textContent = P[L].name;
   } else {
-    const steps = STEPS[S.mode], st = steps[stepIdx];
+    const steps = STEPS[S.mode], st = stepV(steps[stepIdx]);
     $('infoEyebrow').textContent = `${t('step')} ${stepIdx + 1}/${steps.length}`;
     $('infoTitle').textContent = st[L].t;
     $('infoText').textContent = st[L].x;
@@ -153,7 +158,7 @@ function buildStepList(){
   STEPS[S.mode].forEach((st, i) => {
     const b = document.createElement('button'); b.type = 'button'; b.className = 'step' + (i < stepIdx ? ' done' : '');
     if (i === stepIdx) b.setAttribute('aria-current', 'step');
-    b.innerHTML = `<span class="n">${String(i + 1).padStart(2, '0')}</span><span>${st[S.lang].t}</span>`;
+    b.innerHTML = `<span class="n">${String(i + 1).padStart(2, '0')}</span><span>${stepV(st)[S.lang].t}</span>`;
     b.addEventListener('click', () => { stopAuto(); goStep(i); });
     root.appendChild(b);
   });
@@ -161,7 +166,7 @@ function buildStepList(){
 function ensureBattery(){ S.battery = true; }
 function ensureRunning(){ ensureBattery(); if (S.engine !== 'running'){ S.engine = 'running'; S.rpm = Math.max(S.rpm, 300); S.crankT = 0; } }
 function ensureLine(){ ensureBattery(); S.panto = true; if (S.pantoF < 0.97){ S.pantoF = 1; setPanto(1); } S.lineOn = true; }
-function ensureLive(){ ensureLine(); S.vcb = true; S.dcV = Math.max(S.dcV, 2800); S.dcN = 1; }
+function ensureLive(){ ensureLine(); S.vcb = true; S.dcV = Math.max(S.dcV, dcNominal()); S.dcN = 1; }
 function applyStepState(id){
   S.autoShutdown = false;
   switch (id){
@@ -184,12 +189,17 @@ function applyStepState(id){
     case 't2': ensureBattery(); S.panto = true; break;
     case 't3': ensureLine(); S.vcb = true; S.notch = 0; S.brake = 0; break;
     case 't4': ensureLive(); S.doors = false; S.autoStop = false; S.notch = 2; S.brake = 0; break;
-    case 't5': ensureLive(); S.doors = false; S.autoStop = false; S.notch = 8; S.brake = 0; if (S.speed < 60) S.speed = 75; break;
+    case 't5': ensureLive(); S.doors = false; S.autoStop = false; S.notch = 8; S.brake = 0;
+      if (lineDc() || ROUTE.lineLimit(S.dist) < 300){   // off the high-speed line: carry the train onto the LGV north of Bordeaux, 25 kV, cleared for 320
+        S.dist = T5_S; S.stopS = S.dist; S.dir = 1; S.speed = 250 / 3.6; S.atStation = false; S.coupling = 0;
+        trk.from = trk.to = 0; trk.s0 = -1e9; paxResolve(); voltSnap();
+      } else if (S.speed < 60) S.speed = 75;
+      break;
     case 't6': { ensureLive(); S.doors = false; S.coupling = 0; S.set2Off = S.sets === 2 ? 0 : -40; S.dir = 1;
       const st = ROUTE.stations.find(x => x.s - TGV.PLAT_FRONT - S.dist > 700) || ROUTE.stations[ROUTE.stations.length - 1];
       S.stopS = st.s - TGV.PLAT_FRONT; S.dist = S.stopS - 600; S.speed = 30; S.notch = 0; S.brake = 0; S.atStation = false; S.autoStop = true; S.autoDoors = true;
-      trk.from = trk.to = 0; trk.s0 = -1e9; paxResolve(); break; }
-    case 't7': ensureLive(); S.autoStop = false; S.autoDoors = false; if (!S.atStation){ S.speed = 0; S.notch = 0; S.brake = 0; S.dist = nearestStation().s - TGV.PLAT_FRONT; S.stopS = S.dist; S.atStation = true; paxResolve(); } if (S.sets === 1 && S.coupling === 0) S.coupling = 1; break;
+      trk.from = trk.to = 0; trk.s0 = -1e9; paxResolve(); voltSnap(); break; }
+    case 't7': ensureLive(); S.autoStop = false; S.autoDoors = false; if (!S.atStation){ S.speed = 0; S.notch = 0; S.brake = 0; S.dist = nearestStation().s - TGV.PLAT_FRONT; S.stopS = S.dist; S.atStation = true; paxResolve(); voltSnap(); } if (S.sets === 1 && S.coupling === 0) S.coupling = 1; break;
     case 't8': ensureLive(); S.doors = false; S.autoStop = false; S.autoDoors = false; S.notch = 5; S.brake = 0; break;
   }
   syncControls();
@@ -197,8 +207,8 @@ function applyStepState(id){
 function goStep(i){
   const steps = STEPS[S.mode];
   stepIdx = clamp(i, 0, steps.length - 1);
-  const st = steps[stepIdx];
-  applyStepState(st.id);
+  applyStepState(steps[stepIdx].id); syncVolt();
+  const st = stepV(steps[stepIdx]);
   flyPreset(st.cam);
   selected = null; setFocus(st.focus);
   $('partList').querySelectorAll('.part').forEach(r => r.setAttribute('aria-pressed', 'false'));
@@ -440,7 +450,7 @@ function cabSpeed(c){   // 512 × 320: speed dial with the line's limit, what is
   const chip = (x, txt, col) => { c.font = `700 26px ${CAB_FONT}`; const w = c.measureText(txt).width + 24; c.fillStyle = col; c.beginPath(); c.roundRect(x, 14, w, 38, 8); c.fill(); c.fillStyle = '#05070a'; c.textAlign = 'left'; c.fillText(txt, x + 12, 34); return x + w + 10; };
   let x = 16;
   if (S.mode === 'diesel') x = chip(x, t('scr_engine').toUpperCase(), S.engine === 'running' ? '#3ccf6f' : S.engine === 'cranking' ? '#ffcf33' : '#5b6773');
-  else x = chip(x, S.lineOn ? '25 kV' : t('scr_panto_dn').toUpperCase(), S.lineOn ? '#3ccf6f' : '#5b6773');
+  else x = chip(x, S.lineOn ? `${kvLine()} kV` : t('scr_panto_dn').toUpperCase(), S.lineOn ? '#3ccf6f' : '#5b6773');
   if (S.mode === 'tgv' && S.doorsF > 0.02) chip(x, t('scr_doors').toUpperCase(), '#ffcf33');
   const y = 298, bw = S.brake / 8 * 200, tw = S.notch / 8 * 200;   // brake grows to the left, power to the right
   c.fillStyle = '#1a2a3a'; c.fillRect(56, y - 7, 400, 14);
@@ -461,7 +471,7 @@ function cabLine(c, w){   // 512 × 320: where the train is going, the next stop
   c.fillStyle = '#fff'; c.font = `700 50px ${CAB_FONT}`; c.fillText((st || end).name, 18, 150, w - 36);
   if (st){ c.fillStyle = '#ffcf33'; c.font = `700 40px ${CAB_FONT}`; c.fillText(d < 950 ? `${Math.round(d)} m` : `${(d / 1000).toFixed(d < 10000 ? 1 : 0)} km`, 18, 202); }
   c.fillStyle = '#8fb3d9'; c.font = `600 24px ${CAB_FONT}`; c.textAlign = 'right'; c.fillText(`${t('hud_pk')} ${(S.dist / 1000).toFixed(1)}`, w - 18, 202);
-  const X = s => 30 + RB.f(s) * (w - 60), y = 262;   // Bordeaux on the left, as on the line bar
+  const X = s => 30 + RB.f(s) * (w - 60), y = 262;   // Toulouse on the left, as on the line bar
   c.strokeStyle = '#3a4a5c'; c.lineWidth = 6; c.lineCap = 'round'; c.beginPath(); c.moveTo(30, y); c.lineTo(w - 30, y); c.stroke();
   for (const s of list){ c.fillStyle = s === st ? '#ffcf33' : '#dce8f5'; c.beginPath(); c.arc(X(s.s), y, s === st ? 10 : 7, 0, Math.PI * 2); c.fill(); }
   const tx = X(S.dist), k = S.dir;
@@ -541,7 +551,7 @@ function jumpTo(s, stop = false){
   manual(); S.autoStop = false; S.autoDoors = false; S.coupling = 0;
   S.dist = clamp(s, 8 + tailLen(), ROUTE.L - 15.5);
   if (stop){ S.speed = 0; S.notch = 0; S.brake = 0; }
-  S.stopS = S.dist; trk.from = trk.to; trk.s0 = -1e9; paxResolve();
+  S.stopS = S.dist; trk.from = trk.to; trk.s0 = -1e9; paxResolve(); voltSnap();
   S.atStation = S.speed < 0.05 && Math.abs(stationOffset()) < 2; if (!S.atStation) S.doors = false;
   for (const o of opp){ o.active = false; o.group.visible = false; }
   syncControls(); updateHud();
@@ -549,7 +559,7 @@ function jumpTo(s, stop = false){
 function jumpToStation(st){ trk.from = trk.to = 0; trk.s0 = -1e9; jumpTo(st.s - TGV.PLAT_FRONT, true); S.doors = false; S.atStation = true; syncControls(); }
 {
   // SHORT order is the order labels win a place when they would overlap, after the two ends
-  const rb = $('routeBar'), bar = document.createElement('div'), SHORT = { bdx:'Bordeaux', par:'Paris', vdm:'Vendôme', msy:'Massy' };
+  const rb = $('routeBar'), bar = document.createElement('div'), SHORT = { bdx:'Bordeaux', par:'Paris', tls:'Toulouse', agn:'Agen', mtb:'Montauban', vdm:'Vendôme', msy:'Massy' };
   const pct = s => `${(RB.f(s) * 100).toFixed(2)}%`, last = ROUTE.stations.length - 1;
   bar.className = 'rb-in'; rb.appendChild(bar);
   // only the dot stops the train at that platform; a press anywhere else, a label included, teleports to that point

@@ -5,13 +5,13 @@ const approach = (v, target, step) => v < target ? Math.min(target, v + step) : 
 const SPEC = {
   diesel:  { pMax:3300, fAdh:400, vMax:44, regenP:2500, fBrakeMax:200, mass:300 },
   electric:{ pMax:5600, fAdh:320, vMax:56, regenP:5000, fBrakeMax:160, mass:300 },
-  tgv:     { pMax:8800, fAdh:220, vMax:89, regenP:8000, fBrakeMax:380, fDisc:300, mass:380, r0:2.5, r1:0.02, r2:0.0075 },
+  tgv:     { pMax:8800, pDc:3680, fAdh:220, vMax:89, regenP:8000, fBrakeMax:380, fDisc:300, mass:380, r0:2.5, r1:0.02, r2:0.0075 },
 };
 const SIM_MUL = { p:1, a:1, b:1 };   // power, adhesion and brake multipliers: 1 = real physics (explainer); the kid build raises them in 03i-kid.js
-function specNow(){   // a double TGV (UM) doubles power, adhesion, brakes and mass
-  const b = SPEC[S.mode], n = S.mode === 'tgv' ? S.sets : 1, m = SIM_MUL;
-  if (n === 1 && m.p === 1 && m.a === 1 && m.b === 1) return b;
-  const sp = { ...b, pMax:b.pMax * n * m.p, fAdh:b.fAdh * n * m.a, regenP:b.regenP * n * m.b, fBrakeMax:b.fBrakeMax * n * m.b, mass:b.mass * n };
+function specNow(){   // a double TGV (UM) doubles power, adhesion, brakes and mass; under 1.5 kV DC a TGV set gives 3,680 kW, not 8,800
+  const b = SPEC[S.mode], n = S.mode === 'tgv' ? S.sets : 1, m = SIM_MUL, dc = S.dc && b.pDc !== undefined;
+  if (n === 1 && m.p === 1 && m.a === 1 && m.b === 1 && !dc) return b;
+  const sp = { ...b, pMax:(dc ? b.pDc : b.pMax) * n * m.p, fAdh:b.fAdh * n * m.a, regenP:b.regenP * n * m.b, fBrakeMax:b.fBrakeMax * n * m.b, mass:b.mass * n };
   if (b.fDisc !== undefined){ sp.fDisc = b.fDisc * n * m.b; sp.r0 = b.r0 * n; sp.r1 = b.r1 * n; sp.r2 = b.r2 * (n === 2 ? 1.15 : 1); }
   return sp;
 }
@@ -19,7 +19,7 @@ const S = {
   mode:'diesel', lang:T[document.documentElement.lang] ? document.documentElement.lang : 'en',
   battery:false, engine:'off', crankT:0, rpm:0, rpmN:0, fuel:0,
   notch:0, brake:0, dir:1, throttleN:0, brakeN:0,
-  panto:false, pantoF:0, lineOn:false, vcb:false,
+  panto:false, pantoF:0, pantoDcF:0, dc:false, lineOn:false, vcb:false,
   dcV:0, dcN:0, excitation:0, powerN:0, tractionN:0, regenN:0,
   current:0, effort:0, speed:0, dist:0,
   temp:0.2, fans:0, fanOn:false, gridHeat:0, gridFan:0,
@@ -28,6 +28,12 @@ const S = {
 };
 function startEngine(){ if (S.mode !== 'diesel' || !S.battery || S.engine !== 'off') return; S.engine = 'cranking'; S.crankT = 0; }
 function stopEngine(){ if (S.engine === 'running') S.engine = 'stopping'; else if (S.engine === 'cranking') S.engine = 'off'; }
+
+/* line voltage under the train: 25 kV AC on the high-speed lines, 1.5 kV DC on the older network (Toulouse to Bordeaux, out of Bordeaux, into Paris) */
+function lineDc(){ return S.mode !== 'diesel' && ROUTE.voltAt(S.dist) < 3000; }
+function syncVolt(){ const dc = lineDc(); if (dc !== S.dc){ S.dc = dc; voltChanged(); } }
+function voltSnap(){ syncVolt(); S.pantoDcF = S.dc ? 1 : 0; }   // after a jump: the pantographs are already set for the line there
+const dcNominal = () => S.mode !== 'diesel' && S.dc ? 1500 : 2800;   // the DC link: rectified from the transformer under AC, the line itself (through a filter) under DC
 
 function tgvRemaining(){ return (S.stopS - S.dist) * S.dir; }   // distance to the planned stop mark along the running direction (negative once past it)
 function simulateTgv(dt){
@@ -76,6 +82,7 @@ function simulateAutoStop(dt){
 }
 
 function simulateStep(dt){
+  syncVolt();
   const sp = specNow();
   S.time += dt;
   if (S.mode === 'tgv') simulateTgv(dt);
@@ -105,13 +112,14 @@ function simulateStep(dt){
   } else {
     if (!S.battery) S.panto = false;
     S.pantoF = approach(S.pantoF, S.panto ? 1 : 0, dt * (S.panto ? 1 / 7 : 1 / 3));
+    S.pantoDcF = approach(S.pantoDcF, S.dc ? 1 : 0, dt * (S.dc ? 1 / 7 : 1 / 3));   // under DC every power car raises its own pantograph
     S.lineOn = S.pantoF > 0.97;
     if (!S.lineOn || !S.battery) S.vcb = false;
-    S.dcV = approach(S.dcV, S.vcb ? 2800 : 0, dt * (S.vcb ? 1500 : 900));
-    srcOK = S.vcb && S.dcV > 2000;
+    S.dcV = approach(S.dcV, S.vcb ? dcNominal() : 0, dt * (S.vcb ? 1500 : 900));
+    srcOK = S.vcb && S.dcV > 0.7 * dcNominal();
     S.rpm = 0; S.rpmN = 0; S.fuel = 0; S.excitation = S.vcb ? 1 : 0;
   }
-  S.dcN = clamp(S.dcV / 2800, 0, 1);
+  S.dcN = clamp(S.dcV / dcNominal(), 0, 1);
 
   // traction physics: adhesion-limited then power-limited effort, quadratic resistance
   const v = S.speed;
@@ -120,10 +128,10 @@ function simulateStep(dt){
   if (S.mode === 'tgv' && (S.doors || S.doorsF > 0.02 || S.coupling !== 0)) pAvail = 0;   // traction interlock: doors commanded open or not closed and locked, or a coupling manoeuvre
   if (pAvail > 0) F = Math.min(sp.fAdh * Math.min(1, S.throttleN * 1.5 + 0.1), pAvail / Math.max(v, 1.5));
   S.powerN = clamp(pAvail / sp.pMax, 0, 1);
-  const brakeSrc = S.mode === 'diesel' ? S.engine === 'running' : (S.dcV > 1000 || S.mode === 'tgv');
+  const brakeSrc = S.mode === 'diesel' ? S.engine === 'running' : (S.dcN > 0.36 || S.mode === 'tgv');
   const bN = Math.max(S.brakeN, S.holdN);
   if (bN > 0.02 && v > 0.05 && brakeSrc){
-    Fe = bN * Math.min(sp.fBrakeMax, S.mode === 'tgv' && S.dcV <= 1000 ? 0 : sp.regenP / Math.max(v, 3));   // electric (regenerative) share
+    Fe = bN * Math.min(sp.fBrakeMax, S.mode === 'tgv' && S.dcN <= 0.36 ? 0 : sp.regenP / Math.max(v, 3));   // electric (regenerative) share
     if (v < 2) Fe *= v / 2;                                   // electric brake fades out below ~7 km/h
     Fb = Math.min(sp.fBrakeMax, Fe + bN * (sp.fDisc || 0));   // TGV: blended with the disc brakes
   }
@@ -180,7 +188,7 @@ function simulate(dtReal){   // time scale: several physics steps of at most 50 
 }
 
 /* ------------------------------------------------------------ animation */
-let crankAngle = 0, lastPanto = -1;
+let crankAngle = 0, lastPanto = -1, lastPantoDc = -1;
 function animate(dt){
   if (S.mode === 'diesel'){
     crankAngle = (crankAngle + (S.rpm / 60) * Math.PI * 2 * dt) % (Math.PI * 2);
@@ -191,7 +199,7 @@ function animate(dt){
     compPulley.rotation.z += (S.rpm > 30 ? 6 : 0) * dt;
   } else {
     compPulley.rotation.z += (S.dcN > 0.2 ? 6 : 0) * dt;
-    if (S.pantoF !== lastPanto){ setPanto(S.pantoF); lastPanto = S.pantoF; }
+    if (S.pantoF !== lastPanto || S.pantoDcF !== lastPantoDc){ setPanto(S.pantoF); lastPanto = S.pantoF; lastPantoDc = S.pantoDcF; }
   }
   const w = (S.speed / WHEEL_R) * S.dir;
   for (const ax of axles) ax.rotation.z -= w * dt;
@@ -221,7 +229,7 @@ function bar(el, v){ el.style.width = `${clamp(v, 0, 1) * 100}%`; }
 function updateGauges(){
   const sp = specNow();
   if (S.mode === 'diesel'){ G('gAv').textContent = Math.round(S.rpm); bar(G('gAb'), S.rpm / 1000); }
-  else { G('gAv').textContent = S.lineOn ? '25' : '0'; bar(G('gAb'), S.lineOn ? 1 : 0); }
+  else { G('gAv').textContent = S.lineOn ? kvLine() : '0'; bar(G('gAb'), S.lineOn ? (S.dc ? 0.06 : 1) : 0); }   // the bar reads out of 25 kV
   G('gVv').textContent = Math.round(S.dcV); bar(G('gVb'), S.dcV / 2800);
   G('gIv').textContent = Math.round(S.current); bar(G('gIb'), S.current / 3000);
   G('gFv').textContent = Math.round(S.effort); bar(G('gFb'), Math.abs(S.effort) / sp.fAdh);

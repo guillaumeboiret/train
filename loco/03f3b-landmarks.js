@@ -1,5 +1,6 @@
 
-/* ---- landmarks: the two termini get their own architecture instead of the generic station building.
+/* ---- landmarks: the termini and Bordeaux get their own architecture instead of the generic station building.
+   Toulouse Matabiau: the 1905 stone building along track A, the forecourt, the boulevard and the Canal du Midi under its plane trees.
    Bordeaux Saint-Jean: the 1898 iron and glass train shed (56 m span, 280 m long, crown at 27 m) with the stone passenger building along its west side.
    Paris Montparnasse: 360 m of platforms under the Jardin Atlantique deck, the head hall across the buffer stops and the 210 m tower beyond it.
    Everything is a child of `station`, so it follows the station pose; only the group of the nearest station is visible (poseStation). */
@@ -22,6 +23,13 @@ const landmarks = {};
   };
   const noCast = o => { o.traverse(m => { if (m.isMesh) m.castShadow = false; }); return o; };   // the big shapes sit outside the shadow frustum: casting would only clip
   const repeatTex = (t, rx, ry) => { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(rx, ry); return t; };
+  const clockTex = canvasTex(256, 256, (c) => {
+    c.fillStyle = '#f4efe2'; c.beginPath(); c.arc(128, 128, 118, 0, Math.PI * 2); c.fill();
+    c.strokeStyle = '#2a2a2a'; c.lineWidth = 10; c.stroke();
+    for (let i = 0; i < 12; i++){ const a = i / 12 * Math.PI * 2; c.lineWidth = i % 3 ? 5 : 9; c.beginPath(); c.moveTo(128 + Math.cos(a) * 98, 128 + Math.sin(a) * 98); c.lineTo(128 + Math.cos(a) * 110, 128 + Math.sin(a) * 110); c.stroke(); }
+    c.lineWidth = 10; c.beginPath(); c.moveTo(128, 128); c.lineTo(128 + Math.cos(-2.618) * 60, 128 + Math.sin(-2.618) * 60); c.stroke();
+    c.lineWidth = 7; c.beginPath(); c.moveTo(128, 128); c.lineTo(128 + Math.cos(-0.524) * 92, 128 + Math.sin(-0.524) * 92); c.stroke();
+  });
 
   /* Bordeaux Saint-Jean */
   {
@@ -73,13 +81,6 @@ const landmarks = {};
       G.add(box(wl, 13, bd, stoneM, bxc, 6.5, bz), box(wl, 0.6, bd + 1, stoneM, bxc, 13.2, bz), box(wl, 4.5, bd - 3, slateM, bxc, 15.5, bz), box(wl, 0.5, bd - 8, slateM, bxc, 17.9, bz));
       const pav = (cx, w, h) => { G.add(box(w, h, bd + 2, stoneM, cx, h / 2, bz), box(w + 1, 0.6, bd + 3, stoneM, cx, h + 0.2, bz), box(w - 2, 5, bd - 2, slateM, cx, h + 2.9, bz), box(w - 6, 0.6, bd - 8, slateM, cx, h + 5.6, bz)); };
       pav(-200, 40, 19); pav(bx0 + 15, 30, 16); pav(bx1 - 15, 30, 16);
-      const clockTex = canvasTex(256, 256, (c) => {
-        c.fillStyle = '#f4efe2'; c.beginPath(); c.arc(128, 128, 118, 0, Math.PI * 2); c.fill();
-        c.strokeStyle = '#2a2a2a'; c.lineWidth = 10; c.stroke();
-        for (let i = 0; i < 12; i++){ const a = i / 12 * Math.PI * 2; c.lineWidth = i % 3 ? 5 : 9; c.beginPath(); c.moveTo(128 + Math.cos(a) * 98, 128 + Math.sin(a) * 98); c.lineTo(128 + Math.cos(a) * 110, 128 + Math.sin(a) * 110); c.stroke(); }
-        c.lineWidth = 10; c.beginPath(); c.moveTo(128, 128); c.lineTo(128 + Math.cos(-2.618) * 60, 128 + Math.sin(-2.618) * 60); c.stroke();
-        c.lineWidth = 7; c.beginPath(); c.moveTo(128, 128); c.lineTo(128 + Math.cos(-0.524) * 92, 128 + Math.sin(-0.524) * 92); c.stroke();
-      });
       const clockM = new THREE.MeshBasicMaterial({ map:clockTex, transparent:true });
       for (const [z, ry] of [[zf + 1.06, 0], [bz - bd / 2 - 1.06, Math.PI]]){ const c = new THREE.Mesh(new THREE.PlaneGeometry(6, 6), clockM); c.position.set(-200, 16, z); c.rotation.y = ry; G.add(c); }
       const wm = [];
@@ -95,7 +96,7 @@ const landmarks = {};
     const G = new THREE.Group(); G.visible = false; station.add(G); landmarks.par = G;
     const concM = pmat(0x8d8a84, { roughness:0.95, metalness:0 }), darkM = pmat(0x4b4e52, { roughness:0.9, metalness:0 }), grassM = pmat(0x4f7a3a, { roughness:1, metalness:0 });
     const glassM = pmat(0x9ec5e0, { roughness:0.2, metalness:0.3, transparent:true, opacity:0.55 }), lightM = new THREE.MeshBasicMaterial({ color:0xfff4d6 });
-    const DX0 = -366, DX1 = -8, DL = DX1 - DX0, DXC = (DX0 + DX1) / 2, DZ0 = -62, DZ1 = 62, DW = DZ1 - DZ0, DY = 8.6;   // deck: 358 m × 124 m, underside 8.6 m above the rails (OSM: "tunnel" Voie 21 from PK 537.42 to the end)
+    const DX0 = -366, DX1 = -8, DL = DX1 - DX0, DXC = (DX0 + DX1) / 2, DZ0 = -62, DZ1 = 62, DW = DZ1 - DZ0, DY = 8.6;   // deck: 358 m × 124 m, underside 8.6 m above the rails (OSM: "tunnel" Voie 21 from PK 794.42 to the end)
     const deck = box(DL, 2.4, DW, concM, DXC, DY + 1.2, 0); G.add(deck);
     G.add(box(DL, 0.3, DW - 8, grassM, DXC, DY + 2.55, 0));                                                              // Jardin Atlantique
     G.add(box(DL, 1.2, 0.5, concM, DXC, DY + 3.0, DZ0 + 0.25), box(DL, 1.2, 0.5, concM, DXC, DY + 3.0, DZ1 - 0.25));   // parapets
@@ -129,5 +130,162 @@ const landmarks = {};
       tg.add(box(70, 9, 60, concM, 0, 4.5, 0));
     }
     noCast(G); G.children.forEach(o => { if (o.isInstancedMesh && o.geometry.type === 'CylinderGeometry' && o.geometry.parameters.height === DY) o.castShadow = true; });
+  }
+
+  /* Toulouse Matabiau: the 1905 stone building along track A (x −320..−90): two wings under slate mansards, end pavilions, the central pavilion
+     with three tall arches, the clock and the name, and the coats of arms of the Midi company's cities in the frieze of the canal front.
+     West of it the forecourt, the boulevard and the Canal du Midi between plane trees, with two bridges and moored barges.
+     The ground is slabs over x −540..190 whose bottoms sit in the relief, sunk 1.6 m there (LM_BOX in the route code) so the water stays clear of it. */
+  {
+    const G = new THREE.Group(); G.visible = false; station.add(G); landmarks.tls = G;
+    const PO = { polygonOffset:true, polygonOffsetFactor:-1, polygonOffsetUnits:-4 };   // panes, arms, signs and window bands just off a face win the depth test
+    const stoneM = pmat(0xe6dac2, { roughness:0.9, metalness:0 }), trimM = pmat(0xd5c6a6, { roughness:0.9, metalness:0 }), slateM = pmat(0x3d4650, { roughness:0.7, metalness:0.1 });
+    const glazM = pmat(0xffffff, Object.assign({ roughness:0.3, metalness:0.2, map:repeatTex(canvasTex(64, 64, (c) => {   // one pane per tile, light glazing bars
+      c.fillStyle = '#cfc6b3'; c.fillRect(0, 0, 64, 64); c.fillStyle = '#2a3642'; c.fillRect(3, 3, 58, 58); c.fillStyle = '#cfc6b3'; c.fillRect(0, 31, 64, 2);
+    }), 1, 1) }, PO));
+    const YQ = a => new THREE.Quaternion().setFromAxisAngle(Y_UP, a), qB = YQ(Math.PI), qW = YQ(-Math.PI / 2), qE = YQ(Math.PI / 2);   // facing −z, −x, +x
+    const prism = (pts, len, m, axis) => {   // a (u, y) profile extruded over len: u = z along x (axis 'x'), u = x along z
+      const g = new THREE.ExtrudeGeometry(new THREE.Shape(pts.map(([u, y]) => new THREE.Vector2(axis === 'x' ? -u : u, y))), { depth:len, bevelEnabled:false }).translate(0, 0, -len / 2);
+      if (axis === 'x') g.rotateY(Math.PI / 2);
+      return new THREE.Mesh(g, m);
+    };
+    const frustum = (w0, d0, w1, d1, h, m) => {   // a hipped roof stage: w0 × d0 at its foot, w1 × d1 h higher, closed on top
+      const b = [[-w0 / 2, 0, -d0 / 2], [w0 / 2, 0, -d0 / 2], [w0 / 2, 0, d0 / 2], [-w0 / 2, 0, d0 / 2]], t = [[-w1 / 2, h, -d1 / 2], [w1 / 2, h, -d1 / 2], [w1 / 2, h, d1 / 2], [-w1 / 2, h, d1 / 2]], pos = [];
+      const quad = (p, q, r, s) => pos.push(...p, ...q, ...r, ...p, ...r, ...s);
+      for (let i = 0; i < 4; i++){ const j = (i + 1) % 4; quad(b[i], t[i], t[j], b[j]); }
+      quad(t[0], t[3], t[2], t[1]);
+      const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.computeVertexNormals();
+      return new THREE.Mesh(g, m);
+    };
+    const archShape = (w, h) => { const s = new THREE.Shape(), r = w / 2; s.moveTo(-r, 0); s.lineTo(r, 0); s.lineTo(r, h - r); s.absarc(0, h - r, r, 0, Math.PI, false); return s; };
+    const rectShape = (w, h) => { const s = new THREE.Shape(); s.moveTo(-w / 2, 0); s.lineTo(w / 2, 0); s.lineTo(w / 2, h); s.lineTo(-w / 2, h); return s; };
+    const winGeo = (sh, w, tw, th = 1.5) => {   // a pane from its outline (bottom centre at the origin), one glazing tile every tw × th metres
+      const g = new THREE.ShapeGeometry(sh, 12), p = g.attributes.position, uv = g.attributes.uv;
+      for (let i = 0; i < p.count; i++) uv.setXY(i, (p.getX(i) + w / 2) / tw, p.getY(i) / th);
+      return g;
+    };
+    // wings: stone body (track face z −20, canal face z −40), plinth, string course, cornice, mansard; nine bays each at 6.5 m.
+    // Like at Saint-Jean every wing end stops 0.5 m inside a pavilion, so no two faces share a plane.
+    const WINGS = [[-292.5, -228.5], [-181.5, -117.5]], bays = [];
+    for (const [a, b] of WINGS){
+      const L = b - a, cx = (a + b) / 2;
+      G.add(box(L, 13.42, 20, stoneM, cx, 6.29, -30), box(L, 1.92, 20.6, trimM, cx, 0.54, -30), box(L, 0.4, 20.6, trimM, cx, 7.2, -30), box(L, 0.7, 21.2, trimM, cx, 13.35, -30));
+      const r = prism([[-19.7, 13.7], [-21.3, 16.9], [-25.5, 18], [-34.5, 18], [-38.7, 16.9], [-40.3, 13.7]], L, slateM, 'x'); r.position.x = cx; G.add(r);
+      for (let k = 0; k < 9; k++) bays.push(a + 6 + 6.5 * k);
+    }
+    const pavilion = (cx, w, z0, z1, top, roof) => {   // body, plinth, string course, cornice, then the roof stages [w0, d0, w1, d1, h]
+      const d = z0 - z1, cz = (z0 + z1) / 2;
+      G.add(box(w, top + 0.42, d, stoneM, cx, (top - 0.42) / 2, cz), box(w + 0.6, 1.92, d + 0.6, trimM, cx, 0.54, cz), box(w + 0.6, 0.4, d + 0.6, trimM, cx, 7.2, cz), box(w + 1.2, 0.7, d + 1.2, trimM, cx, top + 0.35, cz));
+      let y = top + 0.7;
+      for (const [w0, d0, w1, d1, h] of roof){ const f = frustum(w0, d0, w1, d1, h, slateM); f.position.set(cx, y, cz); G.add(f); y += h; }
+    };
+    for (const cx of [-306, -104]) pavilion(cx, 28, -19.6, -42, 15.5, [[29, 23.4, 23, 17.4, 4], [23, 17.4, 13, 7.4, 1.2]]);
+    pavilion(-205, 48, -19.6, -43, 18, [[49, 24.4, 41, 16.4, 4.5], [41, 16.4, 29, 4.4, 1.5]]);
+    // central pavilion, both fronts: half-round pediment with the clock, the name under the cornice
+    { const ped = new THREE.CylinderGeometry(7.5, 7.5, 1.2, 24, 1, false, Math.PI / 2, Math.PI).rotateX(Math.PI / 2), clockM = new THREE.MeshBasicMaterial(Object.assign({ map:clockTex, transparent:true }, PO));
+      for (const [z, zc, ry] of [[-19.6, -18.95, 0], [-43, -43.65, Math.PI]]){
+        const p = new THREE.Mesh(ped, trimM); p.position.set(-205, 18.7, z); G.add(p);
+        const c = new THREE.Mesh(new THREE.PlaneGeometry(6, 6), clockM); c.position.set(-205, 22.2, zc); c.rotation.y = ry; G.add(c);
+        const s = sign('TOULOUSE MATABIAU', 26, 2.2, -205, 15.4, ry ? z - 0.06 : z + 0.06, ry, '#1b2a44', '#f3efe6'); Object.assign(s.material, PO); G.add(s);
+      }
+    }
+    // windows: arched on the ground floor, the three tall arches of the central pavilion, square-headed above, attic windows in the end pavilions
+    { const big = [], arch = [], rect = [], attic = [];
+      for (const x of [-219, -205, -191]) big.push(M4(x, 1.2, -19.55), M4(x, 1.2, -43.05, qB));
+      for (const x of bays){ arch.push(M4(x, 1.6, -19.95), M4(x, 1.6, -40.05, qB)); rect.push(M4(x, 8, -19.95), M4(x, 8, -40.05, qB)); }
+      for (const cx of [-306, -104]){
+        for (const dx of [-7, 0, 7]) for (const [y, list] of [[1.6, arch], [8, rect], [12.2, attic]]) list.push(M4(cx + dx, y, -19.55), M4(cx + dx, y, -42.05, qB));
+        const xe = cx < -200 ? -320.05 : -89.95, qe = cx < -200 ? qW : qE;   // outer end faces
+        for (const dz of [-7, 0, 7]) for (const [y, list] of [[1.6, arch], [8, rect], [12.2, attic]]) list.push(M4(xe, y, -30.8 + dz, qe));
+      }
+      inst(winGeo(archShape(8.5, 12.2), 8.5, 8.5 / 6), glazM, big, G); inst(winGeo(archShape(2.6, 5), 2.6, 1.3), glazM, arch, G);
+      inst(winGeo(rectShape(2, 3), 2, 1), glazM, rect, G); inst(winGeo(rectShape(2, 2), 2, 1), glazM, attic, G);
+    }
+    // dormers on both slopes of the mansards, one per bay
+    { const body = [], cap = [], pane = [];
+      for (const x of bays){ body.push(M4(x, 15.3, -20.4), M4(x, 15.3, -39.6)); cap.push(M4(x, 16.55, -20.4), M4(x, 16.55, -39.6)); pane.push(M4(x, 14.5, -19.55), M4(x, 14.5, -40.45, qB)); }
+      inst(new THREE.BoxGeometry(2, 2.2, 1.6), trimM, body, G); inst(new THREE.BoxGeometry(2.3, 0.3, 1.9), slateM, cap, G); inst(winGeo(rectShape(1.2, 1.5), 1.2, 0.6, 0.75), glazM, pane, G);
+    }
+    // the arms of 26 cities in the frieze of the canal front, 13 per wing: plain charges on a shield, one merged mesh from an 8 × 4 atlas
+    { const T = ['#d4a92a', '#ece8dc', '#b3261e', '#1f4e9c', '#2e7d32', '#1e1e1e'];
+      const shield = c => { c.beginPath(); c.moveTo(8, 6); c.lineTo(56, 6); c.lineTo(56, 30); c.quadraticCurveTo(56, 52, 32, 60); c.quadraticCurveTo(8, 52, 8, 30); c.closePath(); };
+      const tex = canvasTex(512, 256, (c) => {
+        for (let i = 0; i < 26; i++){
+          c.save(); c.translate((i % 8) * 64, Math.floor(i / 8) * 64);
+          shield(c); c.fillStyle = T[(i * 5) % 6]; c.fill();
+          c.save(); c.clip(); c.fillStyle = c.strokeStyle = T[(i * 5 + 2 + i % 3) % 6]; c.lineWidth = 10; c.beginPath();
+          switch (i % 8){
+            case 0: c.fillRect(27, 6, 10, 54); c.fillRect(8, 22, 48, 10); break;                       // cross
+            case 1: c.fillRect(8, 24, 48, 14); break;                                                  // fess
+            case 2: c.fillRect(25, 6, 14, 54); break;                                                  // pale
+            case 3: c.moveTo(4, 2); c.lineTo(60, 62); c.stroke(); break;                               // bend
+            case 4: c.moveTo(4, 52); c.lineTo(32, 20); c.lineTo(60, 52); c.stroke(); break;            // chevron
+            case 5: c.fillRect(8, 6, 48, 18); break;                                                   // chief
+            case 6: c.fillRect(32, 6, 24, 24); c.fillRect(8, 30, 24, 30); break;                       // quarterly
+            default: c.moveTo(4, 2); c.lineTo(60, 62); c.moveTo(60, 2); c.lineTo(4, 62); c.stroke();   // saltire
+          }
+          c.restore(); shield(c); c.strokeStyle = '#8a6d2a'; c.lineWidth = 3; c.stroke(); c.restore();
+        }
+      });
+      const pos = [], uv = [], idx = [];
+      let i = 0;
+      for (const [a, b] of WINGS) for (let k = 0; k < 13; k++, i++){
+        const x = a + 0.5 + (b - a - 1) * (k + 0.5) / 13, u0 = (i % 8) / 8, u1 = u0 + 1 / 8, v1 = 1 - Math.floor(i / 8) / 4, v0 = v1 - 1 / 4, n = i * 4;
+        pos.push(x + 0.5, 11.5, -40.06, x - 0.5, 11.5, -40.06, x - 0.5, 12.7, -40.06, x + 0.5, 12.7, -40.06);   // facing the canal: +x is on the viewer's left
+        uv.push(u0, v0, u1, v0, u1, v1, u0, v1); idx.push(n, n + 1, n + 2, n, n + 2, n + 3);
+      }
+      const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx); g.computeVertexNormals();
+      G.add(new THREE.Mesh(g, pmat(0xffffff, Object.assign({ map:tex, alphaTest:0.5, roughness:0.6, metalness:0.1 }, PO))));
+    }
+    // platform A along the building (edge 1.7 m from track A), the marquise on iron consoles in front of the wings
+    const platM = pmat(0x9a968e, { roughness:0.95 }), lineM = pmat(0xe8e2d0, Object.assign({ roughness:0.9 }, PO)), metM = pmat(0x6f7a80, { roughness:0.5, metalness:0.5 });
+    G.add(box(400, 0.97, 4.8, platM, -200, 0.065, -17.6), box(400, 0.02, 0.3, lineM, -200, 0.56, -15.55));
+    const cons = [], qc = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -Math.atan2(1.6, 3.5));
+    for (const [a, b] of [[-291, -230], [-180, -119]]){
+      G.add(box(b - a, 0.2, 4.1, metM, (a + b) / 2, 5.45, -17.95), box(b - a, 0.6, 0.12, metM, (a + b) / 2, 5.25, -15.9));
+      for (let k = 0; k < 7; k++) cons.push(M4(a + 3 + (b - a - 6) * k / 6, 4.6, -18.25, qc));
+    }
+    const consoles = inst(new THREE.BoxGeometry(0.22, 0.22, 3.85), metM, cons, G);
+    // the ground, from the building out: forecourt, boulevard, plane tree verge, quay, canal, quay, verge, boulevard, the far bank
+    const paveM = pmat(0xc2b9a8, { roughness:0.95, metalness:0 }), asphM = pmat(0x3b3d41, { roughness:0.95, metalness:0 }), grassM = pmat(0x5d7d44, { roughness:1, metalness:0 });
+    const quayM = pmat(0xb9ab8e, { roughness:0.9, metalness:0 }), waterM = pmat(0x4b6a58, { roughness:0.15, metalness:0.2 });
+    const SX0 = -540, SX1 = 190, YB = -2.8, BR = [-522, 172];   // slab ends, slab bottom (under the sunk relief), bridge axes (the water runs between them)
+    const slab = (m, z0, z1, top, x0 = SX0, x1 = SX1) => G.add(box(x1 - x0, top - YB, z0 - z1, m, (x0 + x1) / 2, (top + YB) / 2, (z0 + z1) / 2));
+    slab(paveM, -20, -58, 0.6); slab(asphM, -58, -72, 0.5); slab(grassM, -72, -78.4, 0.6); slab(quayM, -78.4, -79, 0.7);
+    slab(waterM, -79, -95, -0.6, BR[0], BR[1]); slab(quayM, -95, -95.6, 0.7); slab(grassM, -95.6, -103, 0.6); slab(asphM, -103, -115, 0.5); slab(paveM, -115, -205, 0.6);
+    slab(paveM, -79, -95, 0.6, SX0, BR[0]); slab(paveM, -79, -95, 0.6, BR[1], SX1);   // the canal band past the bridges
+    for (const x of BR){
+      G.add(box(0.6, 0.7 - YB, 16, quayM, x, (0.7 + YB) / 2, -87), box(16, 0.55, 22, quayM, x, 0.475, -87));   // the water's end under the bridge, the deck
+      for (const dx of [-7.75, 7.75]) G.add(box(0.5, 1, 22, quayM, x + dx, 1.25, -87));                        // parapets
+    }
+    { const a = prism([[SX0, 0.6], [SX0 - 12, YB], [SX0, YB]], 185, grassM, 'z'), b = prism([[SX1, 0.6], [SX1, YB], [SX1 + 12, YB]], 185, grassM, 'z');   // banks down to the relief
+      const c = prism([[-205, 0.6], [-205, YB], [-217, YB]], SX1 - SX0 + 24, grassM, 'x');
+      a.position.z = b.position.z = -112.5; c.position.x = (SX0 + SX1) / 2; G.add(a, b, c); }
+    // plane trees along both banks, 9 m apart
+    { const tr = [], cr = [], q = new THREE.Quaternion();
+      let i = 0;
+      for (const z of [-75.2, -99.3]) for (let x = SX0 + 10; x < SX1 - 6; x += 9, i++){
+        const h1 = hash2(i, 0, 71), h2 = hash2(i, 0, 73), tx = x + (h1 - 0.5) * 3, r = 4 + 1.5 * h2;
+        if (BR.some(b => Math.abs(tx - b) < 10)) continue;
+        tr.push(M4(tx, 0.6, z)); cr.push(new THREE.Matrix4().compose(new THREE.Vector3(tx, 9 + h1, z + (h2 - 0.5) * 1.5), q.setFromAxisAngle(Y_UP, h1 * 6.283), new THREE.Vector3(r, 0.85 * r, r)));
+      }
+      inst(new THREE.CylinderGeometry(0.28, 0.42, 6, 7).translate(0, 3, 0), pmat(0x9c9a82, { roughness:0.9, metalness:0 }), tr, G);
+      inst(new THREE.IcosahedronGeometry(1, 1), pmat(0x4e7a3a, { roughness:1, metalness:0, flatShading:true }), cr, G);
+    }
+    // street lamps along both boulevards, heads over the road
+    { const post = [], head = [];
+      for (let x = SX0 + 14; x < SX1 - 8; x += 26) for (const [z, dz] of [[-57.4, -0.35], [-115.6, 0.35]]){ post.push(M4(x, 0.6, z)); head.push(M4(x, 6.55, z + dz)); }
+      const lampM = pmat(0x2e3438, { roughness:0.5, metalness:0.5 });
+      inst(new THREE.CylinderGeometry(0.08, 0.12, 6, 6).translate(0, 3, 0), lampM, post, G); inst(new THREE.BoxGeometry(0.35, 0.22, 0.9), lampM, head, G);
+    }
+    // four barges moored along the station bank: hull, cabin with its window band, wheelhouse at the stern, one colour per barge
+    { const X = [-480, -430, -130, 40], Z = -81.8, hullC = [0x2f4a6b, 0x7a2a2a, 0x2e5a3c, 0x303030].map(c => new THREE.Color(c)), cabC = [0xe9e2d0, 0xb58a5a, 0xe9e2d0, 0xb58a5a].map(c => new THREE.Color(c));
+      const paintM = pmat(0xffffff, { roughness:0.6, metalness:0.2 }), woodM = pmat(0xffffff, { roughness:0.8, metalness:0 }), bandM = pmat(0x1f2830, Object.assign({ roughness:0.3, metalness:0.3 }, PO));
+      const part = (w, h, d, m, dx, y, cols) => { const im = inst(new THREE.BoxGeometry(w, h, d), m, X.map(x => M4(x + dx, y, Z)), G); if (cols) cols.forEach((c, k) => im.setColorAt(k, c)); };
+      part(26, 1.5, 5, paintM, 0, -0.15, hullC); part(26.2, 0.15, 5.2, paintM, 0, 0.62, hullC);                                       // hull, gunwale
+      part(16, 1.5, 4, woodM, 1, 1.35, cabC); part(15.4, 0.55, 4.16, bandM, 1, 1.45); part(16.3, 0.12, 4.3, paintM, 1, 2.16, hullC);    // cabin
+      part(2.6, 2.2, 3.4, woodM, -10.4, 1.7, cabC); part(2.7, 0.7, 3.5, bandM, -10.4, 2.2); part(2.9, 0.12, 3.7, paintM, -10.4, 2.86, hullC);   // wheelhouse
+    }
+    noCast(G); consoles.castShadow = true;
   }
 }

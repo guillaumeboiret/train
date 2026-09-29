@@ -1,6 +1,7 @@
 
 /* ============================================================ ENERGY FLOWS */
 /* A flow is a polyline with animated particles. `level(S)` returns -1..1 (sign = direction).
+   `volt` ties a flow to the line voltage under the train ('ac' 25 kV, 'dc' 1.5 kV); `bend` paths run along the line and follow the track's curve.
    Heat is not a current in a conductor, so it has no path: a `plume` rises from each source {y, src:[[x, z, half width x, half width z]]}. */
 const FLOW_DEFS = {
   diesel: [
@@ -37,13 +38,17 @@ const FLOW_DEFS = {
       level:S => S.fans * 0.9 },
   ],
   electric: [
-    { id:'cat', key:'f_cat', token:'--cat', parts:['catenary','pantograph','vcb','transformer'], speed:1.1,
+    { id:'cat', volt:'ac', bend:true, key:'f_cat', token:'--cat', parts:['catenary','pantograph','vcb','transformer'], speed:1.1,
       path:[[30,5.55,0],[14,5.55,0],[2.6,5.5,0],[2.2,4.9,0.3],[2.0,4.6,0.5],[3.4,4.5,0.6],[4.6,4.9,0.3],[4.6,5.3,0.3],[5.0,5.35,0.1],[5.4,4.9,-0.2],[5.4,4.3,-0.2],[5.5,3.3,-1.25],[3.0,1.75,-1.25],[2.2,1.35,-1.0]],
       level:S => !S.lineOn ? 0 : (S.vcb ? 0.25 + 0.75 * S.powerN : 0.12) * (S.regenN > 0.02 ? -1 : 1) },
-    { id:'lv1', key:'f_ac_tr', token:'--ac', parts:['transformer','converter4q'], speed:0.9,
+    // 1.5 kV DC: the transformer is bypassed, the line goes through a filter straight onto the DC link
+    { id:'catdc', volt:'dc', bend:true, key:'f_cat_dc', token:'--cat', parts:['catenary','pantograph','vcb','converter4q'], speed:1.1,
+      path:[[30,5.55,0],[14,5.55,0],[2.6,5.5,0],[2.2,4.9,0.3],[2.0,4.6,0.5],[3.4,4.5,0.6],[4.6,4.9,0.3],[4.6,5.3,0.3],[5.0,5.35,0.1],[5.4,4.9,-0.2],[5.4,4.3,-0.2],[5.2,4.1,0],[5.0,3.95,0]],
+      level:S => !S.lineOn ? 0 : (S.vcb ? 0.25 + 0.75 * S.powerN : 0.12) * (S.regenN > 0.02 ? -1 : 1) },
+    { id:'lv1', volt:'ac', key:'f_ac_tr', token:'--ac', parts:['transformer','converter4q'], speed:0.9,
       path:[[2.2,1.35,0.6],[2.6,1.7,0.6],[4.6,2.2,0.72],[5.0,2.5,0.5]],
       level:S => S.vcb ? (0.2 + 0.8 * S.powerN) * (S.regenN > 0.02 ? -1 : 1) : 0 },
-    { id:'lv2', key:'f_ac_tr', token:'--ac', parts:['transformer','converter4q'], speed:0.9,
+    { id:'lv2', volt:'ac', key:'f_ac_tr', token:'--ac', parts:['transformer','converter4q'], speed:0.9,
       path:[[2.2,1.35,-0.6],[2.6,1.7,-0.6],[4.6,2.2,-0.72],[5.0,2.5,-0.5]],
       level:S => S.vcb ? (0.2 + 0.8 * S.powerN) * (S.regenN > 0.02 ? -1 : 1) : 0 },
     { id:'dc1', key:'f_dc', token:'--dc', parts:['converter4q','inverters'], speed:0.9,
@@ -60,8 +65,11 @@ const FLOW_DEFS = {
     { id:'ret', key:'f_ret', token:'--ret', parts:['bogies','catenary'], speed:1.0,
       path:[[6.72,0.5,0.75],[6.72,0.02,0.75],[2,0.02,0.75],[-10,0.02,0.75],[-30,0.02,0.75]],
       level:S => S.vcb ? (0.15 + 0.85 * S.powerN) * (S.regenN > 0.02 ? -1 : 1) : 0 },
-    { id:'aux', key:'f_ctl', token:'--ok', parts:['transformer','auxConverter','cooling'], speed:0.5,
+    { id:'aux', volt:'ac', key:'f_ctl', token:'--ok', parts:['transformer','auxConverter','cooling'], speed:0.5,
       path:[[2.2,1.4,0.4],[1.2,2.3,0.5],[0.5,2.4,0.7],[-1.1,2.4,0.7],[-2.0,2.4,0.8],[-3.3,2.6,0.9],[-4.4,2.8,0.5]],
+      level:S => S.vcb ? 0.4 : 0 },
+    { id:'auxdc', volt:'dc', key:'f_ctl', token:'--ok', parts:['converter4q','auxConverter','cooling'], speed:0.5,
+      path:[[4.6,3.7,0.4],[3.4,3.1,0.7],[1.2,2.5,0.7],[0.5,2.4,0.7],[-1.1,2.4,0.7],[-2.0,2.4,0.8],[-3.3,2.6,0.9],[-4.4,2.8,0.5]],
       level:S => S.vcb ? 0.4 : 0 },
     { id:'ctl', key:'f_ctl', token:'--ok', parts:['battery','control'], speed:0.5,
       path:[[3.7,1.5,0.6],[4.6,1.72,0.2],[5.9,1.75,0],[6.0,2.2,0],[6.0,3.6,0]],
@@ -92,15 +100,22 @@ FLOW_DEFS.diesel.push(...AC3); FLOW_DEFS.electric.push(...AC3);
 {
   const catLevel = FLOW_DEFS.electric[0].level;
   FLOW_DEFS.tgv = [
-    { id:'cat', key:'f_cat', token:'--cat', parts:['catenary','powerCars'], speed:1.1,
+    { id:'cat', volt:'ac', bend:true, key:'f_cat', token:'--cat', parts:['catenary','powerCars'], speed:1.1,
       path:[[-206,5.55,0],[-190,5.55,0],[-172.5,5.5,0],[-172.5,4.95,0.15],[-172.4,4.62,0.25],[-168,4.62,0.25]], level:catLevel },
-    { id:'roof', key:'f_roof', token:'--cat', parts:['roofLine','vcb'], speed:8,
+    { id:'roof', volt:'ac', bend:true, key:'f_roof', token:'--cat', parts:['roofLine','vcb'], speed:8,
       path:[[-168,4.62,0.25],[-120,4.62,0.25],[-60,4.62,0.25],[-9.8,4.62,0.25],[-7.4,4.5,0.3],[-1.0,4.55,0.32],[3.6,4.55,0.32],[4.4,4.5,0.3],[4.6,4.9,0.3]], level:catLevel },
-    { id:'vcbx', key:'f_cat', token:'--cat', parts:['vcb','transformer'], speed:1.1,
+    { id:'vcbx', volt:'ac', key:'f_cat', token:'--cat', parts:['vcb','transformer'], speed:1.1,
       path:[[4.6,4.9,0.3],[4.6,5.3,0.3],[5.0,5.35,0.1],[5.4,4.9,-0.2],[5.4,4.3,-0.2],[5.5,3.3,-1.25],[3.0,1.75,-1.25],[2.2,1.35,-1.0]], level:catLevel },
     ...FLOW_DEFS.electric.slice(1),
   ];
 }
+const flowLive = def => !def.volt || (def.volt === 'dc') === !!S.dc;
+// under DC every power car collects its own current: in each copied power car the flow starts at its own pantograph (front or rear of the car)
+const CAT_DC_HOST = (() => {
+  const d = FLOW_DEFS.electric.find(f => f.id === 'catdc'), tail = [[4.6,4.9,0.3],[4.6,5.3,0.3],[5.0,5.35,0.1],[5.4,4.9,-0.2],[5.4,4.3,-0.2],[5.2,4.1,0],[5.0,3.95,0]];
+  const host = head => ({ ...d, bend:false, parts:['catenary','powerCars','vcb','converter4q'], path:[...head, ...tail] });
+  return { F:host([[8.6,5.55,0],[2.6,5.5,0],[2.2,4.9,0.3],[2.0,4.6,0.5],[3.4,4.5,0.6]]), R:host([[4.4,5.55,0],[-1.6,5.5,0],[-1.6,4.95,0.15],[-1.6,4.62,0.25],[1.5,4.55,0.35],[4.35,4.55,0.3]]) };
+})();
 
 const flowRoot = new THREE.Group(); scene.add(flowRoot);
 const flowObjs = [];        // {def, mesh, line, curve, phase, level, mat}
@@ -170,7 +185,7 @@ function buildFlows(){
   for (const def of FLOW_DEFS[S.mode]) make(def);
   if (S.mode === 'tgv'){
     for (const def of FLOW_DEFS.tgv) if (def.id === 'cat' || def.id === 'roof') make(def, null, true);
-    for (const h of pcHosts) for (const def of FLOW_DEFS.tgv) if (def.id !== 'cat' && def.id !== 'roof') make(def, h.ig);
+    for (const h of pcHosts) for (const def of FLOW_DEFS.tgv) if (def.id !== 'cat' && def.id !== 'roof') make(def.id === 'catdc' ? CAT_DC_HOST[h.pantoX < 0 ? 'R' : 'F'] : def, h.ig);
   }
 }
 const _m4 = new THREE.Matrix4(), _p = new THREE.Vector3(), _q = new THREE.Quaternion(), _s = new THREE.Vector3();
@@ -204,12 +219,12 @@ function updateFlows(dt){
   if (!show) return;
   const s2on = S.mode === 'tgv' && tgvSets[1].group.visible, xoff2 = s2on ? TGV.SET2_X + S.set2Off : 0;
   for (const f of flowObjs){
-    const target = THREE.MathUtils.clamp(f.def.level(S), -1, 1);
+    const target = flowLive(f.def) ? THREE.MathUtils.clamp(f.def.level(S), -1, 1) : 0;   // a change of line voltage fades one set of flows out and the other in
     f.level += (target - f.level) * Math.min(1, dt * 4);
     const lv = Math.abs(f.level);
     const partVisible = f.def.parts.every(id => !parts[id] || parts[id].group.visible) && (!f.set2 || s2on);
     if (f.plume){ updatePlume(f, partVisible ? lv : 0, dt); continue; }
-    f.line.visible = partVisible && lv > 0.01 && f.def.id !== 'cat' && f.def.id !== 'roof';
+    f.line.visible = partVisible && lv > 0.01 && !f.def.bend;
     if (!partVisible || lv < 0.02){ f.mesh.count = 0; continue; }
     f.phase = (f.phase + Math.sign(f.level) * dt * f.def.speed * (0.4 + 0.6 * lv) * (6 / Math.max(3, f.len)) + 1) % 1;
     const n = Math.max(3, Math.round(N_PART * (0.3 + 0.7 * lv) * Math.min(1, f.len / 4)));
@@ -218,7 +233,7 @@ function updateFlows(dt){
     for (let i = 0; i < n; i++){
       const t = (i / n + f.phase) % 1;
       f.curve.getPointAt(t, _p);
-      if (f.def.id === 'cat' || f.def.id === 'roof') curveLocal(_p.x + (f.set2 ? xoff2 : 0), _p.y, _p.z, _p);
+      if (f.def.bend) curveLocal(_p.x + (f.set2 ? xoff2 : 0), _p.y, _p.z, _p);
       const edge = Math.min(1, Math.min(t, 1 - t) * 8);
       _s.setScalar(r * (0.4 + 0.6 * edge));
       _m4.compose(_p, _q, _s);

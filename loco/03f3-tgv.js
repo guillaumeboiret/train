@@ -369,7 +369,7 @@ function equipPowerCar(pc, pantoX){
   const driver = clones.cab.getObjectByName('driver'); driver.visible = false;   // shown only in the leading cab
   // HV lead from the pantograph base to the circuit breaker (on the lead car it belongs to the pantograph part)
   ig.add(cable(pantoX < 0 ? [[-1.6, 4.6, 0.25], [1.5, 4.55, 0.35], [4.35, 4.55, 0.3]] : [[2.0, 4.58, 0.5], [3.4, 4.5, 0.6], [4.35, 4.55, 0.3]], 0.03, pmat(pal.copper)));
-  pcHosts.push({ ig, clones, driver });
+  pcHosts.push({ ig, clones, driver, pantoX });
   pcShells.mats.push(...pc.shell.mats); pcShells.meshes.push(...pc.shell.meshes);
 }
 function buildNoseCoupler(g, mk){   // nose hatch (the rounded snout in two leaves) + Scharfenberg coupler behind it
@@ -616,7 +616,7 @@ definePart('coupler', g => { tgvFrontHatch = buildNoseCoupler(g, mat); pcShells.
   const set2 = buildSet({ mk:pmat, groups:G2, withFront:true, firstCar:11, internals:true });
   set2.group = s2; tgvSets.push(set2);
 }
-pantoHook = f => { if (S.mode !== 'tgv') return false; posePanto(tgvSets[0].pantos[0], f); posePanto(panto, 0); return true; };   // single set under 25 kV: the rear pantograph feeds the roof line, the leading one stays folded
+pantoHook = f => { if (S.mode !== 'tgv') return false; posePanto(tgvSets[0].pantos[0], f); posePanto(panto, f * S.pantoDcF); return true; };   // under 25 kV the rear pantograph feeds the roof line and the leading one stays folded; under 1.5 kV DC both rise
 
 /* ---- station: a platform on the camera side sized to the formation (200 m single set, 400 m double), letters A..P */
 const station = new THREE.Group(); world.add(station);   // posed on the line at the nearest station by updateRoute
@@ -956,9 +956,9 @@ function updateTgv(dt){
   platVariant[1].visible = S.sets === 1; platVariant[2].visible = S.sets === 2;
   const sh = wide ? 'um' : 'us';
   if (sh !== tgvShadow){ setShadowBox(wide ? -392 : -195, 14, Math.min(4096, renderer.capabilities.maxTextureSize)); tgvShadow = sh; }
-  // pantographs: the rear power car of each set feeds its roof line; the leading one stays folded
+  // pantographs: the rear power car of each set feeds its roof line and the leading one stays folded, except under 1.5 kV DC where every power car collects its own current
   posePanto(s2.pantos[0], S.sets === 2 && S.coupling === 0 ? S.pantoF : (S.coupling !== 0 ? 1 : 0));
-  posePanto(s2.pantos[1], 0);
+  posePanto(s2.pantos[1], S.coupling !== 0 ? S.pantoDcF : S.sets === 2 ? S.pantoF * S.pantoDcF : 0);
   // nose hatches open at the coupling face only
   poseHatch(s1.hatches[0], S.hatchF); poseHatch(s2.hatches[1], S.hatchF); poseHatch(s2.hatches[0], 0); poseHatch(tgvFrontHatch, 0);
   // lamps: white at the head of the train, red at its true tail; a set on the move shows its own
