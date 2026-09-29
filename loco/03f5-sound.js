@@ -240,7 +240,7 @@ function updateSound(dt){
   const rain = !!WEATHER[weatherId].rain;
   set(v.rain.g.gain, rain ? 0.12 : 0);
   v.birdT -= dt;
-  if (v.birdT <= 0){ v.birdT = 1.2 + Math.random() * 3; if (sp < 8 && !tun && !rain) bird(ctx); }   // birds when slow, outdoors and dry
+  if (v.birdT <= 0){ v.birdT = 8 + Math.random() * 14; if (sp < 8 && !tun && !rain) bird(ctx); }   // now and then (one every 15 s on average) when slow, outdoors and dry
   for (const vo of v.opp){
     const o = vo.o;
     if (!o.active){ set(vo.g.gain, 0); vo.horn = null; continue; }
