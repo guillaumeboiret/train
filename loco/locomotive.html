@@ -149,6 +149,10 @@ body:not([data-mode="tgv"]) .tgv-only{display:none}
 .rb-lb.first{transform:translateX(-5px)}
 .rb-lb.last{transform:translateX(calc(5px - 100%))}
 #rbTrain{position:absolute;top:2px;width:12px;height:12px;border-radius:2px;background:var(--accent);transform:translateX(-50%);pointer-events:none;box-shadow:0 0 0 2px var(--panel-solid)}
+.cab-bar{position:absolute;top:12px;right:12px;display:none;gap:8px}
+.cab-bar button{width:44px;height:44px;padding:0;border-radius:50%;background:var(--panel);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid var(--line);color:var(--ink);font-size:20px;line-height:1;cursor:pointer}
+body.in-cab:not(.cab-ui) :is(.dock,.infocard,.gauges,.hud,.compass,#labels){display:none}
+body.in-cab:not(.cab-ui) .cab-bar{display:flex}
 .btn.horn{width:100%;font-weight:600}
 .btn.horn.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
 @media (max-width:840px){

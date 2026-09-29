@@ -227,7 +227,7 @@ window.addEventListener('keydown', e => {
   if (e.target.matches('input,textarea,select')) return;
   if (e.key === 'ArrowRight'){ stopAuto(); goStep(stepIdx + 1); }
   else if (e.key === 'ArrowLeft'){ stopAuto(); goStep(stepIdx - 1); }
-  else if (e.key === 'Escape') select(null);
+  else if (e.key === 'Escape'){ if (inCab) cabActions.leave(); else select(null); }
 });
 
 /* ---- controls */
@@ -360,6 +360,7 @@ $('langSeg').addEventListener('click', e => { const b = e.target.closest('button
 /* ---- picking */
 const ray = new THREE.Raycaster(), ptr = new THREE.Vector2();
 orbit.onClick = e => {
+  if (inCab){ document.body.classList.remove('cab-ui'); return; }   // in the driver's place a tap on the view puts the controls away again
   const r = canvas.getBoundingClientRect();
   ptr.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
   ray.setFromCamera(ptr, camera);
@@ -379,7 +380,7 @@ orbit.onClick = e => {
 /* ---- the driver's place: the screens (one canvas shared by every cab) and the push buttons on the desk */
 const CAB_FONT = '"Barlow Condensed","Arial Narrow",Arial,sans-serif';
 for (const w of [600, 700]) document.fonts?.load(`${w} 40px "Barlow Condensed"`);   // a canvas does not fetch a web font by itself
-const cabActions = {   // what each desk button does; the kid build swaps in its own
+const cabActions = {   // what each desk button does, and the way out of the cab; the kid build swaps in its own
   horn(){   // sounds while held, like the horn button
     horn.press();
     const up = () => { horn.release(); window.removeEventListener('pointerup', up); window.removeEventListener('pointercancel', up); };
@@ -388,6 +389,7 @@ const cabActions = {   // what each desk button does; the kid build swaps in its
   panto(){ $('swPanto').click(); },
   doors(){ $('swDoors').click(); },
   stop(){ manual(); S.notch = 0; S.brake = 8; syncControls(); },   // emergency: power off, full brake
+  leave(){ flyPreset(stepV(STEPS[S.mode][stepIdx]).cam); },   // back to the guide's view
 };
 const shown = o => { for (; o; o = o.parent) if (!o.visible) return false; return true; };
 orbit.onPress = e => {   // in the driver's place a press on a desk button works it; anywhere else it turns the head
@@ -402,21 +404,14 @@ orbit.onPress = e => {   // in the driver's place a press on a desk button works
   }
   return false;
 };
-function uiCover(){   // share of the canvas height under the controls along its bottom that cross its middle (phone dock, kid controls, the guide's card)
-  const r = canvas.getBoundingClientRect(), mid = r.left + r.width / 2; let top = r.bottom;
-  for (const el of document.querySelectorAll('#dock, .gauges, .kid-bottom, #infocard')){
-    const b = el.getBoundingClientRect();
-    if (b.left < mid && b.right > mid && b.top > r.top + r.height * 0.4) top = Math.min(top, b.top);
-  }
-  return clamp((r.bottom - top) / r.height, 0, 0.6);
+let inCab = false;
+function keepDriver(){   // in the driver's place the page's controls step aside (🎛️ brings them back until the next tap on the view); the view moves to the other end when the train turns round
+  const on = orbit.fp?.name === 'driver';
+  if (on !== inCab){ inCab = on; document.body.classList.toggle('in-cab', on); document.body.classList.remove('cab-ui'); }
+  if (on && orbit.fp.obj !== driverSeat()) flyPreset('driver');
 }
-let drvT = 0;
-function keepDriver(dt){   // the driver's view moves to the other end when the train turns round, and re-frames when controls open or close over it
-  if (orbit.fp?.name !== 'driver') return;
-  if (orbit.fp.obj !== driverSeat()) return flyPreset('driver');
-  if ((drvT += dt) < 0.5) return;
-  drvT = 0; if (Math.abs(uiCover() - drvCover) > 0.04) flyPreset('driver');
-}
+$('cabUi').addEventListener('click', () => document.body.classList.add('cab-ui'));
+$('cabLeave').addEventListener('click', () => cabActions.leave());
 let cabT = 1;   // seconds since the screens were last drawn
 const _cabP = new THREE.Vector3();
 function updateCab(dt){
@@ -689,7 +684,7 @@ function updateCompass(){
 let frameHook = null;   // the kid build hangs its own rules here
 function frame(dt){
   simulate(dt); animate(Math.min(dt * S.timeScale, 0.25)); updateFlows(dt); updateWeather(dt); panKeys(dt); if (frameHook) frameHook(dt);
-  keepDriver(dt);
+  keepDriver();
   orbit.update(dt); updateCab(dt); updateCompass(); updateSound(dt);
 }
 window.tick = (sec, dt = 0.05) => { for (let t = 0; t < sec - 1e-9; t += dt) frame(dt); renderer.render(scene, camera); updateLabels(); updateGauges(); updateHud(); };

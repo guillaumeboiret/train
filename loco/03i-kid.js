@@ -29,6 +29,7 @@ const KID_MUL = { tgv:{ p:3, a:3, b:2 }, electric:{ p:3, a:1.2, b:3 }, diesel:{ 
 document.body.classList.add('kid');
 document.head.insertAdjacentHTML('beforeend', `<style>
 body.kid .topbar,body.kid .dock,body.kid .infocard,body.kid .gauges,body.kid #hud{display:none!important}
+body.in-cab:not(.cab-ui) :is(.kid-top,.kid-menu,.kid-bottom){display:none}
 body.kid .lbl{font:600 15px/1 var(--font-body);padding:8px 12px;border-radius:10px;background:#fff;color:#1b2430;border-color:#fff}
 body.kid .lbl::after{background:#fff;height:18px}
 #kid{position:absolute;inset:0;pointer-events:none;color:#1b2430;font-family:var(--font-body);-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
@@ -49,6 +50,8 @@ body.kid .lbl::after{background:#fff;height:18px}
 .kid-next{font:600 13.5px/1.2 var(--font-body);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
 body.kid .compass{top:64px;right:10px;background:rgba(255,255,255,.93);border:0;box-shadow:0 6px 18px rgba(0,0,0,.25);-webkit-backdrop-filter:none;backdrop-filter:none;--ink:#1b2430;--muted:#5d6b78;--panel-solid:#fff;--accent:#f28c28}
 .kid-gear{width:46px;height:46px;border-radius:50%;border:0;background:rgba(255,255,255,.85);font-size:22px;line-height:1;box-shadow:0 4px 12px rgba(0,0,0,.25);flex:0 0 auto}
+body.kid .cab-bar{top:10px;right:10px;gap:10px}
+body.kid .cab-bar button{width:56px;height:56px;border:0;background:rgba(255,255,255,.93);color:#1b2430;font-size:28px;box-shadow:0 4px 12px rgba(0,0,0,.25);-webkit-backdrop-filter:none;backdrop-filter:none;touch-action:manipulation}
 .kid-menu{position:absolute;top:64px;right:10px;padding:12px;display:flex;flex-direction:column;gap:8px;min-width:220px;pointer-events:auto}
 .kid-menu[hidden]{display:none}
 .kid-menu .seg{display:flex;border:2px solid #1b2430;border-radius:10px;overflow:hidden}
@@ -107,6 +110,7 @@ body.kid #rbTip{font-size:13px;padding:5px 9px;top:-30px;border-radius:8px}
   .kid-speed{padding:2px 12px 3px;min-width:0}.kid-speed .n{font-size:26px}.kid-speed .n small{font-size:12px}.kid-next{display:block;font-size:11px;margin-top:0}
   .kid-gear{width:36px;height:36px;font-size:17px}.kid-menu{top:48px;right:6px}
   body.kid .compass{top:48px;right:6px;width:44px;height:44px}
+  body.kid .cab-bar{top:6px;right:6px;gap:8px}body.kid .cab-bar button{width:46px;height:46px;font-size:23px}
   .kid-toast{font-size:17px;padding:10px 16px;top:32%}
   .kid-bottom{left:6px;right:6px;bottom:calc(6px + env(safe-area-inset-bottom,0px));gap:6px}
   .kid-route{padding:4px 12px 0}
@@ -160,6 +164,7 @@ $('c3d').parentElement.insertAdjacentHTML('beforeend', `<div id="kid">
   </div>
 </div>`);
 $('kidRoute').appendChild($('routeBar'));   // the line with its station dots keeps its own click, drag and teleport handlers
+{ const b = $('cabLeave'); b.textContent = '📷'; delete b.dataset.i18nAria; delete b.dataset.i18nTitle; }   // in the cab the way out is the camera button: next view
 
 /* ---- helpers */
 function kidPower(full){ ensureBattery(); if (S.mode === 'diesel') ensureRunning(); else if (full) ensureLive(); }   // full: pantograph up and line closed at once (start, train change)
@@ -235,6 +240,7 @@ function kidLang(){
   document.querySelectorAll('[data-kid]').forEach(el => { el.textContent = kt(el.dataset.kid); });
   $('kidLang').querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.lang === S.lang)));
   $('kidLever').setAttribute('aria-label', kt('lever'));
+  $('cabLeave').setAttribute('aria-label', kt('cam')); $('cabLeave').title = kt('cam');
 }
 function kidTick(){
   $('kidSpeed').textContent = Math.round(S.speed * 3.6);
@@ -278,10 +284,10 @@ $('kidSound').addEventListener('click', e => { const b = e.target.closest('butto
 try { if (localStorage.getItem('kid.mute') === '1') kidMute(true); } catch (e) {}
 document.addEventListener('pointerdown', e => { if (!$('kidMenu').hidden && !e.target.closest('#kidMenu,#kidGear')){ $('kidMenu').hidden = true; $('kidGear').setAttribute('aria-expanded', 'false'); } });
 
-/* ---- hooks into the engine: both pantographs of the first TGV set follow the switch; the desk buttons in the cab work as the kid buttons */
+/* ---- hooks into the engine: both pantographs of the first TGV set follow the switch; the desk buttons in the cab work as the kid buttons, its 📷 as the camera button */
 pantoHook = f => { if (S.mode !== 'tgv') return false; for (const p of tgvSets[0].pantos) posePanto(p, f); posePanto(panto, f); return true; };   // kid mode: the front pantograph rises too, so the ⚡ button shows on the car the child looks at
 frameHook = () => { if (S.mode !== 'diesel' && S.battery && S.lineOn && S.panto && !S.vcb) S.vcb = true; };   // the child only handles the pantograph: the line breaker follows it
-Object.assign(cabActions, { panto:kidPanto, doors:() => kidDoors(true), stop:kidStop });
+Object.assign(cabActions, { panto:kidPanto, doors:() => kidDoors(true), stop:kidStop, leave:kidCam });
 
 /* ---- start: a TGV at Bordeaux, powered up, body opaque, ready to go */
 setMode('tgv'); Object.assign(SIM_MUL, KID_MUL.tgv); setShell(1); kidPower(true); S.brake = 4; syncControls();

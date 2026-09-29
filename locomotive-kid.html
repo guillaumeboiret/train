@@ -149,6 +149,10 @@ body:not([data-mode="tgv"]) .tgv-only{display:none}
 .rb-lb.first{transform:translateX(-5px)}
 .rb-lb.last{transform:translateX(calc(5px - 100%))}
 #rbTrain{position:absolute;top:2px;width:12px;height:12px;border-radius:2px;background:var(--accent);transform:translateX(-50%);pointer-events:none;box-shadow:0 0 0 2px var(--panel-solid)}
+.cab-bar{position:absolute;top:12px;right:12px;display:none;gap:8px}
+.cab-bar button{width:44px;height:44px;padding:0;border-radius:50%;background:var(--panel);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid var(--line);color:var(--ink);font-size:20px;line-height:1;cursor:pointer}
+body.in-cab:not(.cab-ui) :is(.dock,.infocard,.gauges,.hud,.compass,#labels){display:none}
+body.in-cab:not(.cab-ui) .cab-bar{display:flex}
 .btn.horn{width:100%;font-weight:600}
 .btn.horn.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
 @media (max-width:840px){
@@ -393,6 +397,10 @@ body:not([data-mode="tgv"]) .tgv-only{display:none}
       <div class="g"><div class="k" data-i18n="g_f">Effort</div><div class="v"><span id="gFv">0</span><span class="u">kN</span></div><div class="bar"><i id="gFb"></i></div></div>
       <div class="g"><div class="k" data-i18n="g_v">Vitesse</div><div class="v"><span id="gSv">0</span><span class="u">km/h</span></div><div class="bar"><i id="gSb"></i></div></div>
     </div>
+    <div class="cab-bar" role="group" aria-label="Poste de conduite" data-i18n-aria="cam_driver">
+      <button type="button" id="cabUi" aria-label="Afficher les commandes" title="Afficher les commandes" data-i18n-aria="cab_ui" data-i18n-title="cab_ui">🎛️</button>
+      <button type="button" id="cabLeave" aria-label="Quitter la cabine" title="Quitter la cabine" data-i18n-aria="cab_leave" data-i18n-title="cab_leave">✕</button>
+    </div>
   </main>
 </div>
 <script type="module">
@@ -427,7 +435,7 @@ const T = {
     ctl_doors:"Portes côté quai", doors_open:"Ouvertes", doors_closed:"Fermées", doors_pax:"Échange voyageurs…", doors_hint:"Déverrouillées à l'arrêt seulement. Traction interdite portes ouvertes.",
     ctl_station:"Arrêt en gare (pilote auto)", station_go:"Aller au quai", station_running:"Approche…", station_at:"À quai", station_hint:"Freine et arrête la rame au repère du quai.",
     coupling:"Accostage…", uncoupling:"Séparation…", lamp_doors:"Portes", info_hide:"Masquer la fiche", info_show:"Afficher la fiche", f_roof:"Ligne de toiture 25 kV",
-    cam_train:"Rame entière", cam_rearroof:"Motrice arrière", cam_coupler:"Attelage", cam_station:"Gare", cam_door:"Portes", cam_seatUp:"Place en haut", cam_seatLo:"Place en bas", cam_driver:"Poste de conduite", scr_brake:"Frein", scr_power:"Traction", scr_engine:"Moteur", scr_doors:"Portes", scr_panto_dn:"Panto baissé", btn_horn:"Klaxon", btn_panto:"Panto", btn_doors:"Portes", btn_stop:"Stop",
+    cam_train:"Rame entière", cam_rearroof:"Motrice arrière", cam_coupler:"Attelage", cam_station:"Gare", cam_door:"Portes", cam_seatUp:"Place en haut", cam_seatLo:"Place en bas", cam_driver:"Poste de conduite", cab_ui:"Afficher les commandes", cab_leave:"Quitter la cabine", scr_brake:"Frein", scr_power:"Traction", scr_engine:"Moteur", scr_doors:"Portes", scr_panto_dn:"Panto baissé", btn_horn:"Klaxon", btn_panto:"Panto", btn_doors:"Portes", btn_stop:"Stop",
     ctl_track:"Voie", track_hint:"Changement par une communication 400 m devant la rame.", track_busy:"Communication déjà engagée, attendez.", track_occupied:"Voie occupée par un train en face.", track_2:"Voie 2 (sens Paris)", track_1:"Voie 1 (sens Toulouse)",
     ctl_time:"Vitesse du temps", horn:"Klaxon (H)", hud_pk:"PK", hud_alt:"Alt.", hud_grade:"Pente", hud_tracks:"Voies", hud_limit:"Limite", hud_next:"Prochaine gare", hud_end:"Terminus", hud_tp:"Aller au PK", hud_go:"Go", rb_title:"Cliquez ou glissez sur la ligne pour vous téléporter", ctl_weather:"Météo", wx_sun:"Soleil", wx_cloud:"Nuages", wx_rain:"Pluie", wx_dusk:"Crépuscule", hud_bridge:"Pont", hud_tunnel:"Tunnel", hud_cutting:"Tranchée", hud_viaduct:"Viaduc",
     cam_hint:"Clavier: W A S D déplacent le point de visée le long de la rame, R/F (ou E/Q) montent et descendent, Maj accélère. H ou Espace: klaxon. Aux places et au poste de conduite, glisser ou W A S D tournent la tête.",
@@ -461,7 +469,7 @@ const T = {
     ctl_doors:"Platform-side doors", doors_open:"Open", doors_closed:"Closed", doors_pax:"Passengers boarding…", doors_hint:"Unlocked at standstill only. No traction while open.",
     ctl_station:"Station stop (autopilot)", station_go:"Go to platform", station_running:"Approaching…", station_at:"At platform", station_hint:"Brakes and stops the set at the platform mark.",
     coupling:"Coupling…", uncoupling:"Uncoupling…", lamp_doors:"Doors", info_hide:"Hide card", info_show:"Show card", f_roof:"25 kV roof line",
-    cam_train:"Whole train", cam_rearroof:"Rear power car", cam_coupler:"Coupling", cam_station:"Station", cam_door:"Doors", cam_seatUp:"Seat upstairs", cam_seatLo:"Seat downstairs", cam_driver:"Driver's seat", scr_brake:"Brake", scr_power:"Power", scr_engine:"Engine", scr_doors:"Doors", scr_panto_dn:"Panto down", btn_horn:"Horn", btn_panto:"Panto", btn_doors:"Doors", btn_stop:"Stop",
+    cam_train:"Whole train", cam_rearroof:"Rear power car", cam_coupler:"Coupling", cam_station:"Station", cam_door:"Doors", cam_seatUp:"Seat upstairs", cam_seatLo:"Seat downstairs", cam_driver:"Driver's seat", cab_ui:"Show controls", cab_leave:"Leave the cab", scr_brake:"Brake", scr_power:"Power", scr_engine:"Engine", scr_doors:"Doors", scr_panto_dn:"Panto down", btn_horn:"Horn", btn_panto:"Panto", btn_doors:"Doors", btn_stop:"Stop",
     ctl_track:"Track", track_hint:"Changes over a crossover 400 m ahead of the train.", track_busy:"Crossover already in use, wait.", track_occupied:"Track occupied by an oncoming train.", track_2:"Track 2 (to Paris)", track_1:"Track 1 (to Toulouse)",
     ctl_time:"Time scale", horn:"Horn (H)", hud_pk:"km", hud_alt:"Alt.", hud_grade:"Grade", hud_tracks:"Tracks", hud_limit:"Limit", hud_next:"Next station", hud_end:"Terminus", hud_tp:"Go to km", hud_go:"Go", rb_title:"Click or drag on the line to teleport", ctl_weather:"Weather", wx_sun:"Sun", wx_cloud:"Clouds", wx_rain:"Rain", wx_dusk:"Dusk", hud_bridge:"Bridge", hud_tunnel:"Tunnel", hud_cutting:"Cutting", hud_viaduct:"Viaduct",
     cam_hint:"Keys: W A S D move the focus along the train, R/F (or E/Q) up and down, Shift is faster. H or Space: horn. In a seat or the driver's seat, drag or W A S D turn your head.",
@@ -2907,11 +2915,10 @@ function driverSeat(){   // the cab at the head of the train, whichever way it r
   if (S.mode !== 'tgv') return S.dir > 0 ? parts.cab.group.getObjectByName('cabLoco') : wagons.children[wagons.children.length - 1];
   return S.dir > 0 ? tgvDriver.parent : (S.sets === 2 || S.coupling !== 0 ? pcHosts[1] : pcHosts[0]).driver.parent;
 }
-let drvCover = 0;   // the share of the view under the page's controls when the driver's view was last framed
-function driverView(){   // first person in the driver's place, the dashboard at the bottom of what the page leaves visible (keepDriver in 03h keeps it seated and framed)
-  const obj = driverSeat(), V = THREE.Vector3; drvCover = uiCover();
+function driverView(){   // first person in the driver's place, the page's controls out of the way (keepDriver in 03h keeps it seated)
+  const obj = driverSeat(), V = THREE.Vector3;
   if (S.mode !== 'tgv' && S.dir < 0) return { obj, eye:new V(-8.9, 4.0, 0), yaw:Math.PI, pitch:-0.05 };   // just past the end of the last wagon, looking back down the line
-  const pitch = -0.57 + Math.atan((1 - 2 * drvCover) * Math.tan(fpFov(camera.aspect) * Math.PI / 360));   // the dashboard's lower edge (about -32°) at the edge of the page's bottom controls
+  const pitch = -0.09;   // the dashboard's lower edge (about -32°) on the bottom edge of the widest view (55° tall); a taller one shows more roof and desk alike
   return S.mode === 'tgv' ? { obj, eye:new V(8.3, 3.45, 0), yaw:0, pitch } : { obj, eye:new V(8.25, 3.2, 0.55), yaw:0, pitch };
 }
 let seatFace = 1;   // the way the viewer's seat faces: the way the train ran when the view was taken (updateTgv moves the viewer when it turns round)
@@ -4583,7 +4590,7 @@ window.addEventListener('keydown', e => {
   if (e.target.matches('input,textarea,select')) return;
   if (e.key === 'ArrowRight'){ stopAuto(); goStep(stepIdx + 1); }
   else if (e.key === 'ArrowLeft'){ stopAuto(); goStep(stepIdx - 1); }
-  else if (e.key === 'Escape') select(null);
+  else if (e.key === 'Escape'){ if (inCab) cabActions.leave(); else select(null); }
 });
 
 /* ---- controls */
@@ -4716,6 +4723,7 @@ $('langSeg').addEventListener('click', e => { const b = e.target.closest('button
 /* ---- picking */
 const ray = new THREE.Raycaster(), ptr = new THREE.Vector2();
 orbit.onClick = e => {
+  if (inCab){ document.body.classList.remove('cab-ui'); return; }   // in the driver's place a tap on the view puts the controls away again
   const r = canvas.getBoundingClientRect();
   ptr.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
   ray.setFromCamera(ptr, camera);
@@ -4735,7 +4743,7 @@ orbit.onClick = e => {
 /* ---- the driver's place: the screens (one canvas shared by every cab) and the push buttons on the desk */
 const CAB_FONT = '"Barlow Condensed","Arial Narrow",Arial,sans-serif';
 for (const w of [600, 700]) document.fonts?.load(`${w} 40px "Barlow Condensed"`);   // a canvas does not fetch a web font by itself
-const cabActions = {   // what each desk button does; the kid build swaps in its own
+const cabActions = {   // what each desk button does, and the way out of the cab; the kid build swaps in its own
   horn(){   // sounds while held, like the horn button
     horn.press();
     const up = () => { horn.release(); window.removeEventListener('pointerup', up); window.removeEventListener('pointercancel', up); };
@@ -4744,6 +4752,7 @@ const cabActions = {   // what each desk button does; the kid build swaps in its
   panto(){ $('swPanto').click(); },
   doors(){ $('swDoors').click(); },
   stop(){ manual(); S.notch = 0; S.brake = 8; syncControls(); },   // emergency: power off, full brake
+  leave(){ flyPreset(stepV(STEPS[S.mode][stepIdx]).cam); },   // back to the guide's view
 };
 const shown = o => { for (; o; o = o.parent) if (!o.visible) return false; return true; };
 orbit.onPress = e => {   // in the driver's place a press on a desk button works it; anywhere else it turns the head
@@ -4758,21 +4767,14 @@ orbit.onPress = e => {   // in the driver's place a press on a desk button works
   }
   return false;
 };
-function uiCover(){   // share of the canvas height under the controls along its bottom that cross its middle (phone dock, kid controls, the guide's card)
-  const r = canvas.getBoundingClientRect(), mid = r.left + r.width / 2; let top = r.bottom;
-  for (const el of document.querySelectorAll('#dock, .gauges, .kid-bottom, #infocard')){
-    const b = el.getBoundingClientRect();
-    if (b.left < mid && b.right > mid && b.top > r.top + r.height * 0.4) top = Math.min(top, b.top);
-  }
-  return clamp((r.bottom - top) / r.height, 0, 0.6);
+let inCab = false;
+function keepDriver(){   // in the driver's place the page's controls step aside (🎛️ brings them back until the next tap on the view); the view moves to the other end when the train turns round
+  const on = orbit.fp?.name === 'driver';
+  if (on !== inCab){ inCab = on; document.body.classList.toggle('in-cab', on); document.body.classList.remove('cab-ui'); }
+  if (on && orbit.fp.obj !== driverSeat()) flyPreset('driver');
 }
-let drvT = 0;
-function keepDriver(dt){   // the driver's view moves to the other end when the train turns round, and re-frames when controls open or close over it
-  if (orbit.fp?.name !== 'driver') return;
-  if (orbit.fp.obj !== driverSeat()) return flyPreset('driver');
-  if ((drvT += dt) < 0.5) return;
-  drvT = 0; if (Math.abs(uiCover() - drvCover) > 0.04) flyPreset('driver');
-}
+$('cabUi').addEventListener('click', () => document.body.classList.add('cab-ui'));
+$('cabLeave').addEventListener('click', () => cabActions.leave());
 let cabT = 1;   // seconds since the screens were last drawn
 const _cabP = new THREE.Vector3();
 function updateCab(dt){
@@ -5045,7 +5047,7 @@ function updateCompass(){
 let frameHook = null;   // the kid build hangs its own rules here
 function frame(dt){
   simulate(dt); animate(Math.min(dt * S.timeScale, 0.25)); updateFlows(dt); updateWeather(dt); panKeys(dt); if (frameHook) frameHook(dt);
-  keepDriver(dt);
+  keepDriver();
   orbit.update(dt); updateCab(dt); updateCompass(); updateSound(dt);
 }
 window.tick = (sec, dt = 0.05) => { for (let t = 0; t < sec - 1e-9; t += dt) frame(dt); renderer.render(scene, camera); updateLabels(); updateGauges(); updateHud(); };
@@ -5087,6 +5089,7 @@ const KID_MUL = { tgv:{ p:3, a:3, b:2 }, electric:{ p:3, a:1.2, b:3 }, diesel:{ 
 document.body.classList.add('kid');
 document.head.insertAdjacentHTML('beforeend', `<style>
 body.kid .topbar,body.kid .dock,body.kid .infocard,body.kid .gauges,body.kid #hud{display:none!important}
+body.in-cab:not(.cab-ui) :is(.kid-top,.kid-menu,.kid-bottom){display:none}
 body.kid .lbl{font:600 15px/1 var(--font-body);padding:8px 12px;border-radius:10px;background:#fff;color:#1b2430;border-color:#fff}
 body.kid .lbl::after{background:#fff;height:18px}
 #kid{position:absolute;inset:0;pointer-events:none;color:#1b2430;font-family:var(--font-body);-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
@@ -5107,6 +5110,8 @@ body.kid .lbl::after{background:#fff;height:18px}
 .kid-next{font:600 13.5px/1.2 var(--font-body);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
 body.kid .compass{top:64px;right:10px;background:rgba(255,255,255,.93);border:0;box-shadow:0 6px 18px rgba(0,0,0,.25);-webkit-backdrop-filter:none;backdrop-filter:none;--ink:#1b2430;--muted:#5d6b78;--panel-solid:#fff;--accent:#f28c28}
 .kid-gear{width:46px;height:46px;border-radius:50%;border:0;background:rgba(255,255,255,.85);font-size:22px;line-height:1;box-shadow:0 4px 12px rgba(0,0,0,.25);flex:0 0 auto}
+body.kid .cab-bar{top:10px;right:10px;gap:10px}
+body.kid .cab-bar button{width:56px;height:56px;border:0;background:rgba(255,255,255,.93);color:#1b2430;font-size:28px;box-shadow:0 4px 12px rgba(0,0,0,.25);-webkit-backdrop-filter:none;backdrop-filter:none;touch-action:manipulation}
 .kid-menu{position:absolute;top:64px;right:10px;padding:12px;display:flex;flex-direction:column;gap:8px;min-width:220px;pointer-events:auto}
 .kid-menu[hidden]{display:none}
 .kid-menu .seg{display:flex;border:2px solid #1b2430;border-radius:10px;overflow:hidden}
@@ -5165,6 +5170,7 @@ body.kid #rbTip{font-size:13px;padding:5px 9px;top:-30px;border-radius:8px}
   .kid-speed{padding:2px 12px 3px;min-width:0}.kid-speed .n{font-size:26px}.kid-speed .n small{font-size:12px}.kid-next{display:block;font-size:11px;margin-top:0}
   .kid-gear{width:36px;height:36px;font-size:17px}.kid-menu{top:48px;right:6px}
   body.kid .compass{top:48px;right:6px;width:44px;height:44px}
+  body.kid .cab-bar{top:6px;right:6px;gap:8px}body.kid .cab-bar button{width:46px;height:46px;font-size:23px}
   .kid-toast{font-size:17px;padding:10px 16px;top:32%}
   .kid-bottom{left:6px;right:6px;bottom:calc(6px + env(safe-area-inset-bottom,0px));gap:6px}
   .kid-route{padding:4px 12px 0}
@@ -5218,6 +5224,7 @@ $('c3d').parentElement.insertAdjacentHTML('beforeend', `<div id="kid">
   </div>
 </div>`);
 $('kidRoute').appendChild($('routeBar'));   // the line with its station dots keeps its own click, drag and teleport handlers
+{ const b = $('cabLeave'); b.textContent = '📷'; delete b.dataset.i18nAria; delete b.dataset.i18nTitle; }   // in the cab the way out is the camera button: next view
 
 /* ---- helpers */
 function kidPower(full){ ensureBattery(); if (S.mode === 'diesel') ensureRunning(); else if (full) ensureLive(); }   // full: pantograph up and line closed at once (start, train change)
@@ -5293,6 +5300,7 @@ function kidLang(){
   document.querySelectorAll('[data-kid]').forEach(el => { el.textContent = kt(el.dataset.kid); });
   $('kidLang').querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.lang === S.lang)));
   $('kidLever').setAttribute('aria-label', kt('lever'));
+  $('cabLeave').setAttribute('aria-label', kt('cam')); $('cabLeave').title = kt('cam');
 }
 function kidTick(){
   $('kidSpeed').textContent = Math.round(S.speed * 3.6);
@@ -5336,10 +5344,10 @@ $('kidSound').addEventListener('click', e => { const b = e.target.closest('butto
 try { if (localStorage.getItem('kid.mute') === '1') kidMute(true); } catch (e) {}
 document.addEventListener('pointerdown', e => { if (!$('kidMenu').hidden && !e.target.closest('#kidMenu,#kidGear')){ $('kidMenu').hidden = true; $('kidGear').setAttribute('aria-expanded', 'false'); } });
 
-/* ---- hooks into the engine: both pantographs of the first TGV set follow the switch; the desk buttons in the cab work as the kid buttons */
+/* ---- hooks into the engine: both pantographs of the first TGV set follow the switch; the desk buttons in the cab work as the kid buttons, its 📷 as the camera button */
 pantoHook = f => { if (S.mode !== 'tgv') return false; for (const p of tgvSets[0].pantos) posePanto(p, f); posePanto(panto, f); return true; };   // kid mode: the front pantograph rises too, so the ⚡ button shows on the car the child looks at
 frameHook = () => { if (S.mode !== 'diesel' && S.battery && S.lineOn && S.panto && !S.vcb) S.vcb = true; };   // the child only handles the pantograph: the line breaker follows it
-Object.assign(cabActions, { panto:kidPanto, doors:() => kidDoors(true), stop:kidStop });
+Object.assign(cabActions, { panto:kidPanto, doors:() => kidDoors(true), stop:kidStop, leave:kidCam });
 
 /* ---- start: a TGV at Bordeaux, powered up, body opaque, ready to go */
 setMode('tgv'); Object.assign(SIM_MUL, KID_MUL.tgv); setShell(1); kidPower(true); S.brake = 4; syncControls();

@@ -940,11 +940,10 @@ function driverSeat(){   // the cab at the head of the train, whichever way it r
   if (S.mode !== 'tgv') return S.dir > 0 ? parts.cab.group.getObjectByName('cabLoco') : wagons.children[wagons.children.length - 1];
   return S.dir > 0 ? tgvDriver.parent : (S.sets === 2 || S.coupling !== 0 ? pcHosts[1] : pcHosts[0]).driver.parent;
 }
-let drvCover = 0;   // the share of the view under the page's controls when the driver's view was last framed
-function driverView(){   // first person in the driver's place, the dashboard at the bottom of what the page leaves visible (keepDriver in 03h keeps it seated and framed)
-  const obj = driverSeat(), V = THREE.Vector3; drvCover = uiCover();
+function driverView(){   // first person in the driver's place, the page's controls out of the way (keepDriver in 03h keeps it seated)
+  const obj = driverSeat(), V = THREE.Vector3;
   if (S.mode !== 'tgv' && S.dir < 0) return { obj, eye:new V(-8.9, 4.0, 0), yaw:Math.PI, pitch:-0.05 };   // just past the end of the last wagon, looking back down the line
-  const pitch = -0.57 + Math.atan((1 - 2 * drvCover) * Math.tan(fpFov(camera.aspect) * Math.PI / 360));   // the dashboard's lower edge (about -32°) at the edge of the page's bottom controls
+  const pitch = -0.09;   // the dashboard's lower edge (about -32°) on the bottom edge of the widest view (55° tall); a taller one shows more roof and desk alike
   return S.mode === 'tgv' ? { obj, eye:new V(8.3, 3.45, 0), yaw:0, pitch } : { obj, eye:new V(8.25, 3.2, 0.55), yaw:0, pitch };
 }
 let seatFace = 1;   // the way the viewer's seat faces: the way the train ran when the view was taken (updateTgv moves the viewer when it turns round)
