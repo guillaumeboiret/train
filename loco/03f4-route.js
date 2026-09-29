@@ -154,13 +154,16 @@ function hash2(a, b, c = 0){ let h = (a * 374761393 + b * 668265263 + c * 224682
 function landType(x, z){ const h = hash2(Math.floor(x / 120), Math.floor(z / 120)); return h < 0.35 ? 0 : h < 0.65 ? 1 : h < 0.8 ? 2 : h < 0.9 ? 3 : 4; }
 function laneWAt(k, s){ const u = ROUTE.stationU(s), w = ROUTE.laneW(k, s, u); if (k === 'B' || k < 2) return w; const w0 = ROUTE.laneW(k - 2, s, u); return w0 + (w - w0) * ROUTE.laneE(k, s); }
 
-/* ---- city approaches: Toulouse, Montauban, Agen, Bordeaux and the last kilometres into Paris get urban blocks, boundary walls and road bridges */
-const CITY_Z = ROUTE.stations.flatMap(st => {   // dense from a to b, fading over fa before and fb after; key = building style (the brick south shares Toulouse's)
-  const s = st.s, L = ROUTE.L;
+/* ---- city approaches: the towns the line stops in (not Futuroscope, Vendôme and Massy, out in the fields or in a trench) and the last kilometres
+   into Paris get urban blocks, boundary walls and road bridges */
+const CITY_HALF = { mtb:1500, agn:1500, lbn:1200, ang:1500, pts:2000, chl:1200, spc:2500 };   // half length of the dense core around the station (m)
+const CITY_KEY = { mtb:'tls', agn:'tls', lbn:'bdx', ang:'bdx', pts:'bdx', chl:'loire', spc:'loire' };
+const CITY_Z = ROUTE.stations.flatMap(st => {   // dense from a to b, fading over fa before and fb after; key = building style: brick south (Toulouse's),
+  const s = st.s, L = ROUTE.L, h = CITY_HALF[st.id];   // limestone and Roman tiles (Bordeaux's), white tufa and slate (the Loire's, north of Poitiers)
   return st.id === 'tls' ? [{ key:'tls', a:-1, b:s + 3500, fa:0, fb:2500 }]
-    : st.id === 'mtb' || st.id === 'agn' ? [{ key:'tls', a:s - 1500, b:s + 1500, fa:1500, fb:1500 }]
     : st.id === 'bdx' ? [{ key:'bdx', a:s - 3500, b:s + 1690, fa:2500, fb:1900 }]
-    : st.id === 'par' ? [{ key:'par', a:L - 5500, b:L + 1, fa:3500, fb:0 }] : [];
+    : st.id === 'par' ? [{ key:'par', a:L - 5500, b:L + 1, fa:3500, fb:0 }]
+    : h ? [{ key:CITY_KEY[st.id], a:s - h, b:s + h, fa:1500, fb:1500 }] : [];
 });
 const cityAt = s => {   // 0 countryside .. 1 dense city
   let v = 0;
@@ -168,7 +171,7 @@ const cityAt = s => {   // 0 countryside .. 1 dense city
   return v;
 };
 const cityKeyAt = s => { let key = 'par', bd = Infinity; for (const z of CITY_Z){ const d = Math.max(z.a - s, s - z.b, 0); if (d < bd){ bd = d; key = z.key; } } return key; };
-const URBAN_COL = { tls:[0.71, 0.60, 0.54], bdx:[0.70, 0.64, 0.55], par:[0.62, 0.60, 0.56] };
+const URBAN_COL = { tls:[0.71, 0.60, 0.54], bdx:[0.70, 0.64, 0.55], loire:[0.68, 0.66, 0.61], par:[0.62, 0.60, 0.56] };
 const winTex = (() => {   // one window bay per tile: 3.2 m wide, 3 m high; the material colour tints the wall around it
   const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d');
   g.fillStyle = '#ffffff'; g.fillRect(0, 0, 128, 128);
@@ -178,8 +181,8 @@ const winTex = (() => {   // one window bay per tile: 3.2 m wide, 3 m high; the 
   const tex = new THREE.CanvasTexture(c); tex.wrapS = tex.wrapT = THREE.RepeatWrapping; tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
   return tex;
 })();
-const cityWallM = { tls:pmat(0xd49a80, { map:winTex, roughness:0.9, metalness:0, side:THREE.DoubleSide }), bdx:pmat(0xe0d6c4, { map:winTex, roughness:0.9, metalness:0, side:THREE.DoubleSide }), par:pmat(0xd6d0c8, { map:winTex, roughness:0.9, metalness:0, side:THREE.DoubleSide }) };
-const cityRoofM = { tls:pmat(0xa9573b, { roughness:0.9, metalness:0, side:THREE.DoubleSide }), bdx:pmat(0x9b5b3d, { roughness:0.9, metalness:0, side:THREE.DoubleSide }), par:pmat(0x6a7079, { roughness:0.7, metalness:0.15, side:THREE.DoubleSide }) };
+const cityWallM = { tls:pmat(0xd49a80, { map:winTex, roughness:0.9, metalness:0, side:THREE.DoubleSide }), bdx:pmat(0xe0d6c4, { map:winTex, roughness:0.9, metalness:0, side:THREE.DoubleSide }), loire:pmat(0xebe5d6, { map:winTex, roughness:0.9, metalness:0, side:THREE.DoubleSide }), par:pmat(0xd6d0c8, { map:winTex, roughness:0.9, metalness:0, side:THREE.DoubleSide }) };
+const cityRoofM = { tls:pmat(0xa9573b, { roughness:0.9, metalness:0, side:THREE.DoubleSide }), bdx:pmat(0x9b5b3d, { roughness:0.9, metalness:0, side:THREE.DoubleSide }), loire:pmat(0x4b525c, { roughness:0.75, metalness:0.05, side:THREE.DoubleSide }), par:pmat(0x6a7079, { roughness:0.7, metalness:0.15, side:THREE.DoubleSide }) };
 const wallM = pmat(0x8f8a82, { roughness:0.95, metalness:0 }), asphaltM = pmat(0x3a3c40, { roughness:0.95, metalness:0 });
 /* a building: four textured facades + a roof frustum (mansard in Paris, hip elsewhere); yaw aligns its length with the track */
 function cityBox(walls, roofs, cx, cy, cz, w, h, d, yaw, roofH, inset){
@@ -209,7 +212,7 @@ const landmarkGround = (s, w, yF, t) => {
 };
 const TRENCH = { msy:5 };   // stations dug below the surrounding ground (m): Massy TGV really sits in an open trench between two tunnels (the smoothed relief is flat there)
 const trenchAt = s => { for (const st of ROUTE.stations){ const dep = TRENCH[st.id]; if (dep){ const w = Math.min(ROUTE.sstep((s - (st.s - 300)) / 60), ROUTE.sstep((st.s + 100 - s) / 60)); if (w > 0) return dep * w; } } return 0; };
-const NO_WALL_AT = { tls:[-Infinity, 350], mtb:[-800, 350], agn:[-800, 350], bdx:[-800, 350], par:[-500, Infinity] };   // no boundary wall between a station building and its tracks
+const NO_WALL_AT = { tls:[-Infinity, 350], mtb:[-800, 350], agn:[-800, 350], bdx:[-800, 350], lbn:[-800, 350], ang:[-800, 350], pts:[-800, 350], chl:[-800, 350], spc:[-800, 350], par:[-500, Infinity] };   // no boundary wall between a station building and its tracks
 const NO_WALL = ROUTE.stations.filter(st => NO_WALL_AT[st.id]).map(st => [st.s + NO_WALL_AT[st.id][0], st.s + NO_WALL_AT[st.id][1]]);
 const paveM = pmat(0x9b968e, { roughness:0.95, metalness:0 });
 /* the city behind each terminus, in station coordinates: the route data ends at the buffer stops, so these blocks are static and only shown with the landmark.

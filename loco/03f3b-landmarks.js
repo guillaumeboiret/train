@@ -96,7 +96,7 @@ const landmarks = {};
     const G = new THREE.Group(); G.visible = false; station.add(G); landmarks.par = G;
     const concM = pmat(0x8d8a84, { roughness:0.95, metalness:0 }), darkM = pmat(0x4b4e52, { roughness:0.9, metalness:0 }), grassM = pmat(0x4f7a3a, { roughness:1, metalness:0 });
     const glassM = pmat(0x9ec5e0, { roughness:0.2, metalness:0.3, transparent:true, opacity:0.55 }), lightM = new THREE.MeshBasicMaterial({ color:0xfff4d6 });
-    const DX0 = -366, DX1 = -8, DL = DX1 - DX0, DXC = (DX0 + DX1) / 2, DZ0 = -62, DZ1 = 62, DW = DZ1 - DZ0, DY = 8.6;   // deck: 358 m × 124 m, underside 8.6 m above the rails (OSM: "tunnel" Voie 21 from PK 794.42 to the end)
+    const DX0 = -366, DX1 = -8, DL = DX1 - DX0, DXC = (DX0 + DX1) / 2, DZ0 = -62, DZ1 = 62, DW = DZ1 - DZ0, DY = 8.6;   // deck: 358 m × 124 m, underside 8.6 m above the rails (OSM: "tunnel" Voie 21 over the last 370 m)
     const deck = box(DL, 2.4, DW, concM, DXC, DY + 1.2, 0); G.add(deck);
     G.add(box(DL, 0.3, DW - 8, grassM, DXC, DY + 2.55, 0));                                                              // Jardin Atlantique
     G.add(box(DL, 1.2, 0.5, concM, DXC, DY + 3.0, DZ0 + 0.25), box(DL, 1.2, 0.5, concM, DXC, DY + 3.0, DZ1 - 0.25));   // parapets

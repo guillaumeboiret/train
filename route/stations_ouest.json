@@ -1,0 +1,56 @@
+{
+  "version": 0.6,
+  "generator": "Overpass API 0.7.62.7 375dc00a",
+  "osm3s": {
+    "timestamp_osm_base": "2026-09-29T06:16:21Z",
+    "copyright": "The data included in this document is from www.openstreetmap.org. The data is made available under ODbL."
+  },
+  "elements": [
+
+{
+  "type": "node",
+  "id": 4290854867,
+  "lat": 46.8186988,
+  "lon": 0.5492875,
+  "tags": {
+    "name": "Châtellerault",
+    "official_name": "Châtellerault",
+    "opening_hours": "Mo-Fr,Su 06:10-22:30; Sa 06:10-20:30",
+    "operator": "SNCF Gares & Connexions",
+    "operator:wikidata": "Q3098278",
+    "operator:wikipedia": "fr:SNCF Gares & Connexions",
+    "public_transport": "station",
+    "railway": "station",
+    "railway:ref": "CRT",
+    "railway:ref:DB": "XFCRT",
+    "ref:FR:sncf:resarail": "FRXCX",
+    "source": "SNCF - 06/2013",
+    "train": "yes",
+    "uic_ref": "8757514",
+    "wheelchair": "yes",
+    "wikidata": "Q1878152",
+    "wikipedia": "fr:Gare de Châtellerault"
+  }
+},
+{
+  "type": "node",
+  "id": 4440726274,
+  "lat": 46.6696540,
+  "lon": 0.3781606,
+  "tags": {
+    "name": "Futuroscope",
+    "network": "SNCF",
+    "official_name": "Futuroscope",
+    "opening_hours": "Mo-Su 07:00-21:00",
+    "public_transport": "station",
+    "railway": "station",
+    "railway:ref": "FTU",
+    "ref:FR:sncf:resarail": "FRTGO",
+    "uic_ref": "8732409",
+    "wikidata": "Q686045",
+    "wikipedia": "fr:Gare du Futuroscope"
+  }
+}
+
+  ]
+}

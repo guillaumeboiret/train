@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Bake the Toulouse Matabiau -> Bordeaux Saint-Jean -> Paris Montparnasse alignment from OSM + terrain tiles into loco/03a2-route.js.
-Inputs: rails_*.json (Overpass, out body + skel nodes), stations.json, stations_sud.json. Elevation: AWS terrarium tiles (cached in ./tiles).
-Two legs: Toulouse -> the old Bordeaux start, then the old Bordeaux -> Paris path, so the northern half stays metre for metre what it was.
+Inputs: rails_*.json (Overpass, out body + skel nodes), stations.json, stations_sud.json, stations_ouest.json. Elevation: AWS terrarium tiles (cached in ./tiles).
+Legs: Toulouse -> the old Bordeaux start (the southern half stays metre for metre what it was), then on to Paris through every station
+a Paris - Bordeaux TGV calls at off the LGV (VIA), on the LGV everywhere else.
 """
 import json, math, heapq, base64, struct, sys, os, io, urllib.request, time, glob
 from PIL import Image
@@ -36,21 +37,28 @@ def usable(w):
     return True
 use = {wid: w for wid, w in ways.items() if usable(w) and all(n in nodes for n in w['nodes'])}
 print('ways total', len(ways), 'usable', len(use), 'nodes', len(nodes))
+def msp(t):
+    v = t.get('maxspeed') or t.get('maxspeed:forward') or t.get('maxspeed:backward')
+    if v:
+        try: return int(float(v.split()[0]))
+        except: pass
+    return 320 if t.get('highspeed') == 'yes' else 160
 
 # ------------------------------------------------------------------ graph
-adj = {}
-def add(u, v, wgt, wid):
+adj = {}   # node -> {next node: (weight, way, heading from node to next (None under 0.5 m), running time)}
+def add(u, v, wgt, wid, d, tm):
     adj.setdefault(u, {}); adj.setdefault(v, {})
-    if v not in adj[u] or adj[u][v][0] > wgt: adj[u][v] = (wgt, wid)
-    if u not in adj[v] or adj[v][u][0] > wgt: adj[v][u] = (wgt, wid)
+    h = bearing(nodes[u], nodes[v]) if d >= 0.5 else None
+    if v not in adj[u] or adj[u][v][0] > wgt: adj[u][v] = (wgt, wid, h, tm)
+    if u not in adj[v] or adj[v][u][0] > wgt: adj[v][u] = (wgt, wid, None if h is None else h + math.pi, tm)
 for wid, w in use.items():
     t = w.get('tags', {})
     k = 1.0 if t.get('highspeed') == 'yes' else 2.5
-    if t.get('service') == 'crossover': k *= 1.5
+    x = 1.5 if t.get('service') == 'crossover' else 1
     ns = w['nodes']
     for i in range(len(ns) - 1):
         d = hav(nodes[ns[i]], nodes[ns[i + 1]])
-        add(ns[i], ns[i + 1], d * k, wid)
+        add(ns[i], ns[i + 1], d * k * x, wid, d, d * x / max(msp(t), 30))
 
 def nearest_node(lat, lon, maxd=400, pred=None):
     best = None
@@ -60,28 +68,51 @@ def nearest_node(lat, lon, maxd=400, pred=None):
         if d < maxd and (best is None or d < best[0]): best = (d, nid)
     return best
 
-def dijkstra(src, dst):
-    dist = {src: 0}; prev = {}; pq = [(0, src)]
+def dijkstra(src, dst, back=None, cost=0):
+    """Shortest path a train can run: over (node, node it came from) states, so it never folds back through a switch or at a stop
+    (a turn over 90 degrees at a node). back: the node the train came into src from. cost: 0 adds up the weight, 3 the running time."""
+    dist = {(src, back): 0}; prev = {}; pq = [(0, src, back)]; end = None
     while pq:
-        d, u = heapq.heappop(pq)
-        if u == dst: break
-        if d > dist.get(u, 1e30): continue
-        for v, (w, wid) in adj[u].items():
-            nd = d + w
-            if nd < dist.get(v, 1e30): dist[v] = nd; prev[v] = (u, wid); heapq.heappush(pq, (nd, v))
-    if dst not in dist: return None
-    path = []; u = dst
-    while u != src: p, wid = prev[u]; path.append((u, wid)); u = p
+        d, v, u = heapq.heappop(pq)
+        if v == dst: end = (v, u); break
+        if d > dist.get((v, u), 1e30): continue
+        hin = adj[u][v][2] if u is not None else None
+        for w, e in adj[v].items():
+            h = e[2]
+            if w == u or (hin is not None and h is not None and abs((h - hin + math.pi) % (2 * math.pi) - math.pi) > math.pi / 2): continue
+            nd = d + e[cost]
+            if nd < dist.get((w, v), 1e30): dist[(w, v)] = nd; prev[(w, v)] = ((v, u), e[1]); heapq.heappush(pq, (nd, w, v))
+    if end is None: return None
+    path = []; x = end
+    while x != (src, back): p, wid = prev[x]; path.append((x[0], wid)); x = p
     path.append((src, None)); path.reverse()
     return path   # list of (node, way used to arrive)
 
 SRC = (43.6012823, 1.4585053)   # Toulouse: main line 1.1 km south of the Matabiau building, past the platforms on the Narbonne side
 MID = (44.8190, -0.5495)        # ~700 m south of Bordeaux Saint-Jean: the start of the old Bordeaux -> Paris route
 DST = (48.8412, 2.3195)         # Paris Montparnasse buffer stops
+st = json.load(open('stations.json'))['elements'] + json.load(open('stations_sud.json'))['elements'] + json.load(open('stations_ouest.json'))['elements']
+def st_pos(name):
+    e = next(e for e in st if e.get('tags', {}).get('name') == name)
+    c = e.get('center', e); return c['lat'], c['lon']
+# the calls on the classic line, south to north: the path goes through a main line node next to each station building
+VIA = ['Libourne', 'Angoulême', 'Poitiers', 'Futuroscope', 'Châtellerault', 'Saint-Pierre-des-Corps']
+main = set()   # nodes of the through lines (not sidings, yards or crossovers)
+for w in use.values():
+    t = w.get('tags', {})
+    if 'service' not in t and t.get('ref') in ('570000', '538000'): main.update(w['nodes'])
 s = nearest_node(*SRC, 600); m = nearest_node(*MID, 600); t = nearest_node(*DST, 600)
-print('src', s, 'mid', m, 'dst', t)
-leg1 = dijkstra(s[1], m[1]); leg2 = dijkstra(m[1], t[1])
-if not leg1 or not leg2: print('NO PATH'); sys.exit(1)
+via = [nearest_node(*st_pos(n), 400, lambda nid: nid in main) for n in VIA]
+print('src', s, 'mid', m, 'dst', t, 'via', [(n, round(v[0])) for n, v in zip(VIA, via)])
+leg1 = dijkstra(s[1], m[1])
+if not leg1: print('NO PATH'); sys.exit(1)
+# from Bordeaux on, each leg leaves a stop the way the train came in and takes the quickest line, as TGVs do (the shortest one
+# leaves Bordeaux on the 110 km/h Chartres line through Bassens); leg1 keeps the weight it was built and checked with
+leg2 = [(m[1], None)]
+for a, b in zip([m] + via, via + [t]):
+    part = dijkstra(a[1], b[1], (leg1 if len(leg2) == 1 else leg2)[-2][0], 3)
+    if not part: print('NO PATH to', b); sys.exit(1)
+    leg2 += part[1:]
 path = leg1 + leg2[1:]
 print('path nodes', len(path), 'legs', len(leg1), len(leg2))
 
@@ -122,12 +153,6 @@ def runs_from(fn, default):
         v = fn(wtags[i]); v = default if v is None else v
         if v != cur: out.append([S[i - 1], v]); cur = v
     return out
-def msp(t):
-    v = t.get('maxspeed') or t.get('maxspeed:forward') or t.get('maxspeed:backward')
-    if v:
-        try: return int(float(v.split()[0]))
-        except: pass
-    return 320 if t.get('highspeed') == 'yes' else 160
 vmax = runs_from(msp, 160)
 # merge short runs (< 300 m) into neighbours
 def clean_runs(rs, minlen):
@@ -303,9 +328,10 @@ for i in range(0, NS, 2):
 print('terrain samples', len(ter), 'tiles used', len(tile_cache))
 
 # ------------------------------------------------------------------ stations
-st = json.load(open('stations.json'))['elements'] + json.load(open('stations_sud.json'))['elements']
 WANT = { 'Toulouse-Matabiau':('tls', 'Toulouse Matabiau', 2), 'Montauban Ville Bourbon':('mtb', 'Montauban Ville Bourbon', 1), 'Agen':('agn', 'Agen', 1),
-         'Bordeaux-Saint-Jean':('bdx', 'Bordeaux Saint-Jean', 2), 'Vendôme-Villiers TGV':('vdm', 'Vendôme-Villiers-sur-Loir TGV', 1), 'Massy-TGV':('msy', 'Massy TGV', 1) }
+         'Bordeaux-Saint-Jean':('bdx', 'Bordeaux Saint-Jean', 2), 'Libourne':('lbn', 'Libourne', 2), 'Angoulême':('ang', 'Angoulême', 2),
+         'Poitiers':('pts', 'Poitiers', 2), 'Futuroscope':('fut', 'Futuroscope', 2), 'Châtellerault':('chl', 'Châtellerault', 1),
+         'Saint-Pierre-des-Corps':('spc', 'Saint-Pierre-des-Corps', 2), 'Vendôme-Villiers TGV':('vdm', 'Vendôme-Villiers-sur-Loir TGV', 2), 'Massy-TGV':('msy', 'Massy TGV', 2) }   # sets: 2 where the OSM platforms reach 400 m
 stations = []
 def nearest_s(lat, lon):
     best = None
@@ -324,6 +350,10 @@ for e in st:
     stations.append({ 'id': sid, 'name': label, 's': round(min(max(sv + 210, 470), L - 470), 1), 'sets': sets })
 stations.append({ 'id': 'par', 'name': 'Paris Montparnasse', 's': round(L - 6, 1), 'sets': 2 })
 stations.sort(key=lambda x: x['s'])
+# where the tour's 320 km/h step drops the train: 3.8 km into the first 20 km cleared for 320 north of Bordeaux
+bdx_s = next(x['s'] for x in stations if x['id'] == 'bdx')
+FAST = next(round(a + 3800, -2) for (a, v), b in zip(vmax, [r[0] for r in vmax[1:]] + [L]) if a > bdx_s and v >= 320 and b - a >= 20000)
+print('tour step 5 at', FAST)
 
 # ------------------------------------------------------------------ simplify path (Douglas-Peucker on the local plane), cap segment length
 pts = list(zip(E, N))
@@ -364,7 +394,7 @@ route = {
     'TS': TS, 'TW': TW, 'ter': b64i16([v * 10 for v in ter]),
     'tracks': [[round(a, 1), b] for a, b in tracks], 'vmax': [[round(a, 1), b] for a, b in vmax], 'volt': [[round(a, 1), b] for a, b in volt],
     'structs': [[round(a, 1), round(b, 1), k, n] for a, b, k, n in structs],
-    'stations': stations,
+    'stations': stations, 'fast': FAST,
     'src': 'Tracé: © OpenStreetMap contributors (ODbL). Relief: Mapzen/AWS Terrain Tiles (SRTM). Profil de la voie lissé et limité à 2,5 %.',
 }
 js = 'const ROUTE_DATA = ' + json.dumps(route, ensure_ascii=False, separators=(',', ':')) + ';\n'

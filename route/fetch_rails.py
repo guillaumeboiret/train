@@ -10,10 +10,20 @@ Q = {   # name: Overpass body, saved as rails_<name>.json for build_route.py
  'agn':  'way["railway"="rail"](44.192,0.595,44.218,0.650);',
  'mtb':  'way["railway"="rail"](43.995,1.318,44.022,1.358);',
  'tls':  'way["railway"="rail"](43.592,1.425,43.632,1.478);',
+ # the stops between Bordeaux and Paris off the LGV: the classic Paris - Bordeaux line (570000), the Poitiers - La Rochelle line (538000)
+ # that the southern Poitiers connections join, and the connections from both to the LGV; then every track around each of those stations
+ 'classic':'way["railway"="rail"]["ref"~"^(570000|538000|538310|538311|570345|570350|570360|570380|570385|570390|431315)$"](44.80,-0.75,47.56,1.15);',
+ 'lbn':  'way["railway"="rail"](44.903,-0.263,44.929,-0.209);',
+ 'ang':  'way["railway"="rail"](45.641,0.137,45.667,0.191);',
+ 'pts':  'way["railway"="rail"](46.570,0.306,46.596,0.360);',
+ 'fut':  'way["railway"="rail"](46.657,0.351,46.683,0.405);',
+ 'chl':  'way["railway"="rail"](46.806,0.522,46.832,0.576);',
+ 'spc':  'way["railway"="rail"](47.373,0.697,47.399,0.751);',
 }
 EXTRA = {   # not rails: name: (Overpass body, output file, output statement)
  'wind': ('node["power"="generator"]["generator:source"="wind"](44.70,-0.95,48.90,2.50);', 'wind.json', 'out body;'),
  'stations_sud': ('nwr["railway"="station"]["name"~"^(Agen|Montauban Ville Bourbon|Toulouse-Matabiau)$"](43.55,0.55,44.25,1.50);', 'stations_sud.json', 'out center;'),
+ 'stations_ouest': ('nwr["railway"="station"]["name"~"^(Châtellerault|Futuroscope)$"](46.55,0.25,46.90,0.65);', 'stations_ouest.json', 'out center;'),
 }
 def fetch(name, body, out=None, stmt='out body;>;out skel qt;'):
     q = f'[out:json][timeout:240][maxsize:1073741824];({body});{stmt}'

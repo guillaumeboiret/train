@@ -29,7 +29,7 @@ const S = {
 function startEngine(){ if (S.mode !== 'diesel' || !S.battery || S.engine !== 'off') return; S.engine = 'cranking'; S.crankT = 0; }
 function stopEngine(){ if (S.engine === 'running') S.engine = 'stopping'; else if (S.engine === 'cranking') S.engine = 'off'; }
 
-/* line voltage under the train: 25 kV AC on the high-speed lines, 1.5 kV DC on the older network (Toulouse to Bordeaux, out of Bordeaux, into Paris) */
+/* line voltage under the train: 25 kV AC on the high-speed lines, 1.5 kV DC on the older network (Toulouse to Angoulême, through Poitiers, through Saint-Pierre-des-Corps, into Paris) */
 function lineDc(){ return S.mode !== 'diesel' && ROUTE.voltAt(S.dist) < 3000; }
 function syncVolt(){ const dc = lineDc(); if (dc !== S.dc){ S.dc = dc; voltChanged(); } }
 function voltSnap(){ syncVolt(); S.pantoDcF = S.dc ? 1 : 0; }   // after a jump: the pantographs are already set for the line there

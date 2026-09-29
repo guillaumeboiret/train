@@ -6,7 +6,7 @@ let selected = null, focusId = null, stepIdx = 0, autoOn = false, autoT = 0, she
 let cutAxis = 'none', cutPos = 0, cutFlip = false, cutPlane = null, infoCollapsed = false;
 const HIL = new THREE.Color(0xf28c28);
 const kvLine = () => S.dc ? t('kv_dc') : '25';
-const T5_S = 290000;   // where step 5 carries the tour: the LGV 32 km north of Bordeaux, 25 kV, cleared for 320 from 286.2 km
+const T5_S = ROUTE_DATA.fast;   // where step 5 carries the tour: 3.8 km into the first 20 km of LGV cleared for 320 north of Bordeaux, 25 kV (baked by route/build_route.py)
 const stepV = st => S.dc && st.dc ? { ...st, ...st.dc } : st;   // under 1.5 kV DC some steps tell another story (text, and sometimes camera and focus)
 function voltChanged(){ buildStepList(); refreshInfo(); if (!selected) setFocus(stepV(STEPS[S.mode][stepIdx]).focus); }
 
@@ -190,7 +190,7 @@ function applyStepState(id){
     case 't3': ensureLine(); S.vcb = true; S.notch = 0; S.brake = 0; break;
     case 't4': ensureLive(); S.doors = false; S.autoStop = false; S.notch = 2; S.brake = 0; break;
     case 't5': ensureLive(); S.doors = false; S.autoStop = false; S.notch = 8; S.brake = 0;
-      if (lineDc() || ROUTE.lineLimit(S.dist) < 300){   // off the high-speed line: carry the train onto the LGV north of Bordeaux, 25 kV, cleared for 320
+      if (lineDc() || ROUTE.lineLimit(S.dist) < 300){   // off the high-speed line: carry the train onto the LGV (T5_S)
         S.dist = T5_S; S.stopS = S.dist; S.dir = 1; S.speed = 250 / 3.6; S.atStation = false; S.coupling = 0;
         trk.from = trk.to = 0; trk.s0 = -1e9; paxResolve(); voltSnap();
       } else if (S.speed < 60) S.speed = 75;
@@ -517,11 +517,11 @@ function updateLabels(){
 
 /* ---- route HUD, line bar, track choice, time scale, horn, free camera keys */
 const KIND_KEY = ['', 'hud_bridge', 'hud_tunnel', 'hud_cutting', 'hud_viaduct'];
-// The line bar is a line diagram, not a map: each stretch between two stops gets half its share of the bar from its length
-// and half from an even split, so the 14 km from Massy to Paris stays wide enough to aim at. The tip still shows the exact PK.
+// The line bar is a line diagram, not a map: the stops are evenly spaced, as on the displays in the train, so the 14 km from Massy
+// to Paris and the 10 km from Poitiers to Futuroscope keep a gap between their dots to aim at, even on a 264 px bar. The tip still shows the exact PK.
 const RB = (() => {
   const st = ROUTE.stations, s = [0, ...st.map(x => x.s), ROUTE.L], inner = i => i > 0 && i < s.length - 2;
-  const w = s.slice(1).map((v, i) => (v - s[i]) / ROUTE.L * (inner(i) ? 0.5 : 1) + (inner(i) ? 0.5 / Math.max(1, st.length - 1) : 0));
+  const w = s.slice(1).map((v, i) => inner(i) ? 1 / Math.max(1, st.length - 1) : (v - s[i]) / ROUTE.L);   // the stubs behind the two end platforms keep their length
   const sum = w.reduce((a, b) => a + b, 0), f = [0];
   for (const v of w) f.push(f[f.length - 1] + v / sum);
   const lerp = (a, b, v) => { let i = 0; while (i < a.length - 2 && v > a[i + 1]) i++; const d = a[i + 1] - a[i]; return b[i] + (d > 0 ? (v - a[i]) / d : 0) * (b[i + 1] - b[i]); };
@@ -554,14 +554,15 @@ function jumpTo(s, stop = false){
 function jumpToStation(st){ trk.from = trk.to = 0; trk.s0 = -1e9; jumpTo(st.s - TGV.PLAT_FRONT, true); S.doors = false; S.atStation = true; syncControls(); }
 {
   // SHORT order is the order labels win a place when they would overlap, after the two ends
-  const rb = $('routeBar'), bar = document.createElement('div'), SHORT = { bdx:'Bordeaux', par:'Paris', tls:'Toulouse', agn:'Agen', mtb:'Montauban', vdm:'Vendôme', msy:'Massy' };
+  const rb = $('routeBar'), bar = document.createElement('div'), SHORT = { bdx:'Bordeaux', par:'Paris', tls:'Toulouse', pts:'Poitiers', spc:'St-Pierre-des-Corps', ang:'Angoulême', agn:'Agen', mtb:'Montauban', vdm:'Vendôme', msy:'Massy', lbn:'Libourne', chl:'Châtellerault', fut:'Futuroscope' };
   const pct = s => `${(RB.f(s) * 100).toFixed(2)}%`, last = ROUTE.stations.length - 1;
   bar.className = 'rb-in'; rb.appendChild(bar);
-  // only the dot stops the train at that platform; a press anywhere else, a label included, teleports to that point
+  // a tap on a dot stops the train at that platform; any other press, a label included, or a press that slides off a dot
+  // teleports to where it is let go, the tip showing the PK on the way
   const labels = ROUTE.stations.map((st, i) => {
     const b = document.createElement('button'); b.type = 'button'; b.className = 'rb-st'; b.dataset.i = i; b.style.left = pct(st.s); b.title = st.name; b.setAttribute('aria-label', st.name);
     b.innerHTML = '<i></i>';
-    b.addEventListener('click', () => jumpToStation(st));
+    b.addEventListener('click', e => { if (e.detail === 0) jumpToStation(st); });   // the keyboard; pointers are handled on the bar
     const l = document.createElement('span'); l.className = 'rb-lb' + (i === 0 ? ' first' : i === last ? ' last' : ''); l.style.left = pct(st.s); l.textContent = SHORT[st.id] || st.name;
     bar.append(b, l);
     return l;
@@ -582,15 +583,16 @@ function jumpToStation(st){ trk.from = trk.to = 0; trk.s0 = -1e9; jumpTo(st.s - 
   // click or drag anywhere on the line to teleport there
   rb.title = t('rb_title');
   const sAt = e => { const r = bar.getBoundingClientRect(); return RB.s(clamp((e.clientX - r.left) / Math.max(1, r.width), 0, 1)); };
+  let drag = null;   // the press in progress: where it started, the station of the dot it started on, whether it has slid
   const showTip = e => {
-    const b = e.target.closest('.rb-st'), st = b && ROUTE.stations[+b.dataset.i], s = st ? st.s : sAt(e);
+    const b = e.target.closest('.rb-st'), st = drag ? !drag.moved && drag.st : b && ROUTE.stations[+b.dataset.i], s = st ? st.s : sAt(e);
     tip.style.display = 'block'; tip.style.left = pct(s); tip.textContent = st ? st.name : `PK ${(s / 1000).toFixed(1)}`;
   };
-  let dragging = false;
-  rb.addEventListener('pointerdown', e => { if (e.target.closest('.rb-st')) return; dragging = true; rb.setPointerCapture(e.pointerId); showTip(e); });
-  rb.addEventListener('pointermove', showTip);
-  rb.addEventListener('pointerup', e => { if (!dragging) return; dragging = false; tip.style.display = 'none'; jumpTo(sAt(e)); });
-  for (const ev of ['pointercancel', 'pointerleave']) rb.addEventListener(ev, () => { if (!dragging) tip.style.display = 'none'; });
+  rb.addEventListener('pointerdown', e => { const b = e.target.closest('.rb-st'); drag = { x:e.clientX, st:b && ROUTE.stations[+b.dataset.i], moved:false }; rb.setPointerCapture(e.pointerId); showTip(e); });
+  rb.addEventListener('pointermove', e => { if (drag && Math.abs(e.clientX - drag.x) > 4) drag.moved = true; showTip(e); });
+  rb.addEventListener('pointerup', e => { if (!drag) return; const d = drag; drag = null; tip.style.display = 'none'; if (d.st && !d.moved) jumpToStation(d.st); else jumpTo(sAt(e)); });
+  rb.addEventListener('pointercancel', () => { drag = null; tip.style.display = 'none'; });
+  rb.addEventListener('pointerleave', () => { if (!drag) tip.style.display = 'none'; });
   // kilometre post input
   const pkIn = $('pkIn'); pkIn.max = (ROUTE.L / 1000).toFixed(1);
   const pkGo = () => { const v = parseFloat(pkIn.value.replace(',', '.')); if (Number.isFinite(v)) jumpTo(v * 1000); pkIn.blur(); };

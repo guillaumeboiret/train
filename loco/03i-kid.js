@@ -103,6 +103,7 @@ body.kid #rbTip{font-size:13px;padding:5px 9px;top:-30px;border-radius:8px}
   .kid-top{gap:6px}.kt{min-width:52px}.kt .lab{display:none}.kt .ico{font-size:28px}
   .kid-speed{padding:4px 10px}.kid-speed .n{font-size:30px}.kid-next{display:none}
   .kb .lab{display:none}.kb{min-width:60px;height:60px}
+  body.kid .rb-st{width:18px}body.kid .rb-st i{width:12px;height:12px}   /* 13 stops 26 px apart: room to tap between two dots */
 }
 @media (max-height:520px){   /* phone held sideways: one thin row of controls, the view stays visible */
   .kid-top{top:6px;left:6px;right:6px;gap:6px}

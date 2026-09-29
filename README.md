@@ -4,7 +4,7 @@ Three static [Three.js](https://threejs.org) pages about trains, in French and E
 
 | Page | What it is | Live |
 |---|---|---|
-| `locomotive-3d.html` | **Anatomie d'une locomotive**: an interactive explainer of a diesel-electric locomotive, an electric locomotive and a TGV Duplex, driven along the real Toulouse Matabiau to Paris Montparnasse line via Agen, Montauban and Bordeaux Saint-Jean (794.8 km: the classic line under 1.5 kV DC to Bordeaux, then the LGV under 25 kV AC), with a nine-step guide, energy-flow animations, station autopilot, weather and time scale | [train.boiret.com/locomotive](https://train.boiret.com/locomotive/) |
+| `locomotive-3d.html` | **Anatomie d'une locomotive**: an interactive explainer of a diesel-electric locomotive, an electric locomotive and a TGV Duplex, driven along the real Toulouse Matabiau to Paris Montparnasse line with its TGV stops (Montauban, Agen, Bordeaux Saint-Jean, Libourne, Angoulême, Poitiers, Futuroscope, Châtellerault, Saint-Pierre-des-Corps, Vendôme and Massy; 829.5 km: the classic lines under 1.5 kV DC through the towns, the LGVs under 25 kV AC between them), with a nine-step guide, energy-flow animations, station autopilot, weather and time scale | [train.boiret.com/locomotive](https://train.boiret.com/locomotive/) |
 | `locomotive-kid.html` | **Conducteur de train**: the same engine with one screen of big buttons for young children (lever, horn, pantograph, next station autopilot in both directions, cameras, weather, sound) | [train.boiret.com/conducteur](https://train.boiret.com/conducteur/) |
 | `aiguillages.html` | **Aiguillages**: a railway switch puzzle game, 10 levels plus a tutorial | [train.boiret.com/aiguillages](https://train.boiret.com/aiguillages/) |
 
@@ -61,7 +61,7 @@ Adding a language: its code in `OK` in `site/lang.js`, a button in each switcher
 
 ```sh
 cd route
-python3 fetch_rails.py    # Overpass: the high-speed line, the Bordeaux and Paris approaches, the Bordeaux to Toulouse line (640000) and the Agen, Montauban and Toulouse stations, about 9 MB of JSON; fetches only the missing files, or the names given as arguments
+python3 fetch_rails.py    # Overpass: the high-speed lines, the Bordeaux and Paris approaches, the Bordeaux to Toulouse line (640000), the classic Paris to Bordeaux line (570000) from Bordeaux to Tours and the stations, about 13 MB of JSON; fetches only the missing files, or the names given as arguments
 python3 build_route.py    # needs Pillow; downloads terrain tiles into route/tiles/ (about 12 MB, cached) and rewrites loco/03a2-route.js
 cd .. && node route/analyze.mjs   # sanity statistics on the baked data
 ```
@@ -71,7 +71,7 @@ The bake finds the alignment through the OpenStreetMap rail graph, resamples it,
 ## Data and licences
 
 - Code: MIT, see `LICENSE`.
-- Track alignment, stations and structures: © OpenStreetMap contributors, [ODbL 1.0](https://opendatacommons.org/licenses/odbl/1-0/). The baked database in `loco/03a2-route.js` and the extracts in `route/stations.json` and `route/stations_sud.json` are derivative databases and remain under ODbL.
+- Track alignment, stations and structures: © OpenStreetMap contributors, [ODbL 1.0](https://opendatacommons.org/licenses/odbl/1-0/). The baked database in `loco/03a2-route.js` and the extracts in `route/stations.json`, `route/stations_sud.json` and `route/stations_ouest.json` are derivative databases and remain under ODbL.
 - Elevation: [Mapzen Terrain Tiles](https://registry.opendata.aws/terrain-tiles/) (Terrarium format) hosted by the AWS Open Data programme, built from SRTM and the other public sources listed on that page.
 - Three.js: MIT.
 
