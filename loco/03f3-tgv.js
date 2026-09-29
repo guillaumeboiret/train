@@ -654,9 +654,38 @@ definePart('coupler', g => { tgvFrontHatch = buildNoseCoupler(g, mat); pcShells.
 }
 pantoHook = f => { if (S.mode !== 'tgv') return false; posePanto(tgvSets[0].pantos[0], f); posePanto(panto, f * S.pantoDcF); return true; };   // under 25 kV the rear pantograph feeds the roof line and the leading one stays folded; under 1.5 kV DC both rise
 
-/* ---- station: a platform on the camera side sized to the formation (200 m single set, 400 m double), letters A..P */
+/* ---- station: a platform on the camera side sized to the formation (200 m single set, 400 m double), letters A..P.
+   platG holds our platform and its crowd: an island to the right of our track, mirrored (scale.z -1) into a side platform on the
+   left at the LGV stations, where platOpp is the other direction's side platform. The letter signs undo the mirror so they read right */
 const station = new THREE.Group(); world.add(station);   // posed on the line at the nearest station by updateRoute
-const platVariant = {};
+const platG = new THREE.Group(); station.add(platG);
+const platVariant = {}, letterSigns = [];
+let platOpp = null, platSide = 1;
+function setPlatformSide(side){
+  if (side === platSide) return;
+  platSide = side; platG.scale.z = side; platOpp.visible = side < 0; platOpp.position.z = 2 * (2.25 + ROUTE.SD);   // on the far loop, lane 'C'
+  for (const sg of letterSigns) sg.scale.z = side;
+}
+/* the stop's name on every sign that carries one: the platform boards and, in capitals, the generic building's board. One texture each,
+   repainted per stop (poseStation); a sign shows the painted part and takes its width from it */
+const NAME_PX = 128, nameTexs = [0, 1].map(() => canvasTex(2048, NAME_PX, () => {})), nameSigns = [];
+let nameShown = '';
+function setStationName(name){
+  if (name === nameShown) return;
+  nameShown = name;
+  nameTexs.forEach((t, caps) => {
+    const c = t.image.getContext('2d'), txt = caps ? name.toUpperCase() : name;
+    c.font = 'bold 80px Inter, Arial, sans-serif';
+    const fit = caps ? 1 : Math.min(1, 900 / c.measureText(txt).width);   // a platform board stays under 5.3 m, so it never fills the door view: a long name takes smaller letters
+    c.font = `bold ${Math.floor(80 * fit)}px Inter, Arial, sans-serif`;
+    const w = Math.min(2048, Math.ceil(c.measureText(txt).width) + 72);
+    c.fillStyle = '#1f4fa0'; c.fillRect(0, 0, 2048, NAME_PX); c.fillStyle = '#ffffff'; c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.fillText(txt, w / 2, NAME_PX / 2 + 4);
+    t.repeat.set(w / 2048, 1); t.userData.aspect = w / NAME_PX; t.needsUpdate = true;
+  });
+  for (const sg of nameSigns) sg.fit();
+}
+if (document.fonts) document.fonts.ready.then(() => { const n = nameShown; nameShown = ''; if (n) setStationName(n); });   // repaint in the web font once it is in
 const letterTexCache = {};
 function letterTex(ch){
   if (!letterTexCache[ch]) letterTexCache[ch] = canvasTex(128, 128, (c, W, H) => {
@@ -667,26 +696,40 @@ function letterTex(ch){
 {
   const pm = pmat(0x9a968e, { roughness:0.95 }), em = pmat(0xe8e2d0, { roughness:0.9 }), sm = pmat(0x545b63, { roughness:0.6 }), rm = pmat(0x3b4148, { roughness:0.8 }), cm = pmat(0xb7bdc4, { roughness:0.85 });
   const wallM = pmat(0xd9d2c3, { roughness:0.9 }), roofM = pmat(0x6e4a3c, { roughness:0.8 }), signM = pmat(0x1f4fa0, { roughness:0.6 }), glassM = pmat(0x9fd0ff, { roughness:0.2, metalness:0.2 });
-  const mkPlat = (L, sets) => {
+  const letterGeo = new THREE.PlaneGeometry(0.8, 0.8), nameGeo = new THREE.PlaneGeometry(1, 0.7), nameM = new THREE.MeshBasicMaterial({ map:nameTexs[0] });
+  const nameBoard = (x, mirrored) => {   // on two posts along the middle of the platform, one face per side, 2.6 to 3.3 m above the rail
+    const g = new THREE.Group(), frame = box(1, 0.78, 0.05, sm, 0, 0, 0), faces = [1, -1].map(k => { const m = new THREE.Mesh(nameGeo, nameM); m.position.z = 0.03 * k; if (k < 0) m.rotation.y = Math.PI; return m; });
+    const posts = [-1, 1].map(() => box(0.08, 2.05, 0.08, sm, 0, -1.375, 0));
+    g.add(frame, ...faces, ...posts); g.position.set(x, 2.95, 6.5);
+    if (mirrored) letterSigns.push(g);
+    nameSigns.push({ fit(){ const w = 0.7 * nameTexs[0].userData.aspect; for (const f of faces) f.scale.x = w; frame.scale.x = w + 0.08; posts[0].position.x = 0.3 - w / 2; posts[1].position.x = w / 2 - 0.3; } });
+    return g;
+  };
+  const mkPlat = (L, sets, mirrored = true) => {
     const g = new THREE.Group();
     g.add(box(L, 0.97, 6.25, pm, -L / 2, 0.065, 4.875));                       // slab z 1.75..8.0, top at y 0.55
     g.add(box(L, 0.02, 0.3, em, -L / 2, 0.56, 1.95)); g.add(box(L, 0.02, 0.3, em, -L / 2, 0.56, 7.8));   // safety lines on both faces of the island platform
     for (let x = -6; x > -L + 4; x -= 12) g.add(box(0.25, 3.7, 0.25, sm, x, 2.4, 6.5));
     g.add(box(L - 6, 0.12, 4.0, cm, -L / 2, 4.25, 5.75));                      // canopy, z 3.75..7.75, clear of the train on the far face; light so its underside reads in the door view
     for (let x = -30; x > -L + 20; x -= 60){ g.add(box(4, 1.1, 2.2, sm, x, 1.1, 4.9)); g.add(box(3.6, 0.1, 1.9, glassM, x, 1.7, 4.9)); }   // stair heads down to the underpass, in the middle of the island
+    for (let x = -12; x > -L + 10; x -= 48) g.add(nameBoard(x, mirrored));   // between two lamp posts
     const letters = 'ABCDEFGHIJKLMNOP';
     for (let s = 0; s < sets; s++) TGV.TRAILERS.forEach(([xr, Lc], i) => {
-      const cx = xr + Lc / 2 + (s ? TGV.SET2_X : 0) - TGV.PLAT_FRONT;
-      const sign = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 0.8), new THREE.MeshBasicMaterial({ map:letterTex(letters[s * 8 + i]), side:THREE.DoubleSide }));
-      sign.position.set(cx, 3.4, 2.6); g.add(sign);
+      const cx = xr + Lc / 2 + (s ? TGV.SET2_X : 0) - TGV.PLAT_FRONT, mat = new THREE.MeshBasicMaterial({ map:letterTex(letters[s * 8 + i]) });
+      const sg = new THREE.Group(), back = new THREE.Mesh(letterGeo, mat); back.rotation.y = Math.PI;   // two faces back to back, each reading right
+      sg.add(new THREE.Mesh(letterGeo, mat), back); sg.position.set(cx, 3.4, 2.6); g.add(sg); letterSigns.push(sg);
       g.add(box(0.06, 0.9, 0.06, sm, cx, 3.8, 2.6));
     });
     return g;
   };
   platVariant[1] = mkPlat(200, 1); platVariant[2] = mkPlat(400, 2); platVariant[2].visible = false;
-  station.add(platVariant[1], platVariant[2]);
+  platG.add(platVariant[1], platVariant[2]);
+  platOpp = mkPlat(400, 0, false); platOpp.visible = false; station.add(platOpp);
   const b = new THREE.Group(); b.name = 'stationBuilding'; b.position.set(-40, -0.42, -12);   // station building across the tracks (z set per station)
-  b.add(box(30, 6, 9, wallM, 0, 3, 0)); b.add(box(32, 0.5, 10, roofM, 0, 6.25, 0)); b.add(box(12, 1.3, 0.3, signM, 0, 7.2, 4.8));
+  b.add(box(30, 6, 9, wallM, 0, 3, 0)); b.add(box(32, 0.5, 10, roofM, 0, 6.25, 0));
+  { const back = box(1, 1.3, 0.3, signM, 0, 7.2, 4.8), face = new THREE.Mesh(new THREE.PlaneGeometry(1, 1.3), new THREE.MeshBasicMaterial({ map:nameTexs[1] }));   // the name board on the roof edge
+    face.position.set(0, 7.2, 4.96); b.add(back, face);
+    nameSigns.push({ fit(){ const w = Math.min(28, 1.3 * nameTexs[1].userData.aspect); face.scale.x = w; back.scale.x = w + 0.4; } }); }
   for (let x = -12; x <= 12; x += 4) b.add(box(1.6, 2.4, 0.1, glassM, x, 3.2, 4.55));
   station.add(b);
 }
@@ -706,7 +749,7 @@ const pool = {
   _m4.makeScale(0, 0, 0); _pc.setRGB(1, 1, 1);
   for (let j = 0; j < POOL_N; j++){ pool.body.setMatrixAt(j, _m4); pool.head.setMatrixAt(j, _m4); pool.body.setColorAt(j, _pc); pool.head.setColorAt(j, _pc); }
   pool.body.castShadow = true; pool.body.frustumCulled = pool.head.frustumCulled = false; pool.body.count = pool.head.count = 0;
-  station.add(pool.body, pool.head);
+  platG.add(pool.body, pool.head);
 }
 const _pw = new THREE.Vector3(), _pw2 = new THREE.Vector3();
 const PX = { phase:'idle', t:0, plan:'mid', h:0.55, visited:null, hold:false, closeWhenDone:false, crowdSt:null, rebuild:true, list:[] };
@@ -717,12 +760,13 @@ function pathAt(p, s, out){   // point at arc length s along a polyline path
   const u = C[k] > C[k - 1] ? Math.min(1, Math.max(0, (s - C[k - 1]) / (C[k] - C[k - 1]))) : 1, i = 3 * (k - 1);
   return out.set(P[i] + (P[i + 3] - P[i]) * u, P[i + 1] + (P[i + 4] - P[i + 1]) * u, P[i + 2] + (P[i + 5] - P[i + 2]) * u);
 }
-function seatPath(c, i){   // seat -> step out (the way the seat faces) -> aisle -> (upper deck: stair down) -> doorway, set-local
-  if (c.paths[i]) return c.paths[i];
+function seatPath(c, i){   // seat -> step out (the way the seat faces) -> aisle -> (upper deck: stair down) -> doorway on the platform side, set-local
+  const sd = platSide, key = sd < 0 ? i + c.n : i;
+  if (c.paths[key]) return c.paths[key];
   const x = c.seat[3 * i], y = c.seat[3 * i + 1], z = c.seat[3 * i + 2], o = x + 0.42 * c.face[i], xr = c.xr, lo = DECK.lo, up = DECK.up;
-  return c.paths[i] = mkPath(c.deck[i]
-    ? [x, y, z, o, y, z, o, y, 0, xr + 3.55, up, 0, xr + 3.55, up, -0.9, xr + 1.85, lo, -0.9, xr + 1.35, lo, -0.4, xr + 1.35, lo, 1.25]   // along the aisle to the stair head before turning into it, clear of the first row
-    : [x, y, z, o, y, z, o, y, 0, xr + 2.2, lo, 0, xr + 1.95, lo, 0.35, xr + 1.95, lo, 1.25]);
+  return c.paths[key] = mkPath(c.deck[i]
+    ? [x, y, z, o, y, z, o, y, 0, xr + 3.55, up, 0, xr + 3.55, up, -0.9, xr + 1.85, lo, -0.9, xr + 1.35, lo, sd > 0 ? -0.4 : -0.9, xr + 1.35, lo, 1.25 * sd]   // along the aisle to the stair head before turning into it, clear of the first row
+    : [x, y, z, o, y, z, o, y, 0, xr + 2.2, lo, 0, xr + 1.95, lo, 0.35 * sd, xr + 1.95, lo, 1.25 * sd]);
 }
 function poseSeat(c, i, on){
   const f = c.face[i], x = c.seat[3 * i] + 0.04 * f, y = c.seat[3 * i + 1], z = c.seat[3 * i + 2], k = on ? 1 : 0, q = f > 0 ? Q0 : QB;
@@ -802,10 +846,10 @@ function paxActivate(){   // doors open at a standstill: who gets off, who is wa
   Object.assign(PX, { phase:'exchange', t:0, plan, h:plan === 'terminus' ? 0.42 : 0.55, hold:false, closeWhenDone:false });
   PX.list.length = 0;
   const Lp = S.sets === 2 ? 400 : 200, t0 = 3.2 * (1 - S.doorsF) + 0.6;
-  station.updateWorldMatrix(true, false);
+  platG.updateWorldMatrix(true, false);
   for (let k = 0; k < S.sets; k++) for (const c of tgvSets[k].coaches){
     c.g.updateWorldMatrix(true, false);
-    const T = [1.35, 1.95].map(dx => station.worldToLocal(c.g.localToWorld(new THREE.Vector3(c.xr + dx, DECK.lo, 1.25))));
+    const T = [1.35, 1.95].map(dx => platG.worldToLocal(c.g.localToWorld(new THREE.Vector3(c.xr + dx, DECK.lo, 1.25 * platSide))));
     if (Math.abs(T[0].z - 1.25) > 0.4 || T[0].x > -1 || T[0].x < -Lp + 1) continue;   // this doorway is not along the platform
     const e = { c, T, L:[0, 1].map(() => ({ outs:[], wait:[], last:-9 , full:false })), boardT:-1, boarding:0, done:false };
     for (let i = 0; i < c.n; i++) if (c.occ[i] === 1 && Math.random() < share){
@@ -949,13 +993,14 @@ function coachLod(){   // lod 0 far: opaque glass, plugged doorway, no interior;
   }
 }
 
-/* ---- cameras for the long train (functions: they depend on the formation) */
+/* ---- cameras for the long train (functions: they depend on the formation, and the platform views on the platform's side) */
+const mirrorCam = c => nearestStation().side > 0 ? c : c.map(p => [p[0], p[1], -p[2]]);
 Object.assign(CAMS, {
   train:    () => S.sets === 2 || S.coupling !== 0 ? [[40, 22, 80], [-120, 3, 0]] : [[45, 22, 75], [-60, 3, 0]],
   rearroof: [[-160, 9.5, 12], [-172, 4.8, 0]],
-  coupler:  () => S.sets === 2 || S.coupling !== 0 ? [[-186, 3.4, 6.0], [-186, 1.4, 0]] : [[-183, 3.4, 5.5], [-191, 1.4, 0]],   // from the island platform, inside the row of lamp posts and clear of the train on the far face
-  station:  [[-30, 10, 34], [-45, 1.5, 4]],
-  door:     [[-48, 2.3, 5.9], [-35, 1.7, 1.4]],   // eye height on the island platform, under the canopy, between the two trains
+  coupler:  () => mirrorCam(S.sets === 2 || S.coupling !== 0 ? [[-186, 3.4, 6.0], [-186, 1.4, 0]] : [[-183, 3.4, 5.5], [-191, 1.4, 0]]),   // from the island platform, inside the row of lamp posts and clear of the train on the far face
+  station:  () => mirrorCam([[-30, 10, 34], [-45, 1.5, 4]]),
+  door:     () => mirrorCam([[-48, 2.3, 5.9], [-35, 1.7, 1.4]]),   // eye height on the island platform, under the canopy, between the two trains
   seatUp:   () => seatView(1),
   seatLo:   () => seatView(0),
   driver:   () => driverView(),
@@ -1005,7 +1050,7 @@ function updateTgv(dt){
   lampTo(s2.lamps.front.hl, S.coupling !== 0 ? 2.2 : 0); lampTo(s2.lamps.front.tl, 0);
   // doors: plug out, then slide along the body (platform side only)
   const f = S.doorsF, k1 = Math.min(1, f / 0.3), k2 = Math.max(0, (f - 0.3) / 0.7);
-  for (const set of tgvSets) for (const d of set.doors){ if (d.s < 0) continue; d.g.position.z = d.z0 + 0.13 * k1; d.g.position.x = d.x0 + 1.35 * k2; }
+  for (const set of tgvSets) for (const d of set.doors){ const k = d.s === platSide ? 1 : 0; d.g.position.z = d.z0 + 0.13 * k1 * k * d.s; d.g.position.x = d.x0 + 1.35 * k2 * k; }
   for (const h of pcHosts) for (const id in h.clones) h.clones[id].visible = parts[id].group.visible;   // copies follow the part toggles
   const fpCab = orbit.fp?.name === 'driver' ? orbit.fp.obj : null;   // in the driver's place the driver is the viewer: not drawn
   tgvDriver.visible = S.dir > 0 && tgvDriver.parent !== fpCab;   // the driver sits in the leading cab

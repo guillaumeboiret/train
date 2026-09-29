@@ -18,8 +18,8 @@ const KID_WX = [['sun', '☀️'], ['cloud', '☁️'], ['rain', '🌧️'], ['d
 const KID_CAMS = ['overview', 'driver', 'door', 'seatUp', 'seatLo', 'side', 'train', 'far'], KID_TGV_CAMS = ['door', 'seatUp', 'seatLo'];   // one tap: next view (the door and the two window seats on the TGV only)
 Object.assign(CAMS, {
   door: () => {   // on the platform just ahead of coach 1's door, over the heads of the queue: the leaf slides toward the camera
-    const x = TGV.TRAILERS[0][0] + TR.doorX, V = THREE.Vector3;
-    return [curveLocal(x + 5.5, 2.9, 6.0, new V()).toArray(), curveLocal(x, 1.7, 1.5, new V()).toArray()];
+    const x = TGV.TRAILERS[0][0] + TR.doorX, V = THREE.Vector3, k = nearestStation().side;
+    return [curveLocal(x + 5.5, 2.9, 6.0 * k, new V()).toArray(), curveLocal(x, 1.7, 1.5 * k, new V()).toArray()];
   },
   train: () => S.mode === 'tgv' ? [[-60, 40, 150], [-85, 2, 0]] : [[-28, 9, 14], [6, 2.5, 0]],       // the whole train: a 200 m TGV from the side, a loco chased from behind
 });

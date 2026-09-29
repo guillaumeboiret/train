@@ -69,6 +69,17 @@ const ROUTE = (() => {
     const kind = k === 'b' ? (s1 - s0 >= 550 ? 4 : 1) : k === 't' ? 2 : 3;   // 1 bridge, 4 bridge over water, 2 tunnel, 3 cutting
     for (let i = Math.max(0, Math.ceil(s0 / DS)); i <= Math.min(N - 1, Math.floor(s1 / DS)); i++) if (!inStationZone(i * DS)) KD[i] = kind;
   }
+  // LGV stations (Futuroscope, Vendôme, Massy): two side platforms on loops off the through tracks. Ours (lane 0) and the other
+  // direction's (lane 'C') swing out SD m over the station ramps while 'B' and 1 run straight through; SS marks the stretch
+  const SIDE = { fut:-1, vdm:-1, msy:-1 }, SD = 6.25, SS = new Int8Array(N);
+  for (const st of stations){
+    st.side = SIDE[st.id] || 1;
+    if (st.side > 0) continue;
+    let i0 = idx(st.s - 870), i1 = idx(st.s + 470);   // the ramps plus the 200 m fade of any other lane; then the data's own station tracks
+    while (i0 > 0 && NT[i0 - 1] > 2 && i0 > idx(st.s - 1500)) i0--;
+    while (i1 < N - 1 && NT[i1 + 1] > 2 && i1 < idx(st.s + 1500)) i1++;
+    for (let i = i0; i <= i1; i++){ NT[i] = 2; SS[i] = -1; }
+  }
   for (const st of stations){
     const c0 = st.s - 420, c1 = st.s + 20, R = 250;
     for (let i = Math.max(0, Math.floor((c0 - R) / DS)); i <= Math.min(N - 1, Math.ceil((c1 + R) / DS)); i++){
@@ -87,14 +98,18 @@ const ROUTE = (() => {
     return out;
   };
   const stationU = s => { const f = Math.max(0, Math.min(N - 1.0001, s / DS)), i = Math.floor(f), t = f - i; return SU[i] + (SU[Math.min(N - 1, i + 1)] - SU[i]) * t; };
-  // lanes: 0 = ours (left, "voie 2"), 1 = opposite direction (right), 2k/2k+1 further out; 'B' = the other face of the island platform
+  // lanes: 0 = ours (left, "voie 2"), 1 = opposite direction (right), 2k/2k+1 further out; 'B' = the other face of the island platform.
+  // At side-platform stations 'B' is our direction's through track and 'C' the other direction's platform track
   const laneW = (k, s, u) => {
     if (u === undefined) u = stationU(s);
+    if (SS[idx(s)] < 0){ if (k === 0) return -2.25 - SD * u; if (k === 'B') return -2.25; if (k === 'C') return 2.25 + SD * u; if (k === 1) return 2.25; }
     if (k === 'B') return 2.25 + 5.2 * u;
+    if (k === 'C') return 2.25;
     const side = k % 2 ? 1 : -1;
     return side * (2.25 + 4.5 * (k >> 1)) + (side > 0 ? 9.65 * u : 0);
   };
   const laneE = (k, s) => {          // how much lane k exists here (fades in/out over 200 m where the track count changes)
+    if (k === 'C') return SS[idx(s)] < 0 ? stationU(s) : 0;
     if (k === 'B') return stationU(s);
     if (k < 2) return 1;
     const i = idx(s); if (NT[i] <= k) return 0;
@@ -104,8 +119,8 @@ const ROUTE = (() => {
   const gradeAt = s => { const i = idx(s); return TY[i] / (Math.hypot(TX[i], TZ[i]) || 1); };
   const VOLT = D.volt || [[0, 25000]];   // electrification runs [from s, volts]: 1.5 kV DC on the classic lines, 25 kV AC on the LGV
   const voltAt = s => { let v = VOLT[0][1]; for (const [a, k] of VOLT){ if (a > s) break; v = k; } return v; };
-  return { L, N, DS, X, Y, Z, NT, VM, KD, SU, stations, frameAt, laneW, laneE, stationU, gradeAt, terAt, elAt, sstep, idx, voltAt,
-    vmax:D.vmax, lineLimit: s => VM[idx(s)], tracksAt: s => NT[idx(s)], kindAt: s => KD[idx(s)], altAt: s => Y[idx(s)], src:D.src, name:D.name };
+  return { L, N, DS, X, Y, Z, NT, VM, KD, SU, SS, SD, stations, frameAt, laneW, laneE, stationU, gradeAt, terAt, elAt, sstep, idx, voltAt,
+    vmax:D.vmax, lineLimit: s => VM[idx(s)], tracksAt: s => { const i = idx(s); return NT[i] + (SS[i] < 0 && SU[i] > 0.5 ? 2 : 0); }, kindAt: s => KD[idx(s)], altAt: s => Y[idx(s)], src:D.src, name:D.name };
 })();
 
 /* ---- world materials */
@@ -152,7 +167,7 @@ const LAND_COL = [[0.86, 0.76, 0.40], [0.55, 0.70, 0.36], [0.28, 0.46, 0.24], [0
 const WATER_COL = [0.30, 0.47, 0.62], VERGE_COL = [0.47, 0.58, 0.33];
 function hash2(a, b, c = 0){ let h = (a * 374761393 + b * 668265263 + c * 2246822519) | 0; h = ((h ^ (h >>> 13)) * 1274126177) | 0; return ((h ^ (h >>> 16)) >>> 0) / 4294967296; }
 function landType(x, z){ const h = hash2(Math.floor(x / 120), Math.floor(z / 120)); return h < 0.35 ? 0 : h < 0.65 ? 1 : h < 0.8 ? 2 : h < 0.9 ? 3 : 4; }
-function laneWAt(k, s){ const u = ROUTE.stationU(s), w = ROUTE.laneW(k, s, u); if (k === 'B' || k < 2) return w; const w0 = ROUTE.laneW(k - 2, s, u); return w0 + (w - w0) * ROUTE.laneE(k, s); }
+function laneWAt(k, s){ const u = ROUTE.stationU(s), w = ROUTE.laneW(k, s, u); if (k === 'B' || k === 'C' || k < 2) return w; const w0 = ROUTE.laneW(k - 2, s, u); return w0 + (w - w0) * ROUTE.laneE(k, s); }
 
 /* ---- city approaches: the towns the line stops in (not Futuroscope, Vendôme and Massy, out in the fields or in a trench) and the last kilometres
    into Paris get urban blocks, boundary walls and road bridges */
@@ -210,8 +225,11 @@ const landmarkGround = (s, w, yF, t) => {
   for (const z of LM_ZONES){ const d = Math.hypot(Math.max(z[0] - s, s - z[1], 0), Math.max(z[2] - w, w - z[3], 0)); if (d < LM_FLAT){ const k = 1 - ROUTE.sstep(d / LM_FLAT); if (k > v){ v = k; sink = z[4]; } } }
   return t + (yF - sink - t) * v;
 };
-const TRENCH = { msy:5 };   // stations dug below the surrounding ground (m): Massy TGV really sits in an open trench between two tunnels (the smoothed relief is flat there)
-const trenchAt = s => { for (const st of ROUTE.stations){ const dep = TRENCH[st.id]; if (dep){ const w = Math.min(ROUTE.sstep((s - (st.s - 300)) / 60), ROUTE.sstep((st.s + 100 - s) / 60)); if (w > 0) return dep * w; } } return 0; };
+/* stations dug below the surrounding ground: [depth (m), floor width beyond the ballast edge, from, to relative to the station, both ends ramped over 60 m].
+   Massy TGV really sits in a trench between two tunnels, under its hall, bus station and car park (the smoothed relief is flat there) */
+const TRENCH = { msy:[8.5, 5, -700, 130] };
+const TRENCH_Z = ROUTE.stations.filter(st => TRENCH[st.id]).map(st => { const T = TRENCH[st.id]; return { a:st.s + T[2], b:st.s + T[3], depth:T[0], F:T[1] }; });
+const trenchAt = s => { for (const z of TRENCH_Z){ const w = Math.min(ROUTE.sstep((s - z.a) / 60), ROUTE.sstep((z.b - s) / 60)); if (w > 0) return { tz:z.depth * w, F:z.F }; } return null; };
 const NO_WALL_AT = { tls:[-Infinity, 350], mtb:[-800, 350], agn:[-800, 350], bdx:[-800, 350], lbn:[-800, 350], ang:[-800, 350], pts:[-800, 350], chl:[-800, 350], spc:[-800, 350], par:[-500, Infinity] };   // no boundary wall between a station building and its tracks
 const NO_WALL = ROUTE.stations.filter(st => NO_WALL_AT[st.id]).map(st => [st.s + NO_WALL_AT[st.id][0], st.s + NO_WALL_AT[st.id][1]]);
 const paveM = pmat(0x9b968e, { roughness:0.95, metalness:0 });
@@ -248,7 +266,7 @@ terminusCity('par', landmarks.par, 70, 1350, -760, 760, [[100, 150, 44, 112]]); 
   terminusCity('tls', landmarks.tls, -80, 190, -56, -22, [], { cz:34, y:0.5, pave:false }); }
 
 /* ---- chunks: 1 km of track, ballast, sleepers, catenary, terrain, trees, houses, bridges and tunnels, built on demand */
-const CH = 1000, chunks = new Map(), LANES = [0, 1, 2, 3, 4, 5, 6, 7, 'B'];
+const CH = 1000, chunks = new Map(), LANES = [0, 1, 2, 3, 4, 5, 6, 7, 'B', 'C'];
 const _cf = mkFrame(), _cm = new THREE.Matrix4(), _cp = new THREE.Vector3(), _cq = new THREE.Quaternion(), _cs = new THREE.Vector3(1, 1, 1), X_AX = new THREE.Vector3(1, 0, 0);
 function instanced(geo, mat, mats, parent, shadow){
   if (!mats.length) return null;
@@ -354,7 +372,8 @@ function buildChunk(ci){
         }
       }
       // supports at this mast position
-      ROUTE.frameAt(sm, _cf); const wl = a - 3.4, wr = b + 3.4;
+      const back = ROUTE.stations.some(st => st.side < 0 && sm > st.s - 405 && sm < st.s + 5) ? 7.9 : 3.4;   // side platforms: masts at their back edges
+      ROUTE.frameAt(sm, _cf); const wl = a - back, wr = b + back;
       if (ROUTE.kindAt(sm) === 2) continue;   // in a tunnel the wires hang from the lining: no masts
       for (const wm of [wl, wr]){ _cp.copy(_cf.p).sub(O).addScaledVector(_cf.r, wm); mastM.push(new THREE.Matrix4().compose(_cp, _cf.q, tmpB.set(1, dc ? 1.1 : 1, 1))); }
       if (dc){   // portal: the crossbeam as lower chord, an upper chord at 7.95 m on masts raised to 8.1 m, Warren lacing between them
@@ -396,12 +415,12 @@ function buildChunk(ci){
       const yF = f.yAbs - 0.42, a = wMin[i] - 3.4, b = wMax[i] + 3.4, crown = f.yAbs + 0.3 + tubeR(i) + 1.5;
       const head = mouth ? f.yAbs + 0.3 + tubeR(i) + 2.5 : 1e9;   // just inside a mouth the ground over the tube meets the top of the portal collar, never above it
       let yW = -1e9; if (kind === 4){ yW = 1e9; for (let w = -400; w <= 400; w += 50) yW = Math.min(yW, ROUTE.terAt(f.s, w)); yW += 1.2; }
-      const pd = portalNear(f.s, kind), tz = kind === 0 ? trenchAt(f.s) : 0;
+      const pd = portalNear(f.s, kind), tr = kind === 0 && !pd ? trenchAt(f.s) : null, tz = tr ? tr.tz : 0, tF = tr ? tr.F : 0;
       const cover = (t, d) => { const cov = Math.max(t, crown); if (d <= 4) return cov; const bl = Math.min(60, Math.max(22, 1.5 * (cov - t))); return cov + (t - cov) * ROUTE.sstep((d - 4) / bl); };
       const shape = (t, d) => {
         if (kind === 2) return cover(t, d);
         if (kind === 1 || kind === 4){ const cap = Math.min(t, yF - 2.5); return d <= 9 ? cap : cap + (t - cap) * ROUTE.sstep((d - 9) / 31); }
-        if (tz > 0){ if (d <= 26) return yF; const top = Math.max(t, yF + tz); return top + (t - top) * ROUTE.sstep((d - 26) / 104); }
+        if (tz > 0){ if (d <= tF) return yF; const top = Math.max(t, yF + tz); return top + (t - top) * ROUTE.sstep((d - tF) / 104); }
         let y = yF + (t - yF) * ROUTE.sstep(d / (kind === 3 ? 25 : 60));
         if (pd > 0 && d > 4) y += (cover(t, d) - y) * pd * ROUTE.sstep((d - 4) / 12);
         return y;
@@ -410,7 +429,8 @@ function buildChunk(ci){
         const t0 = ROUTE.terAt(f.s, w), wet = kind === 4 && Math.abs(w) <= 400 && t0 < yW, t = landmarkGround(f.s, w, yF, wet ? yW : t0);
         return [f.p.x + f.r.x * w, (d <= 4 ? Math.min(head, shape(t, d)) : shape(t, d)) - O.y, f.p.z + f.r.z * w, w, d, wet ? 1 : 0];
       };
-      const dOf = c => tz > 0 && c === 5 ? 26.01 : TERR_D[c];   // trench: the 40 m column becomes the top of the wall, right above the 26 m one
+      const cW = tz > 0 ? TERR_D.findIndex(v => v >= tF) : -9;   // trench: that column moves to the foot of the wall, the next one to its top
+      const dOf = c => c === cW ? tF : c === cW + 1 ? tF + 0.01 : TERR_D[c];
       const v = [];
       for (let c = NTD - 1; c >= 0; c--) v.push(vert(a - dOf(c), dOf(c)));
       v.push(vert((wMin[i] + wMax[i]) / 2, 0));
@@ -621,15 +641,20 @@ function nextStation(v = S.speed){                 // first station ahead in the
 }
 function stationOffset(){ return nearestStation().s - TGV.PLAT_FRONT - S.dist; }
 let stationBuilding = null;
+const BLDG_AT = { fut:[-40, -14, 0], vdm:[-208, 30, Math.PI] };   // [x, z, turn] where the generic building stands in for the real one: Vendôme's is across the tracks
 function poseStation(){
   const st = nearestStation();
   poseWorld(station, st.s, ROUTE.laneW(0, st.s, 1), false);
+  setPlatformSide(st.side); setStationName(st.name);
   if (!stationBuilding) stationBuilding = station.getObjectByName('stationBuilding');
   const lm = landmarks[st.id];
   for (const k in landmarks) landmarks[k].visible = landmarks[k] === lm;
-  if (stationBuilding){ stationBuilding.visible = !lm; stationBuilding.position.z = -(Math.max(0, st.nLeft - 1) * 4.5 + 12); }
+  if (stationBuilding){
+    const b = BLDG_AT[st.id] || [-40, st.side < 0 ? -13.5 : -(Math.max(0, st.nLeft - 1) * 4.5 + 12), 0];   // behind the last track on our left, clear of a side platform
+    stationBuilding.visible = !lm; stationBuilding.position.x = b[0]; stationBuilding.position.z = b[1]; stationBuilding.rotation.y = b[2];
+  }
 }
-/* other TGVs: one parked on the far face of the island platform (facing the other way, doors open) and two running against us.
+/* other TGVs: one parked on the far face of the island platform or at the far side platform (facing the other way, doors open) and two running against us.
    Like ours they run on the rear pantograph under 25 kV and raise the front one too under 1.5 kV DC (pantos[1] is the front power car's). */
 const dcUp = s => ROUTE.voltAt(s) < 3000 ? 1 : 0;
 function extraSet(firstCar, parent){
@@ -653,7 +678,8 @@ for (const n of [31, 41]){ const g = new THREE.Group(); g.visible = false; world
   for (const set of tgvSets) for (const d of set.doors){ d.x0 = d.g.position.x; d.z0 = d.g.position.z; }
   for (const w of wagons.children) cars.push({ xc:w.position.x, pv:w, tag:0 });
   for (const o of [parked, ...opp]) for (const g of Object.values(o.G)) carify(g, R, 'x', o.cars);
-  for (const d of parked.set.doors) if (d.s > 0){ d.g.position.z += 0.13; d.g.position.x += 1.35; }
+  for (const d of parked.set.doors){ d.x0 = d.g.position.x; d.z0 = d.g.position.z; }
+  parked.side = 0;
   parked.set.lamps.rear.tl.emissiveIntensity = 1.4;
   for (const o of opp){ o.set.lamps.front.hl.emissiveIntensity = 2.2; o.set.lamps.rear.tl.emissiveIntensity = 1.4; }
 }
@@ -696,7 +722,9 @@ function updateRoute(dt){
   }
   poseStation();
   parkedG.visible = S.mode === 'tgv';   // the train on the other face of the platform belongs to the TGV scene
-  { const st = nearestStation(), so = st.s - 187; for (const c of parked.cars){ const s = so - c.xc; poseWorld(c.pv, s, ROUTE.laneW('B', s), true); }
+  { const st = nearestStation(), so = st.s - 187, lane = st.side < 0 ? 'C' : 'B';
+    for (const c of parked.cars){ const s = so - c.xc; poseWorld(c.pv, s, ROUTE.laneW(lane, s), true); }
+    if (parked.side !== st.side){ parked.side = st.side; for (const d of parked.set.doors){ const k = d.s === st.side ? 1 : 0; d.g.position.z = d.z0 + 0.13 * k * d.s; d.g.position.x = d.x0 + 1.35 * k; } }   // turned round, it faces its platform with the doors on the same side number as ours
     if (parked.set.pantos[1].f !== dcUp(so)) posePanto(parked.set.pantos[1], dcUp(so)); }
   updateOpposing(dt);
 }
