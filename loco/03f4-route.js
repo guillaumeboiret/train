@@ -80,6 +80,18 @@ const ROUTE = (() => {
     while (i1 < N - 1 && NT[i1 + 1] > 2 && i1 < idx(st.s + 1500)) i1++;
     for (let i = i0; i <= i1; i++){ NT[i] = 2; SS[i] = -1; }
   }
+  // Bordeaux Saint-Jean: sixteen platform tracks (OSM), from voie 1 along the passenger building to voie 17 on the Belcier side. Lanes 2, 0, 'B', 1 and 3
+  // are voies 3 to 7 (lane 3 set 6 m further out, for the island between 6 and 7); the other eleven are named lanes fanned out of lane 2 (west) and lane 3
+  // (east) by one ladder per throat: a diagonal across the whole set, each track leaving it at its own offset. The data's 5 to 7 station tracks give way to them
+  const SJ = stations.find(st => st.id === 'bdx'), LADDER = {}, SR = 1.5;
+  const sramp = D => D <= 0 ? 0 : D < 2 * SR ? D * D / (4 * SR) : D - SR;   // max(D, 0) with a round corner: the turnout curve at each end of a diagonal
+  if (SJ){
+    for (let i = idx(SJ.s - 1510); i < idx(SJ.s + 390); i++) NT[i] = 4;
+    for (const [base, side, xS, xN, mS, mN, tracks] of [[2, -1, -785, 130, 1 / 9, 1 / 6, [['v2', 11], ['v1', 14.5]]],   // x where each diagonal leaves its base lane, slopes
+      [3, 1, -1100, 200, 1 / 9, 1 / 7, [['v8', 8.5], ['v9', 11.9], ['v11', 20.8], ['v12', 24.3], ['v14', 32.5], ['s1', 36.8], ['s2', 41.1], ['v16', 45.3], ['v17', 49.6]]]])
+      tracks.forEach(([k, off], j) => { LADDER[k] = { base, side, off, par:j ? tracks[j - 1][1] : 0, xS, xN, mS, mN }; });   // off: from the base lane; par: the previous track's
+  }
+  const ladderD = (o, s) => { const x = s - SJ.s; return Math.min((x - o.xS) * o.mS, (o.xN - x) * o.mN); };   // how far the diagonals have crossed at s
   for (const st of stations){
     const c0 = st.s - 420, c1 = st.s + 20, R = 250;
     for (let i = Math.max(0, Math.floor((c0 - R) / DS)); i <= Math.min(N - 1, Math.ceil((c1 + R) / DS)); i++){
@@ -102,13 +114,16 @@ const ROUTE = (() => {
   // At side-platform stations 'B' is our direction's through track and 'C' the other direction's platform track
   const laneW = (k, s, u) => {
     if (u === undefined) u = stationU(s);
+    const o = LADDER[k]; if (o){ const D = ladderD(o, s); return laneW(o.base, s, u) + o.side * (sramp(D) - sramp(D - o.off)); }
     if (SS[idx(s)] < 0){ if (k === 0) return -2.25 - SD * u; if (k === 'B') return -2.25; if (k === 'C') return 2.25 + SD * u; if (k === 1) return 2.25; }
     if (k === 'B') return 2.25 + 5.2 * u;
     if (k === 'C') return 2.25;
+    if (k === 3 && SJ && Math.abs(s - SJ.s) < 1000) return 6.75 + 15.65 * u;
     const side = k % 2 ? 1 : -1;
     return side * (2.25 + 4.5 * (k >> 1)) + (side > 0 ? 9.65 * u : 0);
   };
   const laneE = (k, s) => {          // how much lane k exists here (fades in/out over 200 m where the track count changes)
+    const o = LADDER[k]; if (o) return ladderD(o, s) > o.par ? 1 : 0;   // a ladder track is there once it has left the previous one's diagonal
     if (k === 'C') return SS[idx(s)] < 0 ? stationU(s) : 0;
     if (k === 'B') return stationU(s);
     if (k < 2) return 1;
@@ -119,8 +134,14 @@ const ROUTE = (() => {
   const gradeAt = s => { const i = idx(s); return TY[i] / (Math.hypot(TX[i], TZ[i]) || 1); };
   const VOLT = D.volt || [[0, 25000]];   // electrification runs [from s, volts]: 1.5 kV DC on the classic lines, 25 kV AC on the LGV
   const voltAt = s => { let v = VOLT[0][1]; for (const [a, k] of VOLT){ if (a > s) break; v = k; } return v; };
-  return { L, N, DS, X, Y, Z, NT, VM, KD, SU, SS, SD, stations, frameAt, laneW, laneE, stationU, gradeAt, terAt, elAt, sstep, idx, voltAt,
-    vmax:D.vmax, lineLimit: s => VM[idx(s)], tracksAt: s => { const i = idx(s); return NT[i] + (SS[i] < 0 && SU[i] > 0.5 ? 2 : 0); }, kindAt: s => KD[idx(s)], altAt: s => Y[idx(s)], src:D.src, name:D.name };
+  const ladders = Object.keys(LADDER);
+  const tracksAt = s => {   // the tracks drawn here: the data's through tracks, the far face of the island ('B') or the two side loops, the ladder tracks
+    const i = idx(s); let n = NT[i] + (SU[i] > 0.5 ? (SS[i] < 0 ? 2 : 1) : 0);
+    for (const k of ladders) if (laneE(k, s) > 0.5) n++;
+    return n;
+  };
+  return { L, N, DS, X, Y, Z, NT, VM, KD, SU, SS, SD, stations, frameAt, laneW, laneE, stationU, gradeAt, terAt, elAt, sstep, idx, voltAt, ladders, tracksAt,
+    vmax:D.vmax, lineLimit: s => VM[idx(s)], kindAt: s => KD[idx(s)], altAt: s => Y[idx(s)], src:D.src, name:D.name };
 })();
 
 /* ---- world materials */
@@ -167,7 +188,7 @@ const LAND_COL = [[0.86, 0.76, 0.40], [0.55, 0.70, 0.36], [0.28, 0.46, 0.24], [0
 const WATER_COL = [0.30, 0.47, 0.62], VERGE_COL = [0.47, 0.58, 0.33];
 function hash2(a, b, c = 0){ let h = (a * 374761393 + b * 668265263 + c * 2246822519) | 0; h = ((h ^ (h >>> 13)) * 1274126177) | 0; return ((h ^ (h >>> 16)) >>> 0) / 4294967296; }
 function landType(x, z){ const h = hash2(Math.floor(x / 120), Math.floor(z / 120)); return h < 0.35 ? 0 : h < 0.65 ? 1 : h < 0.8 ? 2 : h < 0.9 ? 3 : 4; }
-function laneWAt(k, s){ const u = ROUTE.stationU(s), w = ROUTE.laneW(k, s, u); if (k === 'B' || k === 'C' || k < 2) return w; const w0 = ROUTE.laneW(k - 2, s, u); return w0 + (w - w0) * ROUTE.laneE(k, s); }
+function laneWAt(k, s){ const u = ROUTE.stationU(s), w = ROUTE.laneW(k, s, u); if (typeof k === 'string' || k < 2) return w; const w0 = ROUTE.laneW(k - 2, s, u); return w0 + (w - w0) * ROUTE.laneE(k, s); }
 
 /* ---- city approaches: the towns the line stops in (not Futuroscope and Vendôme, out in the fields), Massy's Atlantis district and the last
    kilometres into Paris get urban blocks, boundary walls and road bridges */
@@ -232,10 +253,13 @@ const landmarkGround = (s, w, yF, t) => {
 const TRENCH = { msy:[8.5, 5, -700, 130] };
 const TRENCH_Z = ROUTE.stations.filter(st => TRENCH[st.id]).map(st => { const T = TRENCH[st.id]; return { a:st.s + T[2], b:st.s + T[3], depth:T[0], F:T[1] }; });
 const trenchAt = s => { for (const z of TRENCH_Z){ const w = Math.min(ROUTE.sstep((s - z.a) / 60), ROUTE.sstep((z.b - s) / 60)); if (w > 0) return { tz:z.depth * w, F:z.F }; } return null; };
-/* slabs over a station's tracks (x from, to, z from, to in station coordinates): no catenary masts under them, the wires hang from the soffit */
-const STATION_DECK = { msy:[-510, -68, -14, 31] };
-const DECK_Z = ROUTE.stations.filter(st => STATION_DECK[st.id]).map(st => [st.s + STATION_DECK[st.id][0], st.s + STATION_DECK[st.id][1]]);
+/* slabs and sheds over a station's tracks (x from, to, z from, to in station coordinates): no catenary masts for the tracks under them, the wires hang
+   from the soffit or the roof. Massy's slab also keeps its trench floor bare; Saint-Jean's 1898 shed covers voies 1 to 7 */
+const STATION_DECK = { msy:[-510, -68, -14, 31] }, STATION_SHED = { bdx:[-403, -104, -29.3, 31.8] };
+const roofZones = o => ROUTE.stations.filter(st => o[st.id]).map(st => { const r = o[st.id], w0 = ROUTE.laneW(0, st.s, 1); return [st.s + r[0], st.s + r[1], w0 + r[2], w0 + r[3]]; });
+const DECK_Z = roofZones(STATION_DECK), ROOF_Z = DECK_Z.concat(roofZones(STATION_SHED));
 const underDeck = s => DECK_Z.some(z => s > z[0] && s < z[1]);
+const roofAt = s => ROOF_Z.find(z => s > z[0] && s < z[1]) || null;
 const NO_WALL_AT = { tls:[-Infinity, 350], mtb:[-800, 350], agn:[-800, 350], bdx:[-800, 350], lbn:[-800, 350], ang:[-800, 350], pts:[-800, 350], chl:[-800, 350], spc:[-800, 350], par:[-500, Infinity], msy:[-800, 400] };   // no boundary wall between a station building and its tracks
 const NO_WALL = ROUTE.stations.filter(st => NO_WALL_AT[st.id]).map(st => [st.s + NO_WALL_AT[st.id][0], st.s + NO_WALL_AT[st.id][1]]);
 const paveM = pmat(0x9b968e, { roughness:0.95, metalness:0 });
@@ -285,7 +309,7 @@ terminusCity('par', landmarks.par, 70, 1350, -760, 760, [[100, 150, 44, 112]]); 
   terminusCity('par', G, -620, -495, 90, 263, [], { y:7.8, pave:false }); }
 
 /* ---- chunks: 1 km of track, ballast, sleepers, catenary, terrain, trees, houses, bridges and tunnels, built on demand */
-const CH = 1000, chunks = new Map(), LANES = [0, 1, 2, 3, 4, 5, 6, 7, 'B', 'C'];
+const CH = 1000, chunks = new Map(), LANES = [0, 1, 2, 3, 4, 5, 6, 7, 'B', 'C', ...ROUTE.ladders];
 const _cf = mkFrame(), _cm = new THREE.Matrix4(), _cp = new THREE.Vector3(), _cq = new THREE.Quaternion(), _cs = new THREE.Vector3(1, 1, 1), X_AX = new THREE.Vector3(1, 0, 0);
 function instanced(geo, mat, mats, parent, shadow){
   if (!mats.length) return null;
@@ -356,6 +380,7 @@ function buildChunk(ci){
   // sleepers every 0.6 m on each lane that is really there
   { const mats = [];
     for (const ln of lanes){
+      if (!ln.e.some(v => v > 0.5)) continue;
       for (let s = Math.ceil(s0 / 0.6) * 0.6; s < s1; s += 0.6){
         const i = Math.min(n - 1, Math.round((s - s0) / DS)); if (ln.e[i] <= 0.5) continue;
         ROUTE.frameAt(s, _cf); _cp.copy(_cf.p).sub(O).addScaledVector(_cf.r, laneWAt(ln.k, s));
@@ -374,7 +399,6 @@ function buildChunk(ci){
       const sm = m * SPAN, i = Math.min(n - 1, Math.round((sm - s0) / DS));
       const present = lanes.filter(ln => ln.e[i] > 0.5 && ROUTE.laneE(ln.k, Math.min(ROUTE.L, sm + SPAN)) > 0.5);
       if (!present.length) continue;
-      let a = 1e9, b = -1e9; for (const ln of present){ a = Math.min(a, ln.w[i]); b = Math.max(b, ln.w[i]); }
       const zig = m % 2 ? 0.2 : -0.2, dc = ROUTE.voltAt(sm) < 3000;
       for (const ln of present){
         const pts = [];
@@ -390,10 +414,12 @@ function buildChunk(ci){
           wire.strip(pts.length, 2, false, (j, k) => { const q = pts[j], v = tmpA.copy(q[key]).addScaledVector(q.r, dw).addScaledVector(q.up, k ? hw : -hw); return [v.x, v.y, v.z]; });
         }
       }
-      // supports at this mast position
+      // supports at this mast position, for the tracks out in the open: in a tunnel, under a station slab or shed the wires hang from the lining or the roof
+      const roof = roofAt(sm), sup = roof ? present.filter(ln => ln.w[i] < roof[2] || ln.w[i] > roof[3]) : present;
+      if (ROUTE.kindAt(sm) === 2 || !sup.length) continue;
+      let a = 1e9, b = -1e9; for (const ln of sup){ a = Math.min(a, ln.w[i]); b = Math.max(b, ln.w[i]); }
       const back = ROUTE.stations.some(st => st.side < 0 && sm > st.s - 405 && sm < st.s + 5) ? 7.9 : 3.4;   // side platforms: masts at their back edges
       ROUTE.frameAt(sm, _cf); const wl = a - back, wr = b + back;
-      if (ROUTE.kindAt(sm) === 2 || underDeck(sm)) continue;   // in a tunnel or under a station slab the wires hang from the lining: no masts
       for (const wm of [wl, wr]){ _cp.copy(_cf.p).sub(O).addScaledVector(_cf.r, wm); mastM.push(new THREE.Matrix4().compose(_cp, _cf.q, tmpB.set(1, dc ? 1.1 : 1, 1))); }
       if (dc){   // portal: the crossbeam as lower chord, an upper chord at 7.95 m on masts raised to 8.1 m, Warren lacing between them
         const up = _ru.crossVectors(_cf.r, _cf.t).clone(), nL = Math.max(2, Math.round((wr - wl) / 1.6)), dl = (wr - wl) / nL, ang = Math.atan2(0.65, dl), len = Math.hypot(0.65, dl);
@@ -405,14 +431,14 @@ function buildChunk(ci){
           lacM.push(new THREE.Matrix4().compose(_cp, _cq, tmpB.set(1, 1, len)));
         }
       }
-      if (present.length <= 2 && !dc){
-        for (const ln of present){ const wm = ln.w[i] < (a + b) / 2 || present.length === 1 ? wl : wr, len = Math.abs(ln.w[i] - wm);
+      if (sup.length <= 2 && !dc){
+        for (const ln of sup){ const wm = ln.w[i] < (a + b) / 2 || sup.length === 1 ? wl : wr, len = Math.abs(ln.w[i] - wm);
           _cp.copy(_cf.p).sub(O).addScaledVector(_cf.r, (ln.w[i] + wm) / 2); _cp.addScaledVector(_ru.crossVectors(_cf.r, _cf.t), 6.75);
           armM.push(new THREE.Matrix4().compose(_cp, _cf.q, tmpB.set(1, 1, len))); }
       } else {
         _cp.copy(_cf.p).sub(O).addScaledVector(_cf.r, (wl + wr) / 2); _cp.addScaledVector(_ru.crossVectors(_cf.r, _cf.t), 7.3);
         beamM.push(new THREE.Matrix4().compose(_cp, _cf.q, tmpB.set(1, 1, wr - wl)));
-        for (const ln of present){ _cp.copy(_cf.p).sub(O).addScaledVector(_cf.r, ln.w[i]); _cp.addScaledVector(_ru.crossVectors(_cf.r, _cf.t), 6.95); armM.push(new THREE.Matrix4().compose(_cp, _cf.q, tmpB.set(1, 4, 0.6))); }
+        for (const ln of sup){ _cp.copy(_cf.p).sub(O).addScaledVector(_cf.r, ln.w[i]); _cp.addScaledVector(_ru.crossVectors(_cf.r, _cf.t), 6.95); armM.push(new THREE.Matrix4().compose(_cp, _cf.q, tmpB.set(1, 4, 0.6))); }
       }
     }
     if (wire.pos.length){ const m = addMesh(wire.build(), catWireM, cat); m.userData.partId = 'catenary'; }

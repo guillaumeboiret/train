@@ -1,7 +1,8 @@
 
 /* ---- landmarks: the termini and Bordeaux get their own architecture instead of the generic station building.
    Toulouse Matabiau: the 1905 stone building along track A, the forecourt, the boulevard and the Canal du Midi under its plane trees.
-   Bordeaux Saint-Jean: the 1898 iron and glass train shed (56 m span, 280 m long, crown at 27 m) with the stone passenger building along its west side.
+   Bordeaux Saint-Jean: the 1898 iron and glass train shed over voies 1 to 7 (61 m span, 300 m long, crown at 27 m), the stone passenger building along
+   its west side and the six other platforms of its sixteen tracks.
    Paris Montparnasse: 360 m of platforms under the Jardin Atlantique deck, the head hall across the buffer stops and the 210 m tower beyond it.
    Massy TGV: the trench, the slab over its west half, the membrane hall with its dot clock, the four vaults and the car park on the slab.
    Everything is a child of `station`, so it follows the station pose; only the group of the nearest station is visible (poseStation). */
@@ -54,13 +55,15 @@ const landmarks = {};
     return g;
   };
 
-  /* Bordeaux Saint-Jean */
+  /* Bordeaux Saint-Jean. Station x = OSM distance along the tracks − 278 m (the north end of platform 4;5 at x 0), z = OSM offset + 20.35 m (voie 4 at 0) */
   {
     const G = new THREE.Group(); G.visible = false; station.add(G); landmarks.bdx = G;
+    G.userData.platRoof = false;   // the shed roofs our platform (voies 4 and 5): no canopy (setPlatformRoof)
     const stoneM = pmat(0xd9cfba, { roughness:0.9, metalness:0 }), slateM = pmat(0x3d4650, { roughness:0.7, metalness:0.1 }), ironM = pmat(0x4c5359, { roughness:0.55, metalness:0.5 });
     const glassM = new THREE.MeshStandardMaterial({ color:0xbfe0f5, transparent:true, opacity:0.26, roughness:0.15, metalness:0.1, side:THREE.DoubleSide, depthWrite:false });
     const paneM = pmat(0x223040, { roughness:0.3, metalness:0.3 });
-    const X0 = -340, X1 = -60, LEN = X1 - X0, XC = (X0 + X1) / 2, ZC = 4, A = 28, B = 16, Y0 = 11;   // hall: x −340..−60, z −24..32, springing 11 m, crown 27 m
+    const X0 = -403, X1 = -104, LEN = X1 - X0, XC = (X0 + X1) / 2, ZC = 1.25, A = 30.55, B = 16, Y0 = 11;   // hall: x −403..−104, z −29.3..31.8 over voies 1 to 7, springing 11 m, crown 27 m
+    const ribX = Array.from({ length:16 }, (_, q) => X0 + LEN * q / 15);   // a rib every 19.9 m
     // glass vault: a half ellipse swept along the hall
     { const NP = 26, pos = [], idx = [];
       for (let i = 0; i < 2; i++) for (let k = 0; k <= NP; k++){ const th = Math.PI * k / NP; pos.push(X0 + LEN * i, Y0 + B * Math.sin(th), ZC + A * Math.cos(th)); }
@@ -70,9 +73,9 @@ const landmarks = {};
       // ridge lantern (raised skylight) along the crown
       G.add(box(LEN - 10, 2.0, 7, ironM, XC, Y0 + B + 0.9, ZC)); G.add(box(LEN - 12, 1.4, 6.2, glassM, XC, Y0 + B + 1.0, ZC));
     }
-    // iron ribs every 20 m (one instanced mesh) and purlins along the hall
+    // iron ribs (one instanced mesh) and purlins along the hall
     { const mats = [], NS = 24, q = new THREE.Quaternion(), X_AX = new THREE.Vector3(1, 0, 0);
-      for (let x = X0; x <= X1 + 0.1; x += 20) for (let k = 0; k < NS; k++){
+      for (const x of ribX) for (let k = 0; k < NS; k++){
         const t0 = Math.PI * k / NS, t1 = Math.PI * (k + 1) / NS;
         const y0 = Y0 + B * Math.sin(t0), z0 = ZC + A * Math.cos(t0), y1 = Y0 + B * Math.sin(t1), z1 = ZC + A * Math.cos(t1);
         const dy = y1 - y0, dz = z1 - z0, len = Math.hypot(dy, dz);
@@ -88,28 +91,60 @@ const landmarks = {};
       const gg = new THREE.ShapeGeometry(sh, 24);
       for (const x of [X0, X1]){ const m = new THREE.Mesh(gg, glassM); m.rotation.y = Math.PI / 2; m.position.set(x, Y0, ZC); G.add(m); }
     }
-    // west side: stone base, glass band, pilasters; east side: low parapet and iron columns (open to the other platforms)
+    // west side: stone base, glass band, pilasters; east side: the eave on iron columns standing on platform 8, open to the tracks beyond
     { const ZL = ZC - A, ZR = ZC + A;
       G.add(box(LEN, 3.5, 0.6, stoneM, XC, 1.75, ZL), box(LEN, 7.0, 0.25, glassM, XC, 7.0, ZL), box(LEN, 0.8, 0.9, stoneM, XC, Y0 - 0.4, ZL));
-      G.add(box(LEN, 1.2, 0.5, stoneM, XC, 0.6, ZR), box(LEN, 0.8, 0.9, ironM, XC, Y0 - 0.4, ZR));
+      G.add(box(LEN, 0.8, 1.8, ironM, XC, Y0 - 0.4, ZR - 0.7));
       const pl = [], cl = [];
-      for (let x = X0; x <= X1 + 0.1; x += 20){ pl.push(M4(x, Y0 / 2, ZL)); cl.push(M4(x, Y0 / 2, ZR)); }
+      for (const x of ribX){ pl.push(M4(x, Y0 / 2, ZL)); cl.push(M4(x, Y0 / 2, ZR - 1.2)); }   // columns 0.4 m inside the platform's safety line
       inst(new THREE.BoxGeometry(1.2, Y0, 1.2), stoneM, pl, G, true); inst(new THREE.BoxGeometry(0.8, Y0, 0.8), ironM, cl, G, true);
     }
-    // passenger building against the west wall: two storeys, slate mansards, three pavilions, the clock on the middle one
-    { const bx0 = -300, bx1 = -100, bl = bx1 - bx0, bxc = (bx0 + bx1) / 2, bz = -36, bd = 18, zf = bz + bd / 2;   // track-side face at z −27
+    // passenger building behind the west wall: two storeys, slate mansards, three pavilions, the clock on the middle one, on the hall's axis
+    { const bx0 = -384, bx1 = -124, bl = bx1 - bx0, bxc = (bx0 + bx1) / 2, bd = 18, zf = ZC - A - 3, bz = zf - bd / 2;   // track-side face 3 m behind the hall wall
       // the long wing runs between the end pavilions and stops 0.5 m inside them, so none of its ends shares a plane with a
       // pavilion face (at 200 m the slate and the stone fought over the same pixels: the Saint-Jean flicker)
       const wl = bl - 59;
       G.add(box(wl, 13, bd, stoneM, bxc, 6.5, bz), box(wl, 0.6, bd + 1, stoneM, bxc, 13.2, bz), box(wl, 4.5, bd - 3, slateM, bxc, 15.5, bz), box(wl, 0.5, bd - 8, slateM, bxc, 17.9, bz));
       const pav = (cx, w, h) => { G.add(box(w, h, bd + 2, stoneM, cx, h / 2, bz), box(w + 1, 0.6, bd + 3, stoneM, cx, h + 0.2, bz), box(w - 2, 5, bd - 2, slateM, cx, h + 2.9, bz), box(w - 6, 0.6, bd - 8, slateM, cx, h + 5.6, bz)); };
-      pav(-200, 40, 19); pav(bx0 + 15, 30, 16); pav(bx1 - 15, 30, 16);
+      pav(bxc, 40, 19); pav(bx0 + 15, 30, 16); pav(bx1 - 15, 30, 16);
       const clockM = new THREE.MeshBasicMaterial({ map:clockTex, transparent:true });
-      for (const [z, ry] of [[zf + 1.06, 0], [bz - bd / 2 - 1.06, Math.PI]]){ const c = new THREE.Mesh(new THREE.PlaneGeometry(6, 6), clockM); c.position.set(-200, 16, z); c.rotation.y = ry; G.add(c); }
+      for (const [z, ry] of [[zf + 1.06, 0], [bz - bd / 2 - 1.06, Math.PI]]){ const c = new THREE.Mesh(new THREE.PlaneGeometry(6, 6), clockM); c.position.set(bxc, 16, z); c.rotation.y = ry; G.add(c); }
       const wm = [];
-      for (let x = bx0 + 4; x < bx1 - 3; x += 5){ const inPav = Math.abs(x + 200) < 21 || x < bx0 + 31 || x > bx1 - 31; for (const y of [3.4, 9.2]) wm.push(M4(x, y, zf + (inPav ? 1.05 : 0.05))); }
+      for (let x = bx0 + 4; x < bx1 - 3; x += 5){ const inPav = Math.abs(x - bxc) < 21 || x < bx0 + 31 || x > bx1 - 31; for (const y of [3.4, 9.2]) wm.push(M4(x, y, zf + (inPav ? 1.05 : 0.05))); }
       inst(new THREE.BoxGeometry(2.2, 3.6, 0.2), paneM, wm, G);
-      G.add(sign('BORDEAUX SAINT-JEAN', 26, 2.2, -200, 21.6, zf + 1.1, 0, '#1b2a44', '#f3efe6'));
+      G.add(sign('BORDEAUX SAINT-JEAN', 26, 2.2, bxc, 21.6, zf + 1.1, 0, '#1b2a44', '#f3efe6'));
+    }
+    // the other six platforms (OSM), like ours (the generic island of voies 4 and 5) from x −420: [z from, z to, north end, safety line on the west face too,
+    // stair heads' z]. Platform 1 runs along the hall wall; 8 carries the shed's columns and, outside it, the masts of the portals over voies 8 to 17
+    // (its stair heads keep west of them); voies 16, 17 and the two service tracks between 14 and 16 have none. Canopies over 9;11 and 12;14 outside the shed
+    { const pm = pmat(0x9a968e, { roughness:0.95 }), em = pmat(0xe8e2d0, { roughness:0.9 }), sm = pmat(0x545b63, { roughness:0.6 }), cm = pmat(0xb7bdc4, { roughness:0.85 }), glM = pmat(0x9fd0ff, { roughness:0.2, metalness:0.2 });
+      const PX0 = -420, boards = [], stairs = [], posts = [];
+      for (const [z0, z1, x1, west, zs] of [[-29.2, -20.7, 20, false], [-13.8, -6.2, 9, true], [15.85, 22.95, -1, true], [26.35, 31.45, -107, true, 28.05], [38.25, 43.75, -159, true], [50.65, 55.45, -188, true]]){
+        const L = x1 - PX0, xc = (PX0 + x1) / 2, zc = (z0 + z1) / 2;
+        G.add(box(L, 0.97, z1 - z0, pm, xc, 0.065, zc), box(L, 0.02, 0.3, em, xc, 0.56, z1 - 0.2));   // slab top at 0.55 m, safety lines 0.2 m in
+        if (west) G.add(box(L, 0.02, 0.3, em, xc, 0.56, z0 + 0.2));
+        for (let x = -12; x > PX0 + 10; x -= 48) if (x < x1 - 10) boards.push([x, zc]);   // name boards as on ours, stair heads between them
+        for (let x = -36; x > PX0 + 10; x -= 48) if (x < x1 - 10) stairs.push([x, zs || zc]);
+      }
+      for (const [xa, xb, z0, z1] of [[-405, -168, 38.85, 43.45], [-357, -192, 51.05, 55.15]]){
+        G.add(box(xb - xa, 0.12, z1 - z0, cm, (xa + xb) / 2, 4.25, (z0 + z1) / 2));
+        for (let x = -6; x > xa + 2; x -= 12) if (x < xb - 2) posts.push(M4(x, 2.4, (z0 + z1) / 2));
+      }
+      inst(new THREE.BoxGeometry(0.25, 3.7, 0.25), sm, posts, G);
+      inst(new THREE.BoxGeometry(4, 1.1, 2.2), sm, stairs.map(([x, z]) => M4(x, 1.1, z)), G); inst(new THREE.BoxGeometry(3.6, 0.1, 1.9), glM, stairs.map(([x, z]) => M4(x, 1.7, z)), G);
+      const nb = boards.length, faces = new THREE.InstancedMesh(new THREE.PlaneGeometry(1, 0.7), new THREE.MeshBasicMaterial({ map:nameTexs[0] }), 2 * nb);
+      const frames = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 0.78, 0.05), sm, nb), bposts = new THREE.InstancedMesh(new THREE.BoxGeometry(0.08, 2.05, 0.08), sm, 2 * nb);
+      const _v = new THREE.Vector3(), _s = new THREE.Vector3(), _m = new THREE.Matrix4();
+      const fit = w => {   // the boards take their width from the painted name, like ours (nameSigns)
+        boards.forEach(([x, z], i) => {
+          _s.set(w, 1, 1); faces.setMatrixAt(2 * i, _m.compose(_v.set(x, 2.95, z + 0.03), _qI, _s)); faces.setMatrixAt(2 * i + 1, _m.compose(_v.set(x, 2.95, z - 0.03), qB, _s));
+          frames.setMatrixAt(i, _m.compose(_v.set(x, 2.95, z), _qI, _s.set(w + 0.08, 1, 1)));
+          _s.set(1, 1, 1); bposts.setMatrixAt(2 * i, _m.compose(_v.set(x + 0.3 - w / 2, 1.575, z), _qI, _s)); bposts.setMatrixAt(2 * i + 1, _m.compose(_v.set(x + w / 2 - 0.3, 1.575, z), _qI, _s));
+        });
+        for (const im of [faces, frames, bposts]){ im.instanceMatrix.needsUpdate = true; im.boundingSphere = null; }
+      };
+      fit(5.3); nameSigns.push({ fit(){ fit(0.7 * nameTexs[0].userData.aspect); } });
+      G.add(faces, frames, bposts);
     }
     noCast(G); G.children.forEach(o => { if (o.isInstancedMesh && o.geometry.parameters && o.geometry.parameters.height === Y0) o.castShadow = true; });
   }
