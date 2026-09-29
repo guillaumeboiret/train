@@ -4,7 +4,7 @@ Inputs: rails_*.json (Overpass, out body + skel nodes), stations.json, stations_
 Legs: Toulouse -> the old Bordeaux start (the southern half stays metre for metre what it was), then on to Paris through every station
 a Paris - Bordeaux TGV calls at off the LGV (VIA), on the LGV everywhere else.
 """
-import json, math, heapq, base64, struct, sys, os, io, urllib.request, time, glob
+import json, math, heapq, base64, struct, sys, os, io, urllib.request, time, glob, re
 from PIL import Image
 
 R = 6371008.8
@@ -355,6 +355,68 @@ bdx_s = next(x['s'] for x in stations if x['id'] == 'bdx')
 FAST = next(round(a + 3800, -2) for (a, v), b in zip(vmax, [r[0] for r in vmax[1:]] + [L]) if a > bdx_s and v >= 320 and b - a >= 20000)
 print('tour step 5 at', FAST)
 
+# ------------------------------------------------------------------ wind turbines: the real ones within 6 km of the line (OSM power=generator,
+# generator:source=wind, in wind.json from fetch_rails.py). Placed in the route plane from their nearest 100 m sample plus their own east/north
+# offset (a sample's bearing is too noisy to carry a point 5 km sideways); (s, w) kept for the ground near the line. Hub height and rotor from
+# their tags (height is the tip when it clears half a rotor above hub level, else the hub), else their farm's median, else 90 m and 100 m.
+# Micro turbines (rotor under 20 m or under 40 m tall) are left out, and so is an untagged turbine with no farm around it.
+def en_at(sv):
+    lo, hi = 0, len(S) - 1
+    while hi - lo > 1:
+        m = (lo + hi) // 2
+        if S[m] <= sv: lo = m
+        else: hi = m
+    f = 0 if S[hi] == S[lo] else (sv - S[lo]) / (S[hi] - S[lo])
+    return E[lo] + (E[hi] - E[lo]) * f, N[lo] + (N[hi] - N[lo]) * f
+def tnum(t, k):
+    m = re.match(r'\s*(\d+(?:[.,]\d+)?)', t.get(k, ''))
+    return float(m.group(1).replace(',', '.')) if m else None
+def model_d(t):   # V112-3.0MW, N117/3000, SWT130, E-92, SGRE 155-6,6 MW: the rotor diameter is the model's number
+    m = re.search(r'(?:^|[^\d.,])(\d{2,3})(?![\d.,])', t.get('model') or t.get('generator:model') or '')
+    return float(m.group(1)) if m and 40 <= float(m.group(1)) <= 175 else None
+WIND_W = 6000
+SEN = [en_at(min(i * ES, L)) for i in range(NS)]
+cells = {}
+for i, (la, lo, b) in enumerate(samples): cells.setdefault((math.floor(la * 10), math.floor(lo * 10)), []).append(i)
+wind = []
+for e in json.load(open('wind.json'))['elements']:
+    la, lo, t = e['lat'], e['lon'], e.get('tags', {})
+    ci, cj = math.floor(la * 10), math.floor(lo * 10)
+    best = min(((hav((la, lo), samples[i][:2]), i) for a in (ci - 1, ci, ci + 1) for b in (cj - 1, cj, cj + 1) for i in cells.get((a, b), ())), default=None)
+    if best is None or best[0] > WIND_W + 100: continue
+    i = best[1]; sla, slo, _ = samples[i]
+    de = (lo - slo) * D2R * R * math.cos(sla * D2R); dn = (la - sla) * D2R * R
+    (ea, na), (eb, nb) = SEN[max(0, i - 1)], SEN[min(NS - 1, i + 1)]
+    tl = math.hypot(eb - ea, nb - na) or 1; tx, ty = (eb - ea) / tl, (nb - na) / tl
+    w = de * ty - dn * tx
+    if abs(w) > WIND_W: continue
+    D = tnum(t, 'rotor:diameter') or model_d(t); H = tnum(t, 'height'); hub = tnum(t, 'height:hub')
+    if (D is not None and D < 20) or (H is not None and H < 40 and hub is None): continue
+    wind.append({ 'E': SEN[i][0] + de, 'N': SEN[i][1] + dn, 'la': la, 'lo': lo, 's': min(max(i * ES + de * tx + dn * ty, 0), L), 'w': w, 'D': D, 'H': H, 'hub': hub,
+                  'tagged': any(k in t for k in ('model', 'height', 'height:hub', 'rotor:diameter', 'manufacturer', 'generator:output:electricity')) })
+farm = list(range(len(wind)))
+def froot(k):
+    while farm[k] != k: farm[k] = farm[farm[k]]; k = farm[k]
+    return k
+for a in range(len(wind)):
+    for b in range(a + 1, len(wind)):
+        if math.hypot(wind[a]['E'] - wind[b]['E'], wind[a]['N'] - wind[b]['N']) < 2000: farm[froot(a)] = froot(b)
+farms = {}
+for k in range(len(wind)): farms.setdefault(froot(k), []).append(wind[k])
+def median(v): v = sorted(v); return v[len(v) // 2] if v else None
+WIND = []
+for grp in farms.values():
+    if len(grp) < 3: grp = [u for u in grp if u['tagged']]
+    if not grp: continue
+    mD = median([u['D'] for u in grp if u['D']]) or 100
+    for u in grp:
+        if not u['hub'] and u['H'] and not u['D']: u['D'] = mD
+        if not u['hub'] and u['H']: u['hub'] = u['H'] - u['D'] / 2 if u['H'] - u['D'] / 2 >= 0.55 * u['D'] else u['H']
+    mH = median([u['hub'] for u in grp if u['hub']]) or 90
+    for u in grp: WIND.append([round(u['E'], 1), round(u['N'], 1), round(elev(u['la'], u['lo']), 1), round(u['hub'] or mH, 1), round(u['D'] or mD, 1), round(u['s']), round(u['w'])])
+WIND.sort(key=lambda v: v[5])
+print('wind turbines', len(WIND), 'in', sum(1 for g in farms.values() if len(g) >= 3), 'farms; tiles used', len(tile_cache))
+
 # ------------------------------------------------------------------ simplify path (Douglas-Peucker on the local plane), cap segment length
 pts = list(zip(E, N))
 def dp(pts, eps):
@@ -394,7 +456,7 @@ route = {
     'TS': TS, 'TW': TW, 'ter': b64i16([v * 10 for v in ter]),
     'tracks': [[round(a, 1), b] for a, b in tracks], 'vmax': [[round(a, 1), b] for a, b in vmax], 'volt': [[round(a, 1), b] for a, b in volt],
     'structs': [[round(a, 1), round(b, 1), k, n] for a, b, k, n in structs],
-    'stations': stations, 'fast': FAST,
+    'stations': stations, 'fast': FAST, 'wind': WIND,
     'src': 'Tracé: © OpenStreetMap contributors (ODbL). Relief: Mapzen/AWS Terrain Tiles (SRTM). Profil de la voie lissé et limité à 2,5 %.',
 }
 js = 'const ROUTE_DATA = ' + json.dumps(route, ensure_ascii=False, separators=(',', ':')) + ';\n'

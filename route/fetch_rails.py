@@ -21,7 +21,7 @@ Q = {   # name: Overpass body, saved as rails_<name>.json for build_route.py
  'spc':  'way["railway"="rail"](47.373,0.697,47.399,0.751);',
 }
 EXTRA = {   # not rails: name: (Overpass body, output file, output statement)
- 'wind': ('node["power"="generator"]["generator:source"="wind"](44.70,-0.95,48.90,2.50);', 'wind.json', 'out body;'),
+ 'wind': ('node["power"="generator"]["generator:source"="wind"](43.50,-0.95,48.90,2.50);', 'wind.json', 'out body;'),
  'stations_sud': ('nwr["railway"="station"]["name"~"^(Agen|Montauban Ville Bourbon|Toulouse-Matabiau)$"](43.55,0.55,44.25,1.50);', 'stations_sud.json', 'out center;'),
  'stations_ouest': ('nwr["railway"="station"]["name"~"^(Châtellerault|Futuroscope)$"](46.55,0.25,46.90,0.65);', 'stations_ouest.json', 'out center;'),
 }

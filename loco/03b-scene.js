@@ -10,7 +10,7 @@ renderer.toneMappingExposure = 1.05;
 renderer.localClippingEnabled = true;
 
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 1200);
+const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 9000);   // far enough for the wind farms 7 km out (03f4b-wind.js)
 
 const hemi = new THREE.HemisphereLight(0xc4d6f0, 0x3b3a33, 1.05);
 scene.add(hemi);
