@@ -6,7 +6,8 @@
    body, which muffles them when the camera is inside. */
 /* The TGV adds three recordings, fetched from ../audio (CC0, credited in site/audio/CREDITS.txt): a coach at speed, heard instead of the synthesised
    rolling once inside; a power car at a standstill (blowers, compressor, air dryer); the door beeps and lock. Synthesised: the inverters' whine, the
-   transformer hum under 25 kV, the brake squeal and air, the two-tone air horn and the SNCF chime. Where a recording does not load, the synthesis stays. */
+   transformer hum under 25 kV, the brake squeal and air, the doors opening, the two-tone air horn and the SNCF chime. Where a recording does not load,
+   the synthesis stays. */
 const SND = { ctx:null, master:null, muted:false, v:null,
   setMuted(m){ SND.muted = m; if (SND.master) SND.master.gain.setTargetAtTime(m ? 0 : 0.9, SND.ctx.currentTime, 0.05); } };
 const _sc = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -68,9 +69,10 @@ function audioCtx(){
     const c = chain(noise(pinkB), 'lowpass', 600, 0, p.g);
     v.opp.push({ o, pan:p.pan, f:c.f, g:c.g, horn:null });
   }
-  // TGV coach and doors: the recorded coach goes straight out (it was recorded inside), the door beepers sit by the nearest door, both past the car body
+  // TGV coach and doors: the recorded coach goes straight out (it was recorded inside), the doors' beepers and motion sit by the nearest door, both past the car body
   v.cabin = ctx.createGain(); v.cabin.gain.value = 0; v.cabin.connect(master);
   v.door = place(master);
+  v.slide = chain(noise(pinkB), 'bandpass', 380, 0.9, v.door.g); v.slideHum = osc('triangle', 140, v.door.g);   // a door sliding open: its rollers, its drive
   v.airHorn = ctx.createPeriodicWave(new Float32Array(9), new Float32Array([0, 1, 0.8, 0.55, 0.4, 0.28, 0.18, 0.12, 0.08]));   // an air horn: a bright buzz
   const ir = ctx.createBuffer(2, Math.round(ctx.sampleRate * 1.2), ctx.sampleRate);   // a hall for the chime: 1.2 s of decaying noise
   for (let c = 0; c < 2; c++){ const d = ir.getChannelData(c); for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.exp(-i / ctx.sampleRate / 0.25); }
@@ -160,29 +162,44 @@ function chime(ctx, lvl){   // SNCF's sound logo before an announcement (Michaë
     o.connect(g); g.connect(out); o.start(t); o.stop(t + 0.015 + 7 * tau);
   }
 }
-function doorsClose(ctx){   // the doors' warning beeps, then the lock: recorded, else square beeps
-  const v = SND.v, t0 = ctx.currentTime, g = ctx.createGain();
-  g.connect(v.door.g);
+function doorsClose(ctx){   // the doors' warning beeps, then the lock: recorded, else square beeps; cut short if the doors reopen
+  const v = SND.v, t0 = ctx.currentTime, g = ctx.createGain(), out = v.closing = ctx.createGain();
+  g.connect(out); out.connect(v.door.g);
   if (v.doorB){ const s = ctx.createBufferSource(); s.buffer = v.doorB; g.gain.value = 0.7; s.connect(g); s.start(t0); return; }
   const o = ctx.createOscillator(); o.type = 'square'; o.frequency.value = 1450; g.gain.value = 0;
   for (let i = 0; i < 21; i++){ const t = t0 + i * 0.143; g.gain.setValueAtTime(0.05, t); g.gain.setValueAtTime(0, t + 0.07); }
   o.connect(g); o.start(t0); o.stop(t0 + 3.1);
 }
-function airSigh(ctx){   // the brakes' air as the train comes to rest
+function puff(ctx, dest, type, freq, q, lvl, rise, hold, tau){   // a burst of filtered noise: up in rise s, held, then dying away with time constant tau
   const t0 = ctx.currentTime, s = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
-  s.buffer = SND.v.pinkB; s.loop = true; f.type = 'highpass'; f.frequency.value = 1800;
-  g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime(0.12, t0 + 0.05); g.gain.setTargetAtTime(0, t0 + 0.3, 0.35);
-  s.connect(f); f.connect(g); g.connect(SND.v.near.g); s.start(t0, Math.random() * 3); s.stop(t0 + 2.6);
+  s.buffer = SND.v.pinkB; s.loop = true; f.type = type; f.frequency.value = freq; f.Q.value = q;
+  g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime(lvl, t0 + rise); g.gain.setTargetAtTime(0, t0 + rise + hold, tau);
+  s.connect(f); f.connect(g); g.connect(dest); s.start(t0, Math.random() * 3); s.stop(t0 + rise + hold + 7 * tau);
 }
+function airSigh(ctx){ puff(ctx, SND.v.near.g, 'highpass', 1800, 1, 0.12, 0.05, 0.25, 0.35); }   // the brakes' air as the train comes to rest
+function knock(ctx, freq, lvl){   // a damped thud by the nearest door, its pitch sagging
+  const t = ctx.currentTime, o = ctx.createOscillator(), g = ctx.createGain();
+  o.frequency.setValueAtTime(freq, t); o.frequency.exponentialRampToValueAtTime(0.6 * freq, t + 0.12);
+  g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(lvl, t + 0.004); g.gain.setTargetAtTime(0, t + 0.004, 0.04);
+  o.connect(g); g.connect(SND.v.door.g); o.start(t); o.stop(t + 0.3);
+}
+function doorsUnlock(ctx){   // the doors starting to open: the lock lets go (a click, a knock), then air as each leaf swings out; the slide follows, per frame
+  puff(ctx, SND.v.door.g, 'bandpass', 2600, 1.5, 0.6, 0.002, 0, 0.012); knock(ctx, 120, 0.18);
+  puff(ctx, SND.v.door.g, 'highpass', 2000, 0.7, 0.16, 0.05, 0.15, 0.25);
+}
+function doorsHome(ctx){ knock(ctx, 85, 0.2); puff(ctx, SND.v.door.g, 'lowpass', 700, 0.7, 0.15, 0.004, 0, 0.03); }   // the leaves open, on their end stops
 
 /* ---- per frame: levels follow the sim, places follow the camera */
 function updateSound(dt){
   const ctx = SND.ctx; if (!ctx) return;
   const v = SND.v, now = ctx.currentTime, sp = S.speed, tgv = S.mode === 'tgv';
-  // TGV events, followed while muted too so that unmuting does not replay them: doors starting to close, the train coming to rest, the planned stop near
+  // TGV events, followed while muted too so that unmuting does not replay them: doors starting to open from shut and reaching their stops, doors starting
+  // to close, the train coming to rest, the planned stop near
+  const reopen = tgv && v.doorsWas === false && S.doors, unlock = reopen && S.doorsF < 0.1, home = tgv && S.doors && v.doorsFWas < 1 && S.doorsF >= 1;
   const shut = tgv && v.doorsWas && !S.doors && S.doorsF > 0.3;
+  if (reopen){ v.chimeAt = 0; if (v.closing) v.closing.gain.setTargetAtTime(0, now, 0.03); v.closing = null; }   // not leaving after all: no beeps, lock or welcome
   if (shut && v.atWas) v.chimeAt = now + 3.4;   // leaving a platform (as of the last frame: the kid's station button jumps ahead): the welcome announcement once the doors are locked
-  v.doorsWas = S.doors; v.atWas = S.atStation;
+  v.doorsWas = S.doors; v.doorsFWas = S.doorsF; v.atWas = S.atStation;
   const depart = tgv && v.chimeAt > 0 && now >= v.chimeAt; if (v.chimeAt && now >= v.chimeAt) v.chimeAt = 0;
   const halt = tgv && v.run && sp < 0.02; if (sp > 1) v.run = true; else if (sp < 0.02) v.run = false;
   const arrive = tgv && S.autoStop && !v.arrived && tgvRemaining() < Math.max(400, 25 * sp); if (arrive) v.arrived = true; if (!S.autoStop) v.arrived = false;   // about half a minute out
@@ -234,7 +251,11 @@ function updateSound(dt){
   v.squeal.forEach((s, i) => { set(s.g.gain, (i ? 0.006 : 0.012) * sq); s.o.frequency.setTargetAtTime((i ? 4150 : 6800) * (1 + 0.008 * Math.sin(now * (i ? 5.3 : 7))), now, 0.05); });
   aim(v.near, curveLocal(cx, 0.8, 0, _sv2), r => (6 / Math.max(6, r)) ** 0.55);
   aim(v.door, curveLocal(cx, 1.2, 0, _sv2), r => (8 / Math.max(8, r)) ** 0.7);
+  const slide = tgv && S.doors && S.doorsF > 0.3 && S.doorsF < 1;   // the doors' last 2.1 s: the leaf slides along the body, its drive rising and falling
+  set(v.slide.g.gain, slide ? 0.2 : 0); set(v.slideHum.g.gain, slide ? 0.02 : 0); set(v.slideHum.o.frequency, 140 + 60 * Math.sin(Math.PI * _sc((S.doorsF - 0.3) / 0.7, 0, 1)));
   if (halt) airSigh(ctx);
+  if (unlock) doorsUnlock(ctx);
+  if (home) doorsHome(ctx);
   if (shut) doorsClose(ctx);
   if (arrive || depart) chime(ctx, inside ? 1 : 0.6);
   const rain = !!WEATHER[weatherId].rain;
