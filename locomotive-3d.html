@@ -2162,14 +2162,23 @@ const PC = (() => {
   const tAt = (x, y) => { const [b, t, , , n] = sec(uAt(x)), yn = (2 * y - b - t) / (t - b); return Math.asin(Math.sign(yn) * Math.pow(Math.abs(yn), n / 2)); };   // on the +z flank
   const flank = (x0, x1, y0, y1) => { const t0 = tAt((x0 + x1) / 2, y0), t1 = tAt((x0 + x1) / 2, y1); return [lens(x0, x1, t0, t1), lens(x0, x1, Math.PI - t1, Math.PI - t0)]; };
   const lamps = { head:flank(10.67, 10.97, 1.35, 1.55), tail:flank(10.50, 10.63, 1.37, 1.53), top:lens(9.02, 9.24, Math.PI / 2 - 0.025, Math.PI / 2 + 0.025) };   // tails beside the heads on the mask; top: above the windshield
-  /* Livery drawn in metres: x along the car, y up the wall on side s (+1: +z). u runs along x and v is read off the section at x (the
-     rings' own), so a shape lands where it is drawn, round the nose too; canvas rows run from v 1 at the top (flipY). Any height over
-     the roof maps onto its centre line, any under the floor onto the bottom one. */
+  /* Livery drawn in metres: x along the car, y up the wall on side s (+1: +z). u runs along x and v is read off the loft itself at x,
+     facet by facet (the nose law between two rings stands up to 12 mm off them), so a shape lands where it is drawn, round the nose
+     too; canvas rows run from v 1 at the top (flipY). Any height over the roof maps onto its centre line, any under the floor onto the
+     bottom one. */
   const ux = x => (x - TGV.PC_REAR) / L;
-  const secAt = x => x <= TGV.PC_NOSE0 ? body : nose(Math.min(1, uAt(x)));
+  const vLoft = (x, y, s) => {   // v at height y on side s at x: across each quad, from its ring point a to its diagonal (loftGeo's a, b + 1) to a + 1
+    let i = 0; while (i < rings.length - 2 && rings[i + 1].x < x) i++;
+    const p = rings[i].pts, q = rings[i + 1].pts, f = Math.min(1, Math.max(0, (x - rings[i].x) / (rings[i + 1].x - rings[i].x))), h = RING_N / 2;
+    for (let k = 0; k < h; k++){
+      const a = s > 0 ? k : h + k, b = (a + 1) % RING_N, ts = [0, f, 1], ys = [p[a][1] + (q[a][1] - p[a][1]) * f, p[a][1] + (q[b][1] - p[a][1]) * f, p[b][1] + (q[b][1] - p[b][1]) * f];
+      for (let e = 0; e < 2; e++) if (ys[e] !== ys[e + 1] && (y - ys[e]) * (y - ys[e + 1]) <= 0) return vs[a] + (ts[e] + (y - ys[e]) / (ys[e + 1] - ys[e]) * (ts[e + 1] - ts[e])) * (vs[a + 1] - vs[a]);
+    }
+    return y > p[h][1] + (q[h][1] - p[h][1]) * f - 1e-6 ? vs[h] : s > 0 ? vs[0] : vs[RING_N];
+  };
   const vj = j => { const a = Math.floor(j); return vs[a] + (vs[a + 1] - vs[a]) * (j - a); };   // v at a fractional ring point
   const painter = (c, W, H) => {
-    const cx = x => ux(x) * W, cy = (x, y, s) => (1 - vAt(secAt(x), vs, y, s)) * H;
+    const cx = x => ux(x) * W, cy = (x, y, s) => (1 - vLoft(x, y, s)) * H;
     const path = (s, xy, n = 8, closed = true) => {   // polygon (or polyline) with each edge cut in n, so that it bends with the section
       c.beginPath();
       for (let i = 0; i < (closed ? xy.length : xy.length - 1); i++){
@@ -2188,12 +2197,12 @@ const PC = (() => {
     return Array.from({ length:n + 1 }, (_, k) => { const t = k / n, u = 1 - t; return [0, 1].map(e => u * u * p[e] + 2 * u * t * b[e] + t * t * q[e]); });
   });
   const SIDE_WIN = rounded([[8.32, 2.86], [8.32, 3.46], [8.86, 3.2], [8.98, 2.86]], 0.08);   // cab side window, under the mask
+  const WS = rounded([[9.3, 16], [10.75, 18.2], [10.75, 21.8], [9.3, 24]].map(([x, j]) => [x, j / 5]), 0.2).map(([x, t]) => [x, t * 5]);   // windshield: x, ring point (20: the top centre); its corners rounded as if ring points were 0.2 m apart (0.15 to 0.4 m there), the rear ones level with the driver's eye
   const windows = (c, W, H) => {   // windshield across the nose top + cab side windows: painted on the livery, cut out of the body on cars with a cab
-    const WS = [[9.3, 16], [10.75, 18.2], [10.75, 21.8], [9.3, 24]];   // windshield corners: x, ring point (20: the top centre)
     c.beginPath();
-    WS.forEach(([x0, j0], i) => { const [x1, j1] = WS[(i + 1) % 4]; for (let k = 0; k < 8; k++){ const f = k / 8, X = ux(x0 + (x1 - x0) * f) * W, Y = (1 - vj(j0 + (j1 - j0) * f)) * H; i || k ? c.lineTo(X, Y) : c.moveTo(X, Y); } });
+    WS.forEach(([x0, j0], i) => { const [x1, j1] = WS[(i + 1) % WS.length]; for (let k = 0; k < 8; k++){ const f = k / 8, X = ux(x0 + (x1 - x0) * f) * W, Y = (1 - vj(j0 + (j1 - j0) * f)) * H; i || k ? c.lineTo(X, Y) : c.moveTo(X, Y); } });
     c.closePath(); c.fill();
-    const p = painter(c, W, H); [1, -1].forEach(s => { p.path(s, SIDE_WIN, 3); c.fill(); });
+    const p = painter(c, W, H); [1, -1].forEach(s => { p.path(s, SIDE_WIN, 16); c.fill(); });
   };
   const EDGE = new THREE.SplineCurve([[7.35, 4.08], [8.2, 4.06], [8.6, 3.86], [9.0, 3.5], [9.4, 3.05], [9.8, 2.45], [10.2, 1.85], [10.45, 1.42], [10.62, 1.26], [11.0, 1.25], [11.35, 1.25]]
     .map(([x, y]) => new THREE.Vector2(x, y))).getPoints(160).map(v => [v.x, v.y]);   // lower edge of the black mask: from the cab roof down past the lamps to the chin
@@ -2234,7 +2243,15 @@ const PC = (() => {
     c.fillStyle = LIV.glass; windows(c, W, H);
     c.fillStyle = 'rgba(0,0,0,0.35)'; c.fillRect(0, 0, ux(TGV.PC_REAR + 0.25) * W, H);   // rear end shading
   });
-  const mask = (bg, fg) => { const t = canvasTex(1024, 512, (c, W, H) => { c.fillStyle = bg; c.fillRect(0, 0, W, H); c.fillStyle = fg; windows(c, W, H); }); t.colorSpace = THREE.NoColorSpace; return t; };
+  /* The cab openings' masks span only the nose top (the texture transform stretches them over the body, the clamped edge fills the
+     rest): 2.6 by 4.9 mm a texel keeps the cut edges smooth a metre from the driver's eye, where 2 cm over the whole car alpha tested
+     into scallops. */
+  const Z = { u0:ux(8.2), u1:ux(10.9), v0:vAt(body, vs, 2.8, 1), v1:vAt(body, vs, 2.8, -1) }, ku = 1 / (Z.u1 - Z.u0), kv = 1 / (Z.v1 - Z.v0);
+  const mask = (bg, fg) => {
+    const t = canvasTex(1024, 1024, (c, W, H) => { c.fillStyle = bg; c.fillRect(0, 0, W, H); c.translate(-Z.u0 * ku * W, -(1 - Z.v1) * kv * H); c.fillStyle = fg; windows(c, W * ku, H * kv); });
+    t.colorSpace = THREE.NoColorSpace; t.repeat.set(ku, kv); t.offset.set(-Z.u0 * ku, -Z.v0 * kv);
+    return t;
+  };
   const hatchTex = canvasTex(4, 128, (c, W, H) => { c.fillStyle = LIV.white; c.fillRect(0, 0, W, H); c.fillStyle = LIV.black; c.fillRect(0, 0, W, H * (1 - 1.25 / 2)); });   // snout (v: height / 2 m): the mask down to 1.25 m, the white chin under it
   return { geo, hatch, hatchTex, lamps, tex, alpha:mask('#fff', '#000'), glassAlpha:mask('#000', '#fff'), rings, yBot, yTop };
 })();
@@ -2467,17 +2484,24 @@ const TR = (() => {
       return g;
     };
     pane[L] = { glass:strips(false, -0.004), plug:strips(true, 0.07) };   // glass 4 mm proud of the skin, over the gasket; the plug sits behind the closed leaf (its back is 4.8 cm in)
-    const rr = (x0, x1, y0, y1, r, out) => {   // rounded rectangle, 7 points per corner, anticlockwise from the top right corner
-      for (const [cx, cy, q] of [[x1 - r, y1 - r, 0], [x0 + r, y1 - r, 1], [x0 + r, y0 + r, 2], [x1 - r, y0 + r, 3]])
+    const rr = (x0, x1, y0, y1, r, ys) => {   // rounded rectangle, anticlockwise from the top right corner: 7 points per corner, and the heights ys (rising) up each jamb
+      const out = [];
+      for (const [cx, cy, q] of [[x1 - r, y1 - r, 0], [x0 + r, y1 - r, 1], [x0 + r, y0 + r, 2], [x1 - r, y0 + r, 3]]){
         for (let k = 0; k <= 6; k++){ const a = (q + k / 6) * Math.PI / 2; out.push([cx + r * Math.cos(a), cy + r * Math.sin(a)]); }
+        if (q === 1) for (let k = ys.length - 1; k >= 0; k--) out.push([x0, ys[k]]); else if (q === 3) for (const y of ys) out.push([x1, y]);
+      }
       return out;
     };
-    const fp = [], fi = [];   // window surrounds 3 mm inside the lining, from 3 cm inside each opening to 3.5 cm out: a crisp edge over the alpha cuts, which a seat sees at arm's length
+    /* window surrounds 3 mm inside the lining, from 3 cm inside each opening to 3.5 cm out: a crisp edge over the alpha cuts, which a
+       seat sees at arm's length. Their jambs bend at the ring heights as the wall does (straight, they stood up to 2 cm off it), and a
+       reveal runs from their inner edge out to the glass: no sightline slips between surround and pane onto the lining's cut edge. */
+    const fp = [], fi = [];
     for (const s of [1, -1]) for (const [x0, x1, y0, y1, d] of holes(L)){
       if (d) continue;
-      const a = rr(x0 + 0.03, x1 - 0.03, y0 + 0.03, y1 - 0.03, 0.07, []), b = rr(x0 - 0.035, x1 + 0.035, y0 - 0.035, y1 + 0.035, 0.135, []), o = fp.length / 3, n = a.length;
-      for (const [x, y] of [...a, ...b]) fp.push(x, y, s * (zAtY(pts, y) - 0.003));
-      for (let k = 0; k < n; k++){ const k1 = (k + 1) % n; fi.push(o + k, o + n + k, o + n + k1, o + k, o + n + k1, o + k1); }
+      const ys = pts.slice(1, RING_N / 2).map(q => q[1]).filter(y => y > y0 + 0.1 && y < y1 - 0.1);   // both rings' jambs run from y0 + 0.1 to y1 - 0.1
+      const a = rr(x0 + 0.03, x1 - 0.03, y0 + 0.03, y1 - 0.03, 0.07, ys), b = rr(x0 - 0.035, x1 + 0.035, y0 - 0.035, y1 + 0.035, 0.135, ys), o = fp.length / 3, n = a.length;
+      for (const [ring, dz] of [[a, -0.003], [b, -0.003], [a, -0.003], [a, 0.004]]) for (const [x, y] of ring) fp.push(x, y, s * (zAtY(pts, y) + dz));   // surround, then the reveal on its own vertices (its own normals)
+      for (const [p, q] of [[o, o + n], [o + 2 * n, o + 3 * n]]) for (let k = 0; k < n; k++){ const k1 = (k + 1) % n; fi.push(p + k, q + k, q + k1, p + k, q + k1, p + k1); }
     }
     const fg = surround[L] = new THREE.BufferGeometry();
     fg.setAttribute('position', new THREE.Float32BufferAttribute(fp, 3)); fg.setIndex(fi); fg.computeVertexNormals();
