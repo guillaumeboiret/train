@@ -2478,18 +2478,24 @@ const TR = (() => {
     }
     const lg = lining[L] = new THREE.BufferGeometry();
     lg.setAttribute('position', new THREE.Float32BufferAttribute(lp, 3)); lg.setAttribute('uv', new THREE.Float32BufferAttribute(lu, 2)); lg.setIndex(li); lg.computeVertexNormals();
-    const strips = (doorway, inset) => {   // quads following the section over each opening (2 cm larger all round), `inset` in from the skin (< 0: out), facing out
+    const strips = (doorway, inset, r) => {   // quads following the section over each opening (2 cm larger all round, corners rounded to r), `inset` in from the skin (< 0: out), facing out
       const pos = [], idx = [];
       for (const s of [1, -1]) for (const [x0, x1, y0, y1, d] of holes(L)){
         if (d !== doorway) continue;
-        const ys = [y0 - 0.02, ...pts.slice(1, RING_N / 2).map(q => q[1]).filter(y => y > y0 - 0.02 && y < y1 + 0.02), y1 + 0.02], o = pos.length / 3;
-        for (const y of ys){ const z = s * (zAtY(pts, y) - inset); pos.push(x0 - 0.02, y, z, x1 + 0.02, y, z); }
+        const X0 = x0 - 0.02, X1 = x1 + 0.02, Y0 = y0 - 0.02, Y1 = y1 + 0.02, o = pos.length / 3;
+        const arc = [1, 2, 3, 4, 5, 6].map(k => r - r * Math.cos(k * Math.PI / 12));   // rise of the corner arcs, sampled every 15 degrees
+        const ys = [Y0, Y1, ...pts.slice(1, RING_N / 2).map(q => q[1]).filter(y => y > Y0 && y < Y1), ...arc.map(t => Y0 + t), ...arc.map(t => Y1 - t)]
+          .sort((a, b) => a - b).filter((y, k, a) => k === 0 || y - a[k - 1] > 1e-4);
+        for (const y of ys){
+          const e = Math.max(0, Y0 + r - y, y - Y1 + r), dx = r - Math.sqrt(Math.max(0, r * r - e * e)), z = s * (zAtY(pts, y) - inset);
+          pos.push(X0 + dx, y, z, X1 - dx, y, z);
+        }
         for (let k = 0; k + 1 < ys.length; k++){ const a = o + 2 * k; s > 0 ? idx.push(a, a + 1, a + 3, a, a + 3, a + 2) : idx.push(a, a + 3, a + 1, a, a + 2, a + 3); }
       }
       const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
       return g;
     };
-    pane[L] = { glass:strips(false, -0.004), plug:strips(true, 0.07) };   // glass 4 mm proud of the skin, over the gasket; the plug sits behind the closed leaf (its back is 4.8 cm in)
+    pane[L] = { glass:strips(false, -0.004, 0.12), plug:strips(true, 0.07, 0) };   // glass 4 mm proud of the skin, over the gasket (its corners on the gasket's arcs, 2 cm in from its edge); the plug sits behind the closed leaf (its back is 4.8 cm in)
     const rr = (x0, x1, y0, y1, r, ys) => {   // rounded rectangle, anticlockwise from the top right corner: 7 points per corner, and the heights ys (rising) up each jamb
       const out = [];
       for (const [cx, cy, q] of [[x1 - r, y1 - r, 0], [x0 + r, y1 - r, 1], [x0 + r, y0 + r, 2], [x1 - r, y0 + r, 3]]){
