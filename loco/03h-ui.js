@@ -563,18 +563,23 @@ function jumpToStation(st){ trk.from = trk.to = 0; trk.s0 = -1e9; jumpTo(st.s - 
     const b = document.createElement('button'); b.type = 'button'; b.className = 'rb-st'; b.dataset.i = i; b.style.left = pct(st.s); b.title = st.name; b.setAttribute('aria-label', st.name);
     b.innerHTML = '<i></i>';
     b.addEventListener('click', e => { if (e.detail === 0) jumpToStation(st); });   // the keyboard; pointers are handled on the bar
-    const l = document.createElement('span'); l.className = 'rb-lb' + (i === 0 ? ' first' : i === last ? ' last' : ''); l.style.left = pct(st.s); l.textContent = SHORT[st.id] || st.name;
+    const l = document.createElement('span'); l.className = 'rb-lb'; l.style.left = pct(st.s); l.textContent = SHORT[st.id] || st.name;
     bar.append(b, l);
     return l;
   });
   const rank = i => i === 0 || i === last ? -1 : (k => k < 0 ? 99 : k)(Object.keys(SHORT).indexOf(ROUTE.stations[i].id));
   const order = labels.map((l, i) => i).sort((a, b) => rank(a) - rank(b));
-  new ResizeObserver(() => {
+  new ResizeObserver(() => {   // most important first; a label that does not fit centred under its dot may start or end at it instead, or hide
     const kept = [];
     for (const i of order){
-      labels[i].hidden = false;
-      const r = labels[i].getBoundingClientRect();
-      if (kept.some(k => r.left < k.right + 6 && r.right > k.left - 6)) labels[i].hidden = true; else kept.push(r);
+      const l = labels[i];
+      l.hidden = true;
+      for (const al of i === 0 ? ['r'] : i === last ? ['l'] : ['', 'r', 'l']){
+        l.className = 'rb-lb' + (al && ' ' + al); l.hidden = false;
+        const r = l.getBoundingClientRect();
+        if (!kept.some(k => r.left < k.right + 6 && r.right > k.left - 6)){ kept.push(r); break; }
+        l.hidden = true;
+      }
     }
   }).observe(rb);
   const tr = document.createElement('i'); tr.id = 'rbTrain';

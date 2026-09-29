@@ -146,8 +146,8 @@ body:not([data-mode="tgv"]) .tgv-only{display:none}
 .rb-st i{width:10px;height:10px;border-radius:50%;background:var(--panel-solid);border:2px solid var(--muted);display:block}
 .rb-st:hover i,.rb-st:focus-visible i{border-color:var(--ink)}
 .rb-lb{position:absolute;top:17px;transform:translateX(-50%);color:var(--muted);font-size:10px;line-height:1;white-space:nowrap;pointer-events:none}
-.rb-lb.first{transform:translateX(-5px)}
-.rb-lb.last{transform:translateX(calc(5px - 100%))}
+.rb-lb.r{transform:translateX(-5px)}
+.rb-lb.l{transform:translateX(calc(5px - 100%))}
 #rbTrain{position:absolute;top:2px;width:12px;height:12px;border-radius:2px;background:var(--accent);transform:translateX(-50%);pointer-events:none;box-shadow:0 0 0 2px var(--panel-solid)}
 .cab-bar{position:absolute;top:12px;right:12px;display:none;gap:8px}
 .cab-bar button{width:44px;height:44px;padding:0;border-radius:50%;background:var(--panel);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid var(--line);color:var(--ink);font-size:20px;line-height:1;cursor:pointer}
@@ -4953,18 +4953,23 @@ function jumpToStation(st){ trk.from = trk.to = 0; trk.s0 = -1e9; jumpTo(st.s - 
     const b = document.createElement('button'); b.type = 'button'; b.className = 'rb-st'; b.dataset.i = i; b.style.left = pct(st.s); b.title = st.name; b.setAttribute('aria-label', st.name);
     b.innerHTML = '<i></i>';
     b.addEventListener('click', e => { if (e.detail === 0) jumpToStation(st); });   // the keyboard; pointers are handled on the bar
-    const l = document.createElement('span'); l.className = 'rb-lb' + (i === 0 ? ' first' : i === last ? ' last' : ''); l.style.left = pct(st.s); l.textContent = SHORT[st.id] || st.name;
+    const l = document.createElement('span'); l.className = 'rb-lb'; l.style.left = pct(st.s); l.textContent = SHORT[st.id] || st.name;
     bar.append(b, l);
     return l;
   });
   const rank = i => i === 0 || i === last ? -1 : (k => k < 0 ? 99 : k)(Object.keys(SHORT).indexOf(ROUTE.stations[i].id));
   const order = labels.map((l, i) => i).sort((a, b) => rank(a) - rank(b));
-  new ResizeObserver(() => {
+  new ResizeObserver(() => {   // most important first; a label that does not fit centred under its dot may start or end at it instead, or hide
     const kept = [];
     for (const i of order){
-      labels[i].hidden = false;
-      const r = labels[i].getBoundingClientRect();
-      if (kept.some(k => r.left < k.right + 6 && r.right > k.left - 6)) labels[i].hidden = true; else kept.push(r);
+      const l = labels[i];
+      l.hidden = true;
+      for (const al of i === 0 ? ['r'] : i === last ? ['l'] : ['', 'r', 'l']){
+        l.className = 'rb-lb' + (al && ' ' + al); l.hidden = false;
+        const r = l.getBoundingClientRect();
+        if (!kept.some(k => r.left < k.right + 6 && r.right > k.left - 6)){ kept.push(r); break; }
+        l.hidden = true;
+      }
     }
   }).observe(rb);
   const tr = document.createElement('i'); tr.id = 'rbTrain';
@@ -5159,7 +5164,7 @@ body.kid .rb-in{inset:0 12px}
 body.kid .rb-st{width:26px;height:25px}
 body.kid .rb-st i{width:18px;height:18px;border:3px solid #1b2430;background:#fff}
 body.kid .rb-lb{top:27px;font:700 13px/1 var(--font-display);letter-spacing:.04em;color:#1b2430}
-body.kid .rb-lb.first{transform:translateX(-9px)}body.kid .rb-lb.last{transform:translateX(calc(9px - 100%))}
+body.kid .rb-lb.r{transform:translateX(-9px)}body.kid .rb-lb.l{transform:translateX(calc(9px - 100%))}
 body.kid #rbTrain{width:24px;height:18px;top:3.5px;border-radius:5px;background:#f28c28;box-shadow:0 0 0 3px #fff,0 2px 6px rgba(0,0,0,.3)}
 body.kid #rbTip{font-size:13px;padding:5px 9px;top:-30px;border-radius:8px}
 .kid-controls{display:flex;gap:10px;align-items:stretch;justify-content:center;flex-wrap:wrap;padding:10px}
@@ -5207,7 +5212,7 @@ body.kid #rbTip{font-size:13px;padding:5px 9px;top:-30px;border-radius:8px}
   body.kid #routeBar{height:34px}body.kid #routeBar::before{top:7px;height:4px}
   body.kid #routeBar::before{left:10px;right:10px}body.kid .rb-in{inset:0 10px}
   body.kid .rb-st{width:20px;height:18px}body.kid .rb-st i{width:14px;height:14px;border-width:2px}
-  body.kid .rb-lb{top:19px;font-size:11px}body.kid .rb-lb.first{transform:translateX(-7px)}body.kid .rb-lb.last{transform:translateX(calc(7px - 100%))}
+  body.kid .rb-lb{top:19px;font-size:11px}body.kid .rb-lb.r{transform:translateX(-7px)}body.kid .rb-lb.l{transform:translateX(calc(7px - 100%))}
   body.kid #rbTrain{width:18px;height:14px;top:2px}
   .kid-controls{gap:6px;padding:6px;flex-wrap:nowrap}
   .kb{min-width:50px;height:52px;border-radius:14px;gap:0;padding:4px}.kb .ico{font-size:24px}.kb .lab{display:none}
