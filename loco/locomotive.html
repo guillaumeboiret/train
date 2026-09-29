@@ -151,8 +151,13 @@ body:not([data-mode="tgv"]) .tgv-only{display:none}
 #rbTrain{position:absolute;top:2px;width:12px;height:12px;border-radius:2px;background:var(--accent);transform:translateX(-50%);pointer-events:none;box-shadow:0 0 0 2px var(--panel-solid)}
 .cab-bar{position:absolute;top:12px;right:12px;display:none;gap:8px}
 .cab-bar button{width:44px;height:44px;padding:0;border-radius:50%;background:var(--panel);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid var(--line);color:var(--ink);font-size:20px;line-height:1;cursor:pointer}
+#cabUi[aria-pressed="true"]{background:var(--accent);border-color:var(--accent)}
 body.in-cab:not(.cab-ui) :is(.dock,.infocard,.gauges,.hud,.compass,#labels){display:none}
-body.in-cab:not(.cab-ui) .cab-bar{display:flex}
+body.in-cab .cab-bar{display:flex}
+@media (min-width:841px){ body.in-cab .gauges{top:68px} body.in-cab :is(.hud,.compass){top:140px} }   /* the cab's two buttons keep the top right corner */
+/* while the train runs and nobody touches the page the overlays fade away (ui-idle, set by the page's script); any move, tap or key brings them back */
+:is(.dock,.infocard,.gauges,.hud,.compass,#labels,.cab-bar){transition:opacity .2s}
+body.ui-idle :is(.dock,.infocard,.gauges,.hud,.compass,#labels,.cab-bar){opacity:0;visibility:hidden;pointer-events:none;transition:opacity .8s,visibility 0s .8s}
 .btn.horn{width:100%;font-weight:600}
 .btn.horn.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
 @media (max-width:840px){
@@ -165,6 +170,7 @@ body.in-cab:not(.cab-ui) .cab-bar{display:flex}
   .infocard{left:16px;right:72px;width:auto;top:12px;bottom:auto;max-height:30%;overflow:auto;padding:10px 12px}
   .infocard.collapsed{right:auto;max-width:calc(100% - 88px);padding:6px 8px 6px 12px}
   .compass{top:12px;right:12px;width:48px;height:48px}
+  .cab-bar{flex-direction:column}body.in-cab .compass{display:none}
   .infocard h2{font-size:19px}
   .infocard p{font-size:13px;margin-top:6px}
   .gauges{top:auto;bottom:calc(44% + 8px);left:8px;right:8px;grid-auto-flow:row;grid-template-columns:repeat(5,1fr);gap:4px}

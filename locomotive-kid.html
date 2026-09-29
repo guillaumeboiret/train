@@ -151,8 +151,13 @@ body:not([data-mode="tgv"]) .tgv-only{display:none}
 #rbTrain{position:absolute;top:2px;width:12px;height:12px;border-radius:2px;background:var(--accent);transform:translateX(-50%);pointer-events:none;box-shadow:0 0 0 2px var(--panel-solid)}
 .cab-bar{position:absolute;top:12px;right:12px;display:none;gap:8px}
 .cab-bar button{width:44px;height:44px;padding:0;border-radius:50%;background:var(--panel);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid var(--line);color:var(--ink);font-size:20px;line-height:1;cursor:pointer}
+#cabUi[aria-pressed="true"]{background:var(--accent);border-color:var(--accent)}
 body.in-cab:not(.cab-ui) :is(.dock,.infocard,.gauges,.hud,.compass,#labels){display:none}
-body.in-cab:not(.cab-ui) .cab-bar{display:flex}
+body.in-cab .cab-bar{display:flex}
+@media (min-width:841px){ body.in-cab .gauges{top:68px} body.in-cab :is(.hud,.compass){top:140px} }   /* the cab's two buttons keep the top right corner */
+/* while the train runs and nobody touches the page the overlays fade away (ui-idle, set by the page's script); any move, tap or key brings them back */
+:is(.dock,.infocard,.gauges,.hud,.compass,#labels,.cab-bar){transition:opacity .2s}
+body.ui-idle :is(.dock,.infocard,.gauges,.hud,.compass,#labels,.cab-bar){opacity:0;visibility:hidden;pointer-events:none;transition:opacity .8s,visibility 0s .8s}
 .btn.horn{width:100%;font-weight:600}
 .btn.horn.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
 @media (max-width:840px){
@@ -165,6 +170,7 @@ body.in-cab:not(.cab-ui) .cab-bar{display:flex}
   .infocard{left:16px;right:72px;width:auto;top:12px;bottom:auto;max-height:30%;overflow:auto;padding:10px 12px}
   .infocard.collapsed{right:auto;max-width:calc(100% - 88px);padding:6px 8px 6px 12px}
   .compass{top:12px;right:12px;width:48px;height:48px}
+  .cab-bar{flex-direction:column}body.in-cab .compass{display:none}
   .infocard h2{font-size:19px}
   .infocard p{font-size:13px;margin-top:6px}
   .gauges{top:auto;bottom:calc(44% + 8px);left:8px;right:8px;grid-auto-flow:row;grid-template-columns:repeat(5,1fr);gap:4px}
@@ -398,7 +404,7 @@ body.in-cab:not(.cab-ui) .cab-bar{display:flex}
       <div class="g"><div class="k" data-i18n="g_v">Vitesse</div><div class="v"><span id="gSv">0</span><span class="u">km/h</span></div><div class="bar"><i id="gSb"></i></div></div>
     </div>
     <div class="cab-bar" role="group" aria-label="Poste de conduite" data-i18n-aria="cam_driver">
-      <button type="button" id="cabUi" aria-label="Afficher les commandes" title="Afficher les commandes" data-i18n-aria="cab_ui" data-i18n-title="cab_ui">🎛️</button>
+      <button type="button" id="cabUi" aria-pressed="false" aria-label="Afficher ou masquer les commandes" title="Afficher ou masquer les commandes" data-i18n-aria="cab_ui" data-i18n-title="cab_ui">🎛️</button>
       <button type="button" id="cabLeave" aria-label="Quitter la cabine" title="Quitter la cabine" data-i18n-aria="cab_leave" data-i18n-title="cab_leave">✕</button>
     </div>
   </main>
@@ -435,7 +441,7 @@ const T = {
     ctl_doors:"Portes côté quai", doors_open:"Ouvertes", doors_closed:"Fermées", doors_pax:"Échange voyageurs…", doors_hint:"Déverrouillées à l'arrêt seulement. Traction interdite portes ouvertes.",
     ctl_station:"Arrêt en gare (pilote auto)", station_go:"Aller au quai", station_running:"Approche…", station_at:"À quai", station_hint:"Freine et arrête la rame au repère du quai.",
     coupling:"Accostage…", uncoupling:"Séparation…", lamp_doors:"Portes", info_hide:"Masquer la fiche", info_show:"Afficher la fiche", f_roof:"Ligne de toiture 25 kV",
-    cam_train:"Rame entière", cam_rearroof:"Motrice arrière", cam_coupler:"Attelage", cam_station:"Gare", cam_door:"Portes", cam_seatUp:"Place en haut", cam_seatLo:"Place en bas", cam_driver:"Poste de conduite", cab_ui:"Afficher les commandes", cab_leave:"Quitter la cabine", scr_brake:"Frein", scr_power:"Traction", scr_engine:"Moteur", scr_doors:"Portes", scr_panto_dn:"Panto baissé", btn_horn:"Klaxon", btn_panto:"Panto", btn_doors:"Portes", btn_stop:"Stop",
+    cam_train:"Rame entière", cam_rearroof:"Motrice arrière", cam_coupler:"Attelage", cam_station:"Gare", cam_door:"Portes", cam_seatUp:"Place en haut", cam_seatLo:"Place en bas", cam_driver:"Poste de conduite", cab_ui:"Afficher ou masquer les commandes", cab_leave:"Quitter la cabine", scr_brake:"Frein", scr_power:"Traction", scr_engine:"Moteur", scr_doors:"Portes", scr_panto_dn:"Panto baissé", btn_horn:"Klaxon", btn_panto:"Panto", btn_doors:"Portes", btn_stop:"Stop",
     ctl_track:"Voie", track_hint:"Changement par une communication 400 m devant la rame.", track_busy:"Communication déjà engagée, attendez.", track_occupied:"Voie occupée par un train en face.", track_2:"Voie 2 (sens Paris)", track_1:"Voie 1 (sens Toulouse)",
     ctl_time:"Vitesse du temps", horn:"Klaxon (H)", hud_pk:"PK", hud_alt:"Alt.", hud_grade:"Pente", hud_tracks:"Voies", hud_limit:"Limite", hud_next:"Prochaine gare", hud_end:"Terminus", hud_tp:"Aller au PK", hud_go:"Go", rb_title:"Cliquez ou glissez sur la ligne pour vous téléporter", ctl_weather:"Météo", wx_sun:"Soleil", wx_cloud:"Nuages", wx_rain:"Pluie", wx_dusk:"Crépuscule", hud_bridge:"Pont", hud_tunnel:"Tunnel", hud_cutting:"Tranchée", hud_viaduct:"Viaduc",
     cam_hint:"Clavier: W A S D déplacent le point de visée le long de la rame, R/F (ou E/Q) montent et descendent, Maj accélère. H ou Espace: klaxon. Aux places et au poste de conduite, glisser ou W A S D tournent la tête.",
@@ -469,7 +475,7 @@ const T = {
     ctl_doors:"Platform-side doors", doors_open:"Open", doors_closed:"Closed", doors_pax:"Passengers boarding…", doors_hint:"Unlocked at standstill only. No traction while open.",
     ctl_station:"Station stop (autopilot)", station_go:"Go to platform", station_running:"Approaching…", station_at:"At platform", station_hint:"Brakes and stops the set at the platform mark.",
     coupling:"Coupling…", uncoupling:"Uncoupling…", lamp_doors:"Doors", info_hide:"Hide card", info_show:"Show card", f_roof:"25 kV roof line",
-    cam_train:"Whole train", cam_rearroof:"Rear power car", cam_coupler:"Coupling", cam_station:"Station", cam_door:"Doors", cam_seatUp:"Seat upstairs", cam_seatLo:"Seat downstairs", cam_driver:"Driver's seat", cab_ui:"Show controls", cab_leave:"Leave the cab", scr_brake:"Brake", scr_power:"Power", scr_engine:"Engine", scr_doors:"Doors", scr_panto_dn:"Panto down", btn_horn:"Horn", btn_panto:"Panto", btn_doors:"Doors", btn_stop:"Stop",
+    cam_train:"Whole train", cam_rearroof:"Rear power car", cam_coupler:"Coupling", cam_station:"Station", cam_door:"Doors", cam_seatUp:"Seat upstairs", cam_seatLo:"Seat downstairs", cam_driver:"Driver's seat", cab_ui:"Show or hide the controls", cab_leave:"Leave the cab", scr_brake:"Brake", scr_power:"Power", scr_engine:"Engine", scr_doors:"Doors", scr_panto_dn:"Panto down", btn_horn:"Horn", btn_panto:"Panto", btn_doors:"Doors", btn_stop:"Stop",
     ctl_track:"Track", track_hint:"Changes over a crossover 400 m ahead of the train.", track_busy:"Crossover already in use, wait.", track_occupied:"Track occupied by an oncoming train.", track_2:"Track 2 (to Paris)", track_1:"Track 1 (to Toulouse)",
     ctl_time:"Time scale", horn:"Horn (H)", hud_pk:"km", hud_alt:"Alt.", hud_grade:"Grade", hud_tracks:"Tracks", hud_limit:"Limit", hud_next:"Next station", hud_end:"Terminus", hud_tp:"Go to km", hud_go:"Go", rb_title:"Click or drag on the line to teleport", ctl_weather:"Weather", wx_sun:"Sun", wx_cloud:"Clouds", wx_rain:"Rain", wx_dusk:"Dusk", hud_bridge:"Bridge", hud_tunnel:"Tunnel", hud_cutting:"Cutting", hud_viaduct:"Viaduct",
     cam_hint:"Keys: W A S D move the focus along the train, R/F (or E/Q) up and down, Shift is faster. H or Space: horn. In a seat or the driver's seat, drag or W A S D turn your head.",
@@ -4505,7 +4511,7 @@ function select(id){
   if (selected) infoCollapsed = false;
   setFocus(selected ?? stepV(STEPS[S.mode][stepIdx]).focus);
   $('partList').querySelectorAll('.part').forEach(r => r.setAttribute('aria-pressed', String(r.dataset.part === selected)));
-  refreshInfo();
+  refreshInfo(); if (selected) readFor($('infoText').textContent);
 }
 function legendFor(partIds){
   const seen = new Set(), out = [];
@@ -4606,7 +4612,7 @@ function goStep(i){
   $('stepList').querySelector('[aria-current]')?.scrollIntoView({ block:'nearest' });
   $('prevStep').disabled = stepIdx === 0; $('nextStep').disabled = stepIdx === steps.length - 1;
   autoT = 0;
-  refreshInfo();
+  refreshInfo(); readFor($('infoText').textContent);
 }
 function stopAuto(){ autoOn = false; $('autoPlay').textContent = t('autoplay'); $('autoPlay').setAttribute('aria-pressed', 'false'); }
 function startAuto(){ autoOn = true; autoT = 0; $('autoPlay').textContent = t('autoplay_on'); $('autoPlay').setAttribute('aria-pressed', 'true'); if (stepIdx === STEPS[S.mode].length - 1) goStep(0); }
@@ -4750,7 +4756,8 @@ $('langSeg').addEventListener('click', e => { const b = e.target.closest('button
 /* ---- picking */
 const ray = new THREE.Raycaster(), ptr = new THREE.Vector2();
 orbit.onClick = e => {
-  if (inCab){ document.body.classList.remove('cab-ui'); return; }   // in the driver's place a tap on the view puts the controls away again
+  if (wakeTap){ wakeTap = false; return; }   // that tap only brought the controls back
+  if (inCab) return;   // nothing to pick from the driver's seat
   const r = canvas.getBoundingClientRect();
   ptr.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
   ray.setFromCamera(ptr, camera);
@@ -4795,12 +4802,13 @@ orbit.onPress = e => {   // in the driver's place a press on a desk button works
   return false;
 };
 let inCab = false;
-function keepDriver(){   // in the driver's place the page's controls step aside (🎛️ brings them back until the next tap on the view); the view moves to the other end when the train turns round
+function keepDriver(){   // in the driver's place the page's controls step aside (🎛️ shows and hides them); the view moves to the other end when the train turns round
   const on = orbit.fp?.name === 'driver';
-  if (on !== inCab){ inCab = on; document.body.classList.toggle('in-cab', on); document.body.classList.remove('cab-ui'); }
+  if (on !== inCab){ inCab = on; document.body.classList.toggle('in-cab', on); showCabUi(false); }
   if (on && orbit.fp.obj !== driverSeat()) flyPreset('driver');
 }
-$('cabUi').addEventListener('click', () => document.body.classList.add('cab-ui'));
+function showCabUi(on){ document.body.classList.toggle('cab-ui', on); $('cabUi').setAttribute('aria-pressed', String(on)); }
+$('cabUi').addEventListener('click', () => showCabUi(!document.body.classList.contains('cab-ui')));
 $('cabLeave').addEventListener('click', () => cabActions.leave());
 let cabT = 1;   // seconds since the screens were last drawn
 const _cabP = new THREE.Vector3();
@@ -5078,10 +5086,32 @@ function updateCompass(){
   cpCard.setAttribute('transform', `rotate(${(-h * 180 / Math.PI).toFixed(1)})`);
   cpL.forEach((el, k) => { const a = k * Math.PI / 2 - h; el.setAttribute('x', (20 * Math.sin(a)).toFixed(1)); el.setAttribute('y', (-20 * Math.cos(a)).toFixed(1)); });   // the letters go round but stay upright
 }
+/* ---- while the train runs and nobody touches the page, the overlays fade out of the way (the kid build keeps its big buttons in sight) */
+const IDLE_S = 5, READ_WPS = 3.5;   // calm seconds before the fade; words read per second, so a new text stays up long enough to be read
+let idleT = 0, wakeTap = false, lastPtr = 'mouse';
+function wakeUi(e){
+  if (e.type === 'pointermove' && e.pointerType === 'mouse' && !e.movementX && !e.movementY) return;   // the browser re-checking what lies under a still mouse
+  const B = document.body.classList, was = B.contains('ui-idle');
+  if (e.pointerType) lastPtr = e.pointerType;
+  if (e.type === 'pointerdown') wakeTap = was && e.pointerType !== 'mouse';   // a finger on the bare view only wakes the page, it picks nothing
+  idleT = Math.min(idleT, 0);
+  if (was) B.remove('ui-idle');
+}
+for (const ev of ['pointermove', 'pointerdown', 'keydown', 'wheel']) window.addEventListener(ev, wakeUi, { capture:true, passive:true });
+function readFor(txt){ idleT = Math.min(idleT, -txt.split(/\s+/).length / READ_WPS); if (document.body.classList.contains('ui-idle')) document.body.classList.remove('ui-idle'); }
+function updateIdle(dt){
+  const B = document.body.classList;
+  if (B.contains('kid')) return;
+  idleT += dt;
+  if (Math.abs(S.speed) < 0.3){ idleT = Math.min(idleT, 0); if (B.contains('ui-idle')) B.remove('ui-idle'); return; }   // a train at rest brings them back
+  if (idleT < IDLE_S || B.contains('ui-idle')) return;
+  if (lastPtr === 'mouse' && document.querySelector(':is(.dock,.infocard,.hud,.gauges,.cab-bar):hover')){ idleT = 0; return; }   // the mouse rests on them: someone is reading
+  B.add('ui-idle');
+}
 let frameHook = null;   // the kid build hangs its own rules here
 function frame(dt){
   simulate(dt); animate(Math.min(dt * S.timeScale, 0.25)); updateFlows(dt); updateWeather(dt); panKeys(dt); if (frameHook) frameHook(dt);
-  keepDriver();
+  keepDriver(); updateIdle(dt);
   orbit.update(dt); updateCab(dt); updateCompass(); updateSound(dt);
 }
 window.tick = (sec, dt = 0.05) => { for (let t = 0; t < sec - 1e-9; t += dt) frame(dt); renderer.render(scene, camera); updateLabels(); updateGauges(); updateHud(); };
@@ -5144,7 +5174,8 @@ body.kid .lbl::after{background:#fff;height:18px}
 .kid-next{font:600 13.5px/1.2 var(--font-body);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
 body.kid .compass{top:64px;right:10px;background:rgba(255,255,255,.93);border:0;box-shadow:0 6px 18px rgba(0,0,0,.25);-webkit-backdrop-filter:none;backdrop-filter:none;--ink:#1b2430;--muted:#5d6b78;--panel-solid:#fff;--accent:#f28c28}
 .kid-gear{width:46px;height:46px;border-radius:50%;border:0;background:rgba(255,255,255,.85);font-size:22px;line-height:1;box-shadow:0 4px 12px rgba(0,0,0,.25);flex:0 0 auto}
-body.kid .cab-bar{top:10px;right:10px;gap:10px}
+body.kid .cab-bar{top:10px;right:10px;gap:10px;flex-direction:column}
+body.kid.in-cab :is(.kid-gear,.kid-menu){display:none}body.kid.in-cab .kid-top{right:76px}body.kid.in-cab .compass{top:142px}   /* in the cab its two buttons take the menu's corner */
 body.kid .cab-bar button{width:56px;height:56px;border:0;background:rgba(255,255,255,.93);color:#1b2430;font-size:28px;box-shadow:0 4px 12px rgba(0,0,0,.25);-webkit-backdrop-filter:none;backdrop-filter:none;touch-action:manipulation}
 .kid-menu{position:absolute;top:64px;right:10px;padding:12px;display:flex;flex-direction:column;gap:8px;min-width:220px;pointer-events:auto}
 .kid-menu[hidden]{display:none}
@@ -5205,7 +5236,7 @@ body.kid #rbTip{font-size:13px;padding:5px 9px;top:-30px;border-radius:8px}
   .kid-speed{padding:2px 12px 3px;min-width:0}.kid-speed .n{font-size:26px}.kid-speed .n small{font-size:12px}.kid-next{display:block;font-size:11px;margin-top:0}
   .kid-gear{width:36px;height:36px;font-size:17px}.kid-menu{top:48px;right:6px}
   body.kid .compass{top:48px;right:6px;width:44px;height:44px}
-  body.kid .cab-bar{top:6px;right:6px;gap:8px}body.kid .cab-bar button{width:46px;height:46px;font-size:23px}
+  body.kid .cab-bar{top:6px;right:6px;gap:8px}body.kid .cab-bar button{width:46px;height:46px;font-size:23px}body.kid.in-cab .kid-top{right:58px}body.kid.in-cab .compass{top:114px}
   .kid-toast{font-size:17px;padding:10px 16px;top:32%}
   .kid-bottom{left:6px;right:6px;bottom:calc(6px + env(safe-area-inset-bottom,0px));gap:6px}
   .kid-route{padding:4px 12px 0}

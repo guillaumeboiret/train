@@ -115,7 +115,7 @@ function select(id){
   if (selected) infoCollapsed = false;
   setFocus(selected ?? stepV(STEPS[S.mode][stepIdx]).focus);
   $('partList').querySelectorAll('.part').forEach(r => r.setAttribute('aria-pressed', String(r.dataset.part === selected)));
-  refreshInfo();
+  refreshInfo(); if (selected) readFor($('infoText').textContent);
 }
 function legendFor(partIds){
   const seen = new Set(), out = [];
@@ -216,7 +216,7 @@ function goStep(i){
   $('stepList').querySelector('[aria-current]')?.scrollIntoView({ block:'nearest' });
   $('prevStep').disabled = stepIdx === 0; $('nextStep').disabled = stepIdx === steps.length - 1;
   autoT = 0;
-  refreshInfo();
+  refreshInfo(); readFor($('infoText').textContent);
 }
 function stopAuto(){ autoOn = false; $('autoPlay').textContent = t('autoplay'); $('autoPlay').setAttribute('aria-pressed', 'false'); }
 function startAuto(){ autoOn = true; autoT = 0; $('autoPlay').textContent = t('autoplay_on'); $('autoPlay').setAttribute('aria-pressed', 'true'); if (stepIdx === STEPS[S.mode].length - 1) goStep(0); }
@@ -360,7 +360,8 @@ $('langSeg').addEventListener('click', e => { const b = e.target.closest('button
 /* ---- picking */
 const ray = new THREE.Raycaster(), ptr = new THREE.Vector2();
 orbit.onClick = e => {
-  if (inCab){ document.body.classList.remove('cab-ui'); return; }   // in the driver's place a tap on the view puts the controls away again
+  if (wakeTap){ wakeTap = false; return; }   // that tap only brought the controls back
+  if (inCab) return;   // nothing to pick from the driver's seat
   const r = canvas.getBoundingClientRect();
   ptr.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
   ray.setFromCamera(ptr, camera);
@@ -405,12 +406,13 @@ orbit.onPress = e => {   // in the driver's place a press on a desk button works
   return false;
 };
 let inCab = false;
-function keepDriver(){   // in the driver's place the page's controls step aside (🎛️ brings them back until the next tap on the view); the view moves to the other end when the train turns round
+function keepDriver(){   // in the driver's place the page's controls step aside (🎛️ shows and hides them); the view moves to the other end when the train turns round
   const on = orbit.fp?.name === 'driver';
-  if (on !== inCab){ inCab = on; document.body.classList.toggle('in-cab', on); document.body.classList.remove('cab-ui'); }
+  if (on !== inCab){ inCab = on; document.body.classList.toggle('in-cab', on); showCabUi(false); }
   if (on && orbit.fp.obj !== driverSeat()) flyPreset('driver');
 }
-$('cabUi').addEventListener('click', () => document.body.classList.add('cab-ui'));
+function showCabUi(on){ document.body.classList.toggle('cab-ui', on); $('cabUi').setAttribute('aria-pressed', String(on)); }
+$('cabUi').addEventListener('click', () => showCabUi(!document.body.classList.contains('cab-ui')));
 $('cabLeave').addEventListener('click', () => cabActions.leave());
 let cabT = 1;   // seconds since the screens were last drawn
 const _cabP = new THREE.Vector3();
@@ -688,10 +690,32 @@ function updateCompass(){
   cpCard.setAttribute('transform', `rotate(${(-h * 180 / Math.PI).toFixed(1)})`);
   cpL.forEach((el, k) => { const a = k * Math.PI / 2 - h; el.setAttribute('x', (20 * Math.sin(a)).toFixed(1)); el.setAttribute('y', (-20 * Math.cos(a)).toFixed(1)); });   // the letters go round but stay upright
 }
+/* ---- while the train runs and nobody touches the page, the overlays fade out of the way (the kid build keeps its big buttons in sight) */
+const IDLE_S = 5, READ_WPS = 3.5;   // calm seconds before the fade; words read per second, so a new text stays up long enough to be read
+let idleT = 0, wakeTap = false, lastPtr = 'mouse';
+function wakeUi(e){
+  if (e.type === 'pointermove' && e.pointerType === 'mouse' && !e.movementX && !e.movementY) return;   // the browser re-checking what lies under a still mouse
+  const B = document.body.classList, was = B.contains('ui-idle');
+  if (e.pointerType) lastPtr = e.pointerType;
+  if (e.type === 'pointerdown') wakeTap = was && e.pointerType !== 'mouse';   // a finger on the bare view only wakes the page, it picks nothing
+  idleT = Math.min(idleT, 0);
+  if (was) B.remove('ui-idle');
+}
+for (const ev of ['pointermove', 'pointerdown', 'keydown', 'wheel']) window.addEventListener(ev, wakeUi, { capture:true, passive:true });
+function readFor(txt){ idleT = Math.min(idleT, -txt.split(/\s+/).length / READ_WPS); if (document.body.classList.contains('ui-idle')) document.body.classList.remove('ui-idle'); }
+function updateIdle(dt){
+  const B = document.body.classList;
+  if (B.contains('kid')) return;
+  idleT += dt;
+  if (Math.abs(S.speed) < 0.3){ idleT = Math.min(idleT, 0); if (B.contains('ui-idle')) B.remove('ui-idle'); return; }   // a train at rest brings them back
+  if (idleT < IDLE_S || B.contains('ui-idle')) return;
+  if (lastPtr === 'mouse' && document.querySelector(':is(.dock,.infocard,.hud,.gauges,.cab-bar):hover')){ idleT = 0; return; }   // the mouse rests on them: someone is reading
+  B.add('ui-idle');
+}
 let frameHook = null;   // the kid build hangs its own rules here
 function frame(dt){
   simulate(dt); animate(Math.min(dt * S.timeScale, 0.25)); updateFlows(dt); updateWeather(dt); panKeys(dt); if (frameHook) frameHook(dt);
-  keepDriver();
+  keepDriver(); updateIdle(dt);
   orbit.update(dt); updateCab(dt); updateCompass(); updateSound(dt);
 }
 window.tick = (sec, dt = 0.05) => { for (let t = 0; t < sec - 1e-9; t += dt) frame(dt); renderer.render(scene, camera); updateLabels(); updateGauges(); updateHud(); };
