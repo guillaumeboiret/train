@@ -711,12 +711,12 @@ sun.shadow.mapSize.set(2048, 2048);
 Object.assign(sun.shadow.camera, { left:-64, right:30, top:26, bottom:-16, near:1, far:120 });
 sun.shadow.bias = -0.0005;
 /* fit the shadow frustum to a world box along the track (the light looks at the origin) */
-function setShadowBox(xMin, xMax, mapSize){
+function setShadowBox(xMin, xMax, mapSize, zMin = -14, zMax = 14){
   const cam = sun.shadow.camera, az = sun.position.clone().normalize();
   const ax = new THREE.Vector3(0, 1, 0).cross(az).normalize(), ay = az.clone().cross(ax);
   let l = Infinity, r = -Infinity, b = Infinity, t = -Infinity, n = Infinity, f = -Infinity;
   const p = new THREE.Vector3();
-  for (const px of [xMin, xMax]) for (const py of [-1, 9]) for (const pz of [-14, 14]){
+  for (const px of [xMin, xMax]) for (const py of [-1, 9]) for (const pz of [zMin, zMax]){
     p.set(px, py, pz).sub(sun.position);
     const cx = p.dot(ax), cy = p.dot(ay), cz = -p.dot(az);
     l = Math.min(l, cx); r = Math.max(r, cx); b = Math.min(b, cy); t = Math.max(t, cy); n = Math.min(n, cz); f = Math.max(f, cz);
@@ -1041,8 +1041,8 @@ const CAMS = {
   roof:[[6, 11, 8], [0.5, 4.6, 0]],
   under:[[6, -2.6, 8.5], [0, 1.0, 0]],
 };
-function flyPreset(name){   // a preset is [eye, target] to orbit, or {obj, eye, yaw, pitch} to ride in first person
-  let c = CAMS[name]; if (typeof c === 'function') c = c(); if (!c) return;
+function flyPreset(name){   // a preset is [eye, target] to orbit, or {obj, eye, yaw, pitch} to ride in first person; a station can have its own (stationCam)
+  let c = stationCam(name) || CAMS[name]; if (typeof c === 'function') c = c(); if (!c) return;
   if (c.obj){ orbit.look(c.obj, c.eye, c.yaw, c.pitch); orbit.fp.name = name; } else orbit.flyTo(new THREE.Vector3(...c[0]), new THREE.Vector3(...c[1]));
 }
 
@@ -2640,12 +2640,18 @@ pantoHook = f => { if (S.mode !== 'tgv') return false; posePanto(tgvSets[0].pant
    left at the LGV stations, where platOpp is the other direction's side platform. The letter signs undo the mirror so they read right */
 const station = new THREE.Group(); world.add(station);   // posed on the line at the nearest station by updateRoute
 const platG = new THREE.Group(); station.add(platG);
-const platVariant = {}, letterSigns = [];
-let platOpp = null, platSide = 1;
+const platVariant = {}, letterSigns = [], platRoofs = [], platPosts = [];
+let platOpp = null, platSide = 1, platRoof = true;
 function setPlatformSide(side){
   if (side === platSide) return;
   platSide = side; platG.scale.z = side; platOpp.visible = side < 0; platOpp.position.z = 2 * (2.25 + ROUTE.SD);   // on the far loop, lane 'C'
   for (const sg of letterSigns) sg.scale.z = side;
+}
+function setPlatformRoof(on){   // under a station's slab (Massy) the platforms have no canopy: the coach letters stand on posts instead of hanging from it
+  if (on === platRoof) return;
+  platRoof = on;
+  for (const g of platRoofs) g.visible = on;
+  for (const g of platPosts) g.visible = !on;
 }
 /* the stop's name on every sign that carries one: the platform boards and, in capitals, the generic building's board. One texture each,
    repainted per stop (poseStation); a sign shows the painted part and takes its width from it */
@@ -2687,11 +2693,12 @@ function letterTex(ch){
     return g;
   };
   const mkPlat = (L, sets, mirrored = true) => {
-    const g = new THREE.Group();
+    const g = new THREE.Group(), roof = new THREE.Group(), posts = new THREE.Group();
+    posts.visible = false; g.add(roof, posts); platRoofs.push(roof); platPosts.push(posts);
     g.add(box(L, 0.97, 6.25, pm, -L / 2, 0.065, 4.875));                       // slab z 1.75..8.0, top at y 0.55
     g.add(box(L, 0.02, 0.3, em, -L / 2, 0.56, 1.95)); g.add(box(L, 0.02, 0.3, em, -L / 2, 0.56, 7.8));   // safety lines on both faces of the island platform
-    for (let x = -6; x > -L + 4; x -= 12) g.add(box(0.25, 3.7, 0.25, sm, x, 2.4, 6.5));
-    g.add(box(L - 6, 0.12, 4.0, cm, -L / 2, 4.25, 5.75));                      // canopy, z 3.75..7.75, clear of the train on the far face; light so its underside reads in the door view
+    for (let x = -6; x > -L + 4; x -= 12) roof.add(box(0.25, 3.7, 0.25, sm, x, 2.4, 6.5));
+    roof.add(box(L - 6, 0.12, 4.0, cm, -L / 2, 4.25, 5.75));                      // canopy, z 3.75..7.75, clear of the train on the far face; light so its underside reads in the door view
     for (let x = -30; x > -L + 20; x -= 60){ g.add(box(4, 1.1, 2.2, sm, x, 1.1, 4.9)); g.add(box(3.6, 0.1, 1.9, glassM, x, 1.7, 4.9)); }   // stair heads down to the underpass, in the middle of the island
     for (let x = -12; x > -L + 10; x -= 48) g.add(nameBoard(x, mirrored));   // between two lamp posts
     const letters = 'ABCDEFGHIJKLMNOP';
@@ -2699,7 +2706,7 @@ function letterTex(ch){
       const cx = xr + Lc / 2 + (s ? TGV.SET2_X : 0) - TGV.PLAT_FRONT, mat = new THREE.MeshBasicMaterial({ map:letterTex(letters[s * 8 + i]) });
       const sg = new THREE.Group(), back = new THREE.Mesh(letterGeo, mat); back.rotation.y = Math.PI;   // two faces back to back, each reading right
       sg.add(new THREE.Mesh(letterGeo, mat), back); sg.position.set(cx, 3.4, 2.6); g.add(sg); letterSigns.push(sg);
-      g.add(box(0.06, 0.9, 0.06, sm, cx, 3.8, 2.6));
+      roof.add(box(0.06, 0.9, 0.06, sm, cx, 3.8, 2.6)); posts.add(box(0.06, 2.45, 0.06, sm, cx, 1.775, 2.6));   // hung from the canopy, or on a post
     });
     return g;
   };
@@ -3002,13 +3009,26 @@ function seatView(d){   // first person in the viewer's seat of coach 1 (deck d)
   return { obj:c.g, eye:new THREE.Vector3(c.seat[3 * i] + 0.12 * f, c.seat[3 * i + 1] + 1.16, c.seat[3 * i + 2]), yaw:f > 0 ? -0.75 : 0.75 - Math.PI, pitch:-0.14 };
 }
 
+/* ---- the sun's shadow box: over the train (a long one takes a bigger map), stretched over a station's slab near it so the slab shades the
+   tracks under it. Rounded to 20 m so it moves in steps, not every frame */
+let shadowKey = '';
+function fitShadow(){
+  const tgv = S.mode === 'tgv', d = stationDeck(), near = d && d[1] > -600 && d[0] < 600;
+  let x0 = tgv ? (S.sets === 2 || S.coupling !== 0 ? -392 : -195) : -82, x1 = 14, z0 = -14, z1 = 14;
+  if (near){
+    x0 = Math.min(x0, Math.floor(Math.max(d[0], -600) / 20) * 20); x1 = Math.max(x1, Math.ceil(Math.min(d[1], 600) / 20) * 20);
+    z0 = Math.min(z0, Math.floor(Math.max(d[2], -32) / 2) * 2); z1 = Math.max(z1, Math.ceil(Math.min(d[3], 32) / 2) * 2);
+  }
+  const size = Math.min(tgv || near ? 4096 : 2048, renderer.capabilities.maxTextureSize), key = [x0, x1, z0, z1, size].join();
+  if (key !== shadowKey){ setShadowBox(x0, x1, size, z0, z1); shadowKey = key; }
+}
+
 /* ---- per-frame update (tgv mode only) + mode switch hook */
-let tgvShadow = '';
 const tgvDriver = parts.cab.group.getObjectByName('driver');
 function setTgvVisible(on){
   tgvTrain.visible = on; pool.body.visible = pool.head.visible = on;
   parts.cab.group.getObjectByName('cabLoco').visible = !on; parts.cab.group.getObjectByName('cabTgv').visible = on;   // the lead car's cab: loco desk or TGV desk with its driver
-  if (!on){ platVariant[1].visible = true; platVariant[2].visible = false; setShadowBox(-82, 14, 2048); tgvShadow = ''; return; }
+  if (!on){ platVariant[1].visible = true; platVariant[2].visible = false; return; }
   paxResolve();
 }
 function updateTgv(dt){
@@ -3016,8 +3036,6 @@ function updateTgv(dt){
   const wide = S.sets === 2 || S.coupling !== 0;
   s2.group.visible = wide;
   platVariant[1].visible = S.sets === 1; platVariant[2].visible = S.sets === 2;
-  const sh = wide ? 'um' : 'us';
-  if (sh !== tgvShadow){ setShadowBox(wide ? -392 : -195, 14, Math.min(4096, renderer.capabilities.maxTextureSize)); tgvShadow = sh; }
   // pantographs: the rear power car of each set feeds its roof line and the leading one stays folded, except under 1.5 kV DC where every power car collects its own current
   posePanto(s2.pantos[0], S.sets === 2 && S.coupling === 0 ? S.pantoF : (S.coupling !== 0 ? 1 : 0));
   posePanto(s2.pantos[1], S.coupling !== 0 ? S.pantoDcF : S.sets === 2 ? S.pantoF * S.pantoDcF : 0);
@@ -3045,6 +3063,7 @@ function updateTgv(dt){
    Toulouse Matabiau: the 1905 stone building along track A, the forecourt, the boulevard and the Canal du Midi under its plane trees.
    Bordeaux Saint-Jean: the 1898 iron and glass train shed (56 m span, 280 m long, crown at 27 m) with the stone passenger building along its west side.
    Paris Montparnasse: 360 m of platforms under the Jardin Atlantique deck, the head hall across the buffer stops and the 210 m tower beyond it.
+   Massy TGV: the trench, the slab over its west half, the membrane hall with its dot clock, the four vaults and the car park on the slab.
    Everything is a child of `station`, so it follows the station pose; only the group of the nearest station is visible (poseStation). */
 const landmarks = {};
 {
@@ -3072,6 +3091,28 @@ const landmarks = {};
     c.lineWidth = 10; c.beginPath(); c.moveTo(128, 128); c.lineTo(128 + Math.cos(-2.618) * 60, 128 + Math.sin(-2.618) * 60); c.stroke();
     c.lineWidth = 7; c.beginPath(); c.moveTo(128, 128); c.lineTo(128 + Math.cos(-0.524) * 92, 128 + Math.sin(-0.524) * 92); c.stroke();
   });
+  const PO = { polygonOffset:true, polygonOffsetFactor:-1, polygonOffsetUnits:-4 };   // panes, arms, signs and window bands just off a face win the depth test
+  const YQ = a => new THREE.Quaternion().setFromAxisAngle(Y_UP, a), qB = YQ(Math.PI), qW = YQ(-Math.PI / 2), qE = YQ(Math.PI / 2);   // facing −z, −x, +x
+  const prism = (pts, len, m, axis) => {   // a (u, y) profile extruded over len: u = z along x (axis 'x'), u = x along z
+    const g = new THREE.ExtrudeGeometry(new THREE.Shape(pts.map(([u, y]) => new THREE.Vector2(axis === 'x' ? -u : u, y))), { depth:len, bevelEnabled:false }).translate(0, 0, -len / 2);
+    if (axis === 'x') g.rotateY(Math.PI / 2);
+    return new THREE.Mesh(g, m);
+  };
+  const frustum = (w0, d0, w1, d1, h, m) => {   // a hipped roof stage: w0 × d0 at its foot, w1 × d1 h higher, closed on top
+    const b = [[-w0 / 2, 0, -d0 / 2], [w0 / 2, 0, -d0 / 2], [w0 / 2, 0, d0 / 2], [-w0 / 2, 0, d0 / 2]], t = [[-w1 / 2, h, -d1 / 2], [w1 / 2, h, -d1 / 2], [w1 / 2, h, d1 / 2], [-w1 / 2, h, d1 / 2]], pos = [];
+    const quad = (p, q, r, s) => pos.push(...p, ...q, ...r, ...p, ...r, ...s);
+    for (let i = 0; i < 4; i++){ const j = (i + 1) % 4; quad(b[i], t[i], t[j], b[j]); }
+    quad(t[0], t[3], t[2], t[1]);
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.computeVertexNormals();
+    return new THREE.Mesh(g, m);
+  };
+  const archShape = (w, h) => { const s = new THREE.Shape(), r = w / 2; s.moveTo(-r, 0); s.lineTo(r, 0); s.lineTo(r, h - r); s.absarc(0, h - r, r, 0, Math.PI, false); return s; };
+  const rectShape = (w, h) => { const s = new THREE.Shape(); s.moveTo(-w / 2, 0); s.lineTo(w / 2, 0); s.lineTo(w / 2, h); s.lineTo(-w / 2, h); return s; };
+  const winGeo = (sh, w, tw, th = 1.5) => {   // a pane from its outline (bottom centre at the origin), one glazing tile every tw × th metres
+    const g = new THREE.ShapeGeometry(sh, 12), p = g.attributes.position, uv = g.attributes.uv;
+    for (let i = 0; i < p.count; i++) uv.setXY(i, (p.getX(i) + w / 2) / tw, p.getY(i) / th);
+    return g;
+  };
 
   /* Bordeaux Saint-Jean */
   {
@@ -3180,32 +3221,10 @@ const landmarks = {};
      The ground is slabs over x −540..190 whose bottoms sit in the relief, sunk 1.6 m there (LM_BOX in the route code) so the water stays clear of it. */
   {
     const G = new THREE.Group(); G.visible = false; station.add(G); landmarks.tls = G;
-    const PO = { polygonOffset:true, polygonOffsetFactor:-1, polygonOffsetUnits:-4 };   // panes, arms, signs and window bands just off a face win the depth test
     const stoneM = pmat(0xe6dac2, { roughness:0.9, metalness:0 }), trimM = pmat(0xd5c6a6, { roughness:0.9, metalness:0 }), slateM = pmat(0x3d4650, { roughness:0.7, metalness:0.1 });
     const glazM = pmat(0xffffff, Object.assign({ roughness:0.3, metalness:0.2, map:repeatTex(canvasTex(64, 64, (c) => {   // one pane per tile, light glazing bars
       c.fillStyle = '#cfc6b3'; c.fillRect(0, 0, 64, 64); c.fillStyle = '#2a3642'; c.fillRect(3, 3, 58, 58); c.fillStyle = '#cfc6b3'; c.fillRect(0, 31, 64, 2);
     }), 1, 1) }, PO));
-    const YQ = a => new THREE.Quaternion().setFromAxisAngle(Y_UP, a), qB = YQ(Math.PI), qW = YQ(-Math.PI / 2), qE = YQ(Math.PI / 2);   // facing −z, −x, +x
-    const prism = (pts, len, m, axis) => {   // a (u, y) profile extruded over len: u = z along x (axis 'x'), u = x along z
-      const g = new THREE.ExtrudeGeometry(new THREE.Shape(pts.map(([u, y]) => new THREE.Vector2(axis === 'x' ? -u : u, y))), { depth:len, bevelEnabled:false }).translate(0, 0, -len / 2);
-      if (axis === 'x') g.rotateY(Math.PI / 2);
-      return new THREE.Mesh(g, m);
-    };
-    const frustum = (w0, d0, w1, d1, h, m) => {   // a hipped roof stage: w0 × d0 at its foot, w1 × d1 h higher, closed on top
-      const b = [[-w0 / 2, 0, -d0 / 2], [w0 / 2, 0, -d0 / 2], [w0 / 2, 0, d0 / 2], [-w0 / 2, 0, d0 / 2]], t = [[-w1 / 2, h, -d1 / 2], [w1 / 2, h, -d1 / 2], [w1 / 2, h, d1 / 2], [-w1 / 2, h, d1 / 2]], pos = [];
-      const quad = (p, q, r, s) => pos.push(...p, ...q, ...r, ...p, ...r, ...s);
-      for (let i = 0; i < 4; i++){ const j = (i + 1) % 4; quad(b[i], t[i], t[j], b[j]); }
-      quad(t[0], t[3], t[2], t[1]);
-      const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.computeVertexNormals();
-      return new THREE.Mesh(g, m);
-    };
-    const archShape = (w, h) => { const s = new THREE.Shape(), r = w / 2; s.moveTo(-r, 0); s.lineTo(r, 0); s.lineTo(r, h - r); s.absarc(0, h - r, r, 0, Math.PI, false); return s; };
-    const rectShape = (w, h) => { const s = new THREE.Shape(); s.moveTo(-w / 2, 0); s.lineTo(w / 2, 0); s.lineTo(w / 2, h); s.lineTo(-w / 2, h); return s; };
-    const winGeo = (sh, w, tw, th = 1.5) => {   // a pane from its outline (bottom centre at the origin), one glazing tile every tw × th metres
-      const g = new THREE.ShapeGeometry(sh, 12), p = g.attributes.position, uv = g.attributes.uv;
-      for (let i = 0; i < p.count; i++) uv.setXY(i, (p.getX(i) + w / 2) / tw, p.getY(i) / th);
-      return g;
-    };
     // wings: stone body (track face z −20, canal face z −40), plinth, string course, cornice, mansard; nine bays each at 6.5 m.
     // Like at Saint-Jean every wing end stops 0.5 m inside a pavilion, so no two faces share a plane.
     const WINGS = [[-292.5, -228.5], [-181.5, -117.5]], bays = [];
@@ -3329,6 +3348,148 @@ const landmarks = {};
       part(2.6, 2.2, 3.4, woodM, -10.4, 1.7, cabC); part(2.7, 0.7, 3.5, bandM, -10.4, 2.2); part(2.9, 0.12, 3.7, paintM, -10.4, 2.86, hullC);   // wheelhouse
     }
     noCast(G); consoles.castShadow = true;
+  }
+
+  /* Massy TGV (1991): four tracks in an 8.5 m trench (dug by the route code) under a slab over its west half (x −510..−68). On the slab the hall
+     across the trench, its white roof hung from six masts, the name and the dot clock on both glazed gables; four small vaults east of it, then
+     the car park with its white fins and the office block. Under the slab: the concourse wall with its window band, blue name boards, round
+     ceiling lights, walls between the platform tracks and the through tracks. Our platform is the mirrored one (z −1.75..−8), so the forecourt
+     (+z) lies across the tracks. The towers around the forecourt are city blocks (route code). */
+  {
+    const G = new THREE.Group(); G.visible = false; station.add(G); landmarks.msy = G;
+    G.userData.platRoof = false;   // the slab roofs the platforms: no canopies (setPlatformRoof)
+    const concM = pmat(0xa7a39b, { roughness:0.95, metalness:0 }), ceilM = pmat(0x77746e, { roughness:0.95, metalness:0, emissive:0x4d4a45 }), whiteM = pmat(0xf0eee8, { roughness:0.7, metalness:0 });   // the soffit glows a little: its own lamps light it, not the sky
+    const paveM = pmat(0xb4aea4, { roughness:0.95, metalness:0 }), membM = pmat(0xf7f5f0, { roughness:0.8, metalness:0, side:THREE.DoubleSide }), railM = pmat(0x59626a, { roughness:0.5, metalness:0.5 });
+    const lightM = new THREE.MeshBasicMaterial({ color:0xfff4d6 }), stayM = new THREE.LineBasicMaterial({ color:0x5f666b });
+    const glazM = pmat(0xffffff, Object.assign({ roughness:0.3, metalness:0.2, map:repeatTex(canvasTex(64, 64, (c) => {   // one pane per tile, white frames
+      c.fillStyle = '#eceae4'; c.fillRect(0, 0, 64, 64); c.fillStyle = '#34495a'; c.fillRect(2, 2, 60, 60);
+    }), 1, 1) }, PO));
+    const tiled = (w, h, d, tw, th) => {   // a box whose map repeats every tw × th metres on its sides
+      const g = new THREE.BoxGeometry(w, h, d), uv = g.attributes.uv, dim = [[d, h], [d, h], [w, d], [w, d], [w, h], [w, h]];
+      for (let i = 0; i < 24; i++){ const f = dim[i >> 2]; uv.setXY(i, uv.getX(i) * f[0] / tw, uv.getY(i) * f[1] / th); }
+      return g;
+    };
+    const YD = 8.4, YC = 6.88, DX0 = -510, DX1 = -68, DZ0 = -14, DZ1 = 31, ZW0 = -8.4, ZW1 = 25.4, YS = 8.08;   // slab top and underside, slab extent, trench walls, street level
+    // the slab: paved on top, bare concrete under; parapets over the trench at both ends, railings along the open east half
+    const deck = new THREE.Mesh(new THREE.BoxGeometry(DX1 - DX0, YD - YC, DZ1 - DZ0), [concM, concM, paveM, ceilM, concM, concM]);
+    deck.position.set((DX0 + DX1) / 2, (YD + YC) / 2, (DZ0 + DZ1) / 2); deck.receiveShadow = true; G.add(deck);
+    for (const x of [DX0 + 0.25, DX1 - 0.25]) G.add(box(0.5, 1.1, ZW1 - ZW0, concM, x, YD + 0.55, (ZW0 + ZW1) / 2));
+    { const pm = [];
+      for (let x = DX1 + 2; x <= 25; x += 2) for (const z of [ZW0 - 0.25, ZW1 + 0.25]) pm.push(M4(x, (YS + 9.1) / 2, z));
+      inst(new THREE.BoxGeometry(0.06, 9.1 - YS, 0.06), railM, pm, G);
+      for (const z of [ZW0 - 0.25, ZW1 + 0.25]) G.add(box(25 - DX1, 0.06, 0.08, railM, (25 + DX1) / 2, 9.1, z));
+    }
+    // under the slab: the concourse wall behind each platform with its window band and the blue name boards, ceiling lights,
+    // the walls between the platform tracks and the through tracks
+    { const wallTex = canvasTex(64, 128, (c) => {
+        c.fillStyle = '#d9d6cf'; c.fillRect(0, 0, 64, 128); c.fillStyle = '#3b4a58'; c.fillRect(0, 12, 64, 28);
+        c.fillStyle = '#d9d6cf'; c.fillRect(0, 12, 3, 28); c.fillRect(31, 12, 3, 28); c.fillStyle = '#b3afa6'; c.fillRect(0, 84, 64, 2);
+      });
+      wallTex.wrapS = THREE.RepeatWrapping;
+      const wallM = pmat(0xffffff, { roughness:0.9, metalness:0, map:wallTex, emissive:0xffffff, emissiveMap:wallTex, emissiveIntensity:0.3 });   // lit from the soffit
+      for (const [x0, z, ry] of [[-455, ZW0 + 0.3, 0], [-440, ZW1 - 0.3, Math.PI]]){   // the walls stop where the trench widens west of the platforms
+        const L = DX1 - x0, g = new THREE.PlaneGeometry(L, YC + 0.42), uv = g.attributes.uv;
+        for (let i = 0; i < uv.count; i++) uv.setX(i, uv.getX(i) * L / 3);
+        const m = new THREE.Mesh(g, wallM); m.position.set((x0 + DX1) / 2, (YC - 0.42) / 2, z); m.rotation.y = ry; m.receiveShadow = true; G.add(m);
+      }
+      const nameM = new THREE.MeshBasicMaterial(Object.assign({ map:textTex('MASSY TGV', 1024, 128, '#1f4fa0', '#ffffff') }, PO)), nm = [];
+      for (let x = -84; x > -440; x -= 48) nm.push(M4(x, 3.2, ZW0 + 0.32), M4(x, 3.2, ZW1 - 0.32, qB));
+      inst(new THREE.PlaneGeometry(6.4, 0.8), nameM, nm, G);
+      const lm = [];
+      for (let x = DX0 + 5, k = 0; x < DX1 - 2; x += 12, k++){ lm.push(M4(x, YC - 0.02, -4.9), M4(x, YC - 0.02, 21.9)); if (k % 2 === 0) lm.push(M4(x, YC - 0.02, 8.5)); }
+      inst(new THREE.CircleGeometry(0.6, 16).rotateX(Math.PI / 2), lightM, lm, G);
+      for (const z of [3.1, 13.9]) G.add(box(DX1 + 460, YC + 0.42, 0.5, concM, (DX1 - 460) / 2, (YC - 0.42) / 2, z));
+    }
+    // the hall across the trench: glazed on all four sides, the white roof curving down to both long sides, hung from three masts on each
+    const HX0 = -447, HX1 = -415, HXC = (HX0 + HX1) / 2, HZ0 = -12, HZ1 = 30, HZC = (HZ0 + HZ1) / 2, HE = 12.5, HR = 7;   // walls 12.5 m high, crown 7 m above them
+    const roofY = u => YD + HE + HR * (1 - Math.abs(u / 16) ** 3);
+    { const N = 24, pos = [], idx = [], z0 = HZ0 - 1.5, z1 = HZ1 + 1.5, us = Array.from({ length:N + 1 }, (_, k) => -16.6 + 33.2 * k / N);
+      us.forEach(u => pos.push(HXC + u, roofY(u), z0, HXC + u, roofY(u), z1));
+      for (let k = 0; k < N; k++){ const a = 2 * k; idx.push(a, a + 1, a + 2, a + 2, a + 1, a + 3); }
+      const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
+      G.add(new THREE.Mesh(g, membM));
+      const edge = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(us.map(u => new THREE.Vector3(u, roofY(u) - YD, 0))), 48, 0.3, 8);
+      inst(edge, whiteM, [M4(HXC, YD, z0), M4(HXC, YD, z1)], G);
+      for (const x of [HX0, HX1]) G.add(cyl(0.35, HZ1 - HZ0 + 3, whiteM, 'z', x, YD + HE, HZC, 12));
+      const gs = new THREE.Shape(); gs.moveTo(-16, 0); gs.lineTo(16, 0);
+      for (let k = 0; k <= 16; k++){ const u = 16 - 2 * k; gs.lineTo(u, roofY(u) - YD - 0.1); }
+      inst(winGeo(gs, 32, 2.0, 2.4), glazM, [M4(HXC, YD, HZ0, qB), M4(HXC, YD, HZ1)], G);
+      inst(winGeo(rectShape(42, HE), 42, 2, 2.4), glazM, [M4(HX0, YD, HZC, qW), M4(HX1, YD, HZC, qE)], G);
+      // on each gable: two white beams, the name with the SNCF logo on the glass between them, the dot clock high up
+      const signTex = canvasTex(2048, 150, (c, W, H) => {
+        c.font = 'bold 104px Inter, Arial, sans-serif'; c.textBaseline = 'middle';
+        const t = 'GARE DE MASSY TGV', tw = c.measureText(t).width, lw = 290, x0 = (W - tw - 70 - lw) / 2, lx = x0 + tw + 70;
+        c.fillStyle = '#f2f2ee'; c.fillText(t, x0, H / 2 + 4);
+        rrect(c, lx, 16, lw, H - 32, 26, 26); c.fillStyle = '#c4003a'; c.fill();
+        c.fillStyle = '#ffffff'; c.font = 'italic bold 92px Inter, Arial, sans-serif'; c.textAlign = 'center'; c.fillText('SNCF', lx + lw / 2, H / 2 + 4);
+      });
+      const dotTex = canvasTex(256, 256, (c) => {
+        c.fillStyle = c.strokeStyle = '#f4f4f0'; c.lineCap = 'round';
+        for (let i = 0; i < 12; i++){ const a = i / 12 * Math.PI * 2; c.beginPath(); c.arc(128 + Math.cos(a) * 110, 128 + Math.sin(a) * 110, i % 3 ? 7 : 11, 0, Math.PI * 2); c.fill(); }
+        c.lineWidth = 11; c.beginPath(); c.moveTo(128, 128); c.lineTo(128 + Math.cos(-2.618) * 62, 128 + Math.sin(-2.618) * 62); c.stroke();
+        c.lineWidth = 7; c.beginPath(); c.moveTo(128, 128); c.lineTo(128 + Math.cos(-0.524) * 96, 128 + Math.sin(-0.524) * 96); c.stroke();
+      });
+      const signM = new THREE.MeshBasicMaterial(Object.assign({ map:signTex, transparent:true, alphaTest:0.2 }, PO)), dotM = new THREE.MeshBasicMaterial(Object.assign({ map:dotTex, transparent:true, alphaTest:0.2 }, PO));
+      for (const [z, o, q] of [[HZ0, -1, qB], [HZ1, 1, _qI]]){
+        G.add(box(33.6, 0.7, 1.2, whiteM, HXC, YD + 5.95, z + o * 0.6), box(33.6, 0.4, 1.5, whiteM, HXC, YD + 9.8, z + o * 0.75));
+        const s = new THREE.Mesh(new THREE.PlaneGeometry(15, 1.1), signM); s.position.set(HXC, YD + 7.4, z + o * 0.04); s.quaternion.copy(q); G.add(s);
+        const d = new THREE.Mesh(new THREE.PlaneGeometry(4.6, 4.6), dotM); d.position.set(HXC, YD + 15.2, z + o * 0.04); d.quaternion.copy(q); G.add(d);
+      }
+      inst(new THREE.CylinderGeometry(0.75, 0.75, HE, 16), whiteM, [HX0, HX1].flatMap(x => [HZ0, HZ1].map(z => M4(x, YD + HE / 2, z))), G);
+      // masts 26 m tall beside both long sides, stays down to the roof and back to the slab (west) or the vaults (east)
+      const mm = [], st = [];
+      for (const z of [-8, HZC, 26]) for (const [x, ru, bx, by] of [[HX0 - 2.5, [-12, -5], HX0 - 15, YD], [HX1 + 1, [12, 5], -398, YD + 12]]){
+        mm.push(M4(x, YD + 13, z));
+        for (const u of ru) st.push(x, YD + 26, z, HXC + u, roofY(u), z);
+        st.push(x, YD + 26, z, bx, by, z);
+      }
+      inst(new THREE.CylinderGeometry(0.22, 0.3, 26, 10), whiteM, mm, G);
+      const sg = new THREE.BufferGeometry(); sg.setAttribute('position', new THREE.Float32BufferAttribute(st, 3)); G.add(new THREE.LineSegments(sg, stayM));
+    }
+    // four small vaults east of the hall on their glazed base, lunettes at both ends, little masts in the valleys
+    { const VX = [-408, -398, -388, -378], VR = 5.32, VS = YD + 8.5, VY = VS + 3.5 - VR;   // 10 m wide, 3.5 m rise, springing 8.5 m above the slab
+      inst(new THREE.CylinderGeometry(VR, VR, 42, 16, 1, true, Math.PI - 1.222, 2.444).rotateX(Math.PI / 2), membM, VX.map(x => M4(x, VY, HZC)), G);
+      G.add(box(40, VS - YD, 42, whiteM, -393, (YD + VS) / 2, HZC));
+      inst(winGeo(rectShape(39, 6.6), 39, 2.0, 2.2), glazM, [M4(-393, YD + 0.9, HZ0 - 0.02, qB), M4(-393, YD + 0.9, HZ1 + 0.02)], G);
+      const lun = new THREE.Shape(); lun.moveTo(-5, 0); lun.lineTo(5, 0); lun.absarc(0, VY - VS, VR, 0.349, 2.793, false);
+      inst(winGeo(lun, 10, 1.25, 1.2), glazM, VX.flatMap(x => [M4(x, VS, HZ0, qB), M4(x, VS, HZ1)]), G);
+      const mm = [], st = [];
+      for (const x of [-403, -393, -383]) for (const z of [-4, 22]){ mm.push(M4(x, VS + 3.75, z)); st.push(x, VS + 7.5, z, x - 5, VS + 3.5, z, x, VS + 7.5, z, x + 5, VS + 3.5, z); }
+      inst(new THREE.CylinderGeometry(0.16, 0.2, 7.5, 8), whiteM, mm, G);
+      const sg = new THREE.BufferGeometry(); sg.setAttribute('position', new THREE.Float32BufferAttribute(st, 3)); G.add(new THREE.LineSegments(sg, stayM));
+    }
+    // the car park on the slab: three decks behind cream spandrels, white hooked fins along both long faces; the office block at its forecourt end
+    { const PX0 = -357, PX1 = -94, PZ0 = -7.9, PZ1 = 30.3, PH = 11;
+      const cpM = pmat(0xffffff, { roughness:0.9, metalness:0, map:repeatTex(canvasTex(64, 64, (c) => { c.fillStyle = '#e6e0d2'; c.fillRect(0, 0, 64, 64); c.fillStyle = '#3a4450'; c.fillRect(4, 5, 60, 37); }), 1, 1) });
+      const topM = pmat(0x6b6d70, { roughness:0.95, metalness:0 });
+      const body = new THREE.Mesh(tiled(PX1 - PX0, PH, PZ1 - PZ0, 8, PH / 3), [cpM, cpM, topM, topM, cpM, cpM]);
+      body.position.set((PX0 + PX1) / 2, YD + PH / 2, (PZ0 + PZ1) / 2); G.add(body);
+      const fm = [];
+      for (let x = PX0 + 6; x < PX1 - 3; x += 11){ fm.push(M4(x, YD, PZ0)); if (x < -302 || x > -253) fm.push(M4(x, YD, PZ1, qB)); }
+      inst(prism([[0, 0], [-2.6, 0], [-0.6, 10.4], [-1.4, 11.7], [0, 11.7]], 0.5, whiteM, 'x').geometry, whiteM, fm, G);
+      const oM = pmat(0xffffff, { roughness:0.85, metalness:0, map:repeatTex(canvasTex(64, 64, (c) => { c.fillStyle = '#d8d2c4'; c.fillRect(0, 0, 64, 64); c.fillStyle = '#34404c'; c.fillRect(6, 10, 52, 40); }), 1, 1) });
+      const office = new THREE.Mesh(tiled(49, 18, 10.4, 3, 3.6), [oM, oM, topM, topM, oM, oM]); office.position.set(-277.5, YS + 9, 35.5); G.add(office);
+    }
+    // the forecourt and the paving on the far side, saucer lamps on both and on the slab
+    G.add(box(140, 0.4, 35, paveM, -430, YS + 0.12, 48.5), box(135, 0.4, 36, paveM, -427.5, YS + 0.12, -32));
+    { const lampM = pmat(0x6a5d52, { roughness:0.6, metalness:0.3 }), base = [];
+      for (let x = -490; x <= -370; x += 24) for (const z of [40, 58]) base.push(M4(x, YS + 0.3, z));
+      for (const x of [-500, -470]) for (const z of [-8, 4, 16, 27]) base.push(M4(x, YD, z));
+      inst(new THREE.CylinderGeometry(0.09, 0.14, 8, 6).translate(0, 4, 0), lampM, base, G);
+      inst(new THREE.CylinderGeometry(1.1, 0.5, 0.3, 16).translate(0, 8, 0), lampM, base, G);
+    }
+    noCast(G); deck.castShadow = true;
+    // the usual views land in the trench walls or on the car park here (loco coordinates, or the station's with at): the hall's gable from the
+    // forecourt, the train's side from our platform, the whole train from the open east end, the rear roof from under the slab
+    const at = (x, y, z) => { station.updateWorldMatrix(true, false); return station.localToWorld(new THREE.Vector3(x, y, z)).toArray(); };
+    G.userData.cams = {
+      station: () => [at(-434, 16, 68.5), at(-434, 18.5, 30)],
+      overview: [[22, 12.5, 30], [-2, 2.2, 0]],
+      side: [[-18, 3.4, -7.3], [2, 2, 0]],
+      far: [[46, 24, 54], [-12, 2, 0]],
+      train: () => S.mode === 'tgv' ? [[60, 25, 30], [-40, 2, 0]] : null,
+      rearroof: [[-158, 5.9, -7.6], [-176, 4.2, 0]],
+    };
   }
 }
 
@@ -3464,7 +3625,7 @@ const houseWallM = pmat(0xe3ddd0, { roughness:0.9, metalness:0 }), houseRoofM = 
 const bridgeM = pmat(0x9a9da1, { roughness:0.85, metalness:0.05 }), stopM = pmat(0x8a1f1f, { roughness:0.7, metalness:0.1 });
 const tunnelM = new THREE.MeshStandardMaterial({ color:0x6f7276, emissive:0x45484c, emissiveIntensity:1, roughness:1, side:THREE.DoubleSide });   // self-lit a little: the inside of a tube never sees the sun
 const portalM = new THREE.MeshStandardMaterial({ color:0x8e8f8b, roughness:0.95, side:THREE.DoubleSide });
-const WALL_COL = [0.66, 0.65, 0.62];   // concrete retaining walls of a station trench
+const WALL_COL = [0.66, 0.65, 0.62], FLOOR_COL = [0.48, 0.47, 0.44];   // concrete retaining walls of a station trench, its floor under a slab (no grass in the dark)
 const lampM = new THREE.MeshStandardMaterial({ color:0xfff1c0, emissive:0xffe9a0, emissiveIntensity:1.4, roughness:0.5 });
 const dropperM = new THREE.LineBasicMaterial({ color:pal.cat });
 { // ballast: speckle texture repeated along the strip
@@ -3502,8 +3663,8 @@ function hash2(a, b, c = 0){ let h = (a * 374761393 + b * 668265263 + c * 224682
 function landType(x, z){ const h = hash2(Math.floor(x / 120), Math.floor(z / 120)); return h < 0.35 ? 0 : h < 0.65 ? 1 : h < 0.8 ? 2 : h < 0.9 ? 3 : 4; }
 function laneWAt(k, s){ const u = ROUTE.stationU(s), w = ROUTE.laneW(k, s, u); if (k === 'B' || k === 'C' || k < 2) return w; const w0 = ROUTE.laneW(k - 2, s, u); return w0 + (w - w0) * ROUTE.laneE(k, s); }
 
-/* ---- city approaches: the towns the line stops in (not Futuroscope, Vendôme and Massy, out in the fields or in a trench) and the last kilometres
-   into Paris get urban blocks, boundary walls and road bridges */
+/* ---- city approaches: the towns the line stops in (not Futuroscope and Vendôme, out in the fields), Massy's Atlantis district and the last
+   kilometres into Paris get urban blocks, boundary walls and road bridges */
 const CITY_HALF = { mtb:1500, agn:1500, lbn:1200, ang:1500, pts:2000, chl:1200, spc:2500 };   // half length of the dense core around the station (m)
 const CITY_KEY = { mtb:'tls', agn:'tls', lbn:'bdx', ang:'bdx', pts:'bdx', chl:'loire', spc:'loire' };
 const CITY_Z = ROUTE.stations.flatMap(st => {   // dense from a to b, fading over fa before and fb after; key = building style: brick south (Toulouse's),
@@ -3511,6 +3672,7 @@ const CITY_Z = ROUTE.stations.flatMap(st => {   // dense from a to b, fading ove
   return st.id === 'tls' ? [{ key:'tls', a:-1, b:s + 3500, fa:0, fb:2500 }]
     : st.id === 'bdx' ? [{ key:'bdx', a:s - 3500, b:s + 1690, fa:2500, fb:1900 }]
     : st.id === 'par' ? [{ key:'par', a:L - 5500, b:L + 1, fa:3500, fb:0 }]
+    : st.id === 'msy' ? [{ key:'par', a:s - 2000, b:s + 5000, fa:1500, fb:1500 }]
     : h ? [{ key:CITY_KEY[st.id], a:s - h, b:s + h, fa:1500, fb:1500 }] : [];
 });
 const cityAt = s => {   // 0 countryside .. 1 dense city
@@ -3545,8 +3707,9 @@ function cityBox(walls, roofs, cx, cy, cz, w, h, d, yaw, roofH, inset){
   roofs.strip(2, 2, false, (i, k) => hi[i ? 3 - k : k]);
 }
 /* keep the generated scenery off the station models: s from/to relative to the station, w from/to, and how far the ground sinks away from the tracks
-   (Toulouse: the forecourt, the boulevard and the Canal du Midi on the left stand on their own slabs, the sunk ground keeps the water clear of the relief) */
-const LM_BOX = { tls:[-560, 210, -215, 40, 1.6], bdx:[-480, 60, -70, 70], par:[-420, 500, -150, 150] };
+   (Toulouse: the forecourt, the boulevard and the Canal du Midi on the left stand on their own slabs, the sunk ground keeps the water clear of the relief;
+   Massy: a negative sink, the ground is the street level 8.5 m above the trench floor) */
+const LM_BOX = { tls:[-560, 210, -215, 40, 1.6], bdx:[-480, 60, -70, 70], par:[-420, 500, -150, 150], msy:[-620, 140, -175, 255, -8.5] };
 const LM_ZONES = ROUTE.stations.filter(st => LM_BOX[st.id]).map(st => { const b = LM_BOX[st.id]; return [st.s + b[0], st.s + b[1], b[2], b[3], b[4] || 0]; });
 LM_ZONES.push([0, 100, -760, 760, 0]);   // the last 100 m before the Toulouse buffer stop, where the static city behind it begins
 const landmarkZone = (s, w) => LM_ZONES.some(z => s > z[0] && s < z[1] && w > z[2] && w < z[3]);
@@ -3563,7 +3726,11 @@ const landmarkGround = (s, w, yF, t) => {
 const TRENCH = { msy:[8.5, 5, -700, 130] };
 const TRENCH_Z = ROUTE.stations.filter(st => TRENCH[st.id]).map(st => { const T = TRENCH[st.id]; return { a:st.s + T[2], b:st.s + T[3], depth:T[0], F:T[1] }; });
 const trenchAt = s => { for (const z of TRENCH_Z){ const w = Math.min(ROUTE.sstep((s - z.a) / 60), ROUTE.sstep((z.b - s) / 60)); if (w > 0) return { tz:z.depth * w, F:z.F }; } return null; };
-const NO_WALL_AT = { tls:[-Infinity, 350], mtb:[-800, 350], agn:[-800, 350], bdx:[-800, 350], lbn:[-800, 350], ang:[-800, 350], pts:[-800, 350], chl:[-800, 350], spc:[-800, 350], par:[-500, Infinity] };   // no boundary wall between a station building and its tracks
+/* slabs over a station's tracks (x from, to, z from, to in station coordinates): no catenary masts under them, the wires hang from the soffit */
+const STATION_DECK = { msy:[-510, -68, -14, 31] };
+const DECK_Z = ROUTE.stations.filter(st => STATION_DECK[st.id]).map(st => [st.s + STATION_DECK[st.id][0], st.s + STATION_DECK[st.id][1]]);
+const underDeck = s => DECK_Z.some(z => s > z[0] && s < z[1]);
+const NO_WALL_AT = { tls:[-Infinity, 350], mtb:[-800, 350], agn:[-800, 350], bdx:[-800, 350], lbn:[-800, 350], ang:[-800, 350], pts:[-800, 350], chl:[-800, 350], spc:[-800, 350], par:[-500, Infinity], msy:[-800, 400] };   // no boundary wall between a station building and its tracks
 const NO_WALL = ROUTE.stations.filter(st => NO_WALL_AT[st.id]).map(st => [st.s + NO_WALL_AT[st.id][0], st.s + NO_WALL_AT[st.id][1]]);
 const paveM = pmat(0x9b968e, { roughness:0.95, metalness:0 });
 /* the city behind each terminus, in station coordinates: the route data ends at the buffer stops, so these blocks are static and only shown with the landmark.
@@ -3597,6 +3764,19 @@ terminusCity('par', landmarks.par, 70, 1350, -760, 760, [[100, 150, 44, 112]]); 
   terminusCity('tls', landmarks.tls, -540, 190, -205, -115, [], { cz:45, y:0.5, pave:false });
   terminusCity('tls', landmarks.tls, -540, -330, -56, -22, [], { cz:34, y:0.5, pave:false });
   terminusCity('tls', landmarks.tls, -80, 190, -56, -22, [], { cz:34, y:0.5, pave:false }); }
+// Massy: the Atlantis towers north of the forecourt, the RER B building and the workshops south of the tracks (OSM footprints and levels) on the
+// street level 8.5 m above the trench floor, their window rows starting at it; filler blocks around them, clear of the camera views over the forecourt
+{ const G = landmarks.msy, walls = new GeoAcc(true), roofs = new GeoAcc(false), shed = new GeoAcc(true), shedRoofs = new GeoAcc(false), YS = 8.08, Y0 = YS - 12;
+  for (const [x0, x1, z0, z1, lv] of [[-484, -458, 73, 103, 12], [-447, -403, 69, 100, 10], [-452, -408, 102, 135, 10], [-489, -461, 108, 153, 14], [-458, -437, 137, 161, 9],
+    [-433, -415, 138, 169, 8], [-489, -445, 173, 259, 16], [-515, -497, 63, 88, 10], [-385, -321, 74, 95.5, 7], [-320, -268, 74, 126.5, 5], [-326, -279, 128, 163, 4],
+    [-395, -375, 97, 119, 5], [-350, -334, 97, 138, 6], [-410, -340, 131, 201, 5], [-580, -530, 67, 82, 8], [-526, -502, 31, 40, 3], [-286, -234, -44, -31, 3], [-326, -303, -42.5, -33.5, 2]])
+    cityBox(walls, roofs, (x0 + x1) / 2, Y0, (z0 + z1) / 2, x1 - x0, YS + 3 * lv + 3 - Y0, z1 - z0, 0, 0.8, 0.4);
+  cityBox(shed, shedRoofs, -236.5, Y0, -109, 217, YS + 12 - Y0, 74, 0, 1.2, 3);
+  const add = (acc, m) => { const o = new THREE.Mesh(acc.build(), m); o.receiveShadow = true; G.add(o); };
+  add(walls, cityWallM.par); add(roofs, cityRoofM.par); add(shed, pmat(0xbdb9b0, { roughness:0.9, metalness:0, side:THREE.DoubleSide })); add(shedRoofs, cityRoofM.par);
+  terminusCity('par', G, -250, 140, 31, 263, [[-120, 100, 25, 100]], { y:7.8, pave:false });
+  terminusCity('par', G, -620, 140, -166, -14, [[-495, -360, -50, -14], [-345, -128, -146, -72], [-326, -234, -44.5, -31]], { y:7.8, pave:false });
+  terminusCity('par', G, -620, -495, 90, 263, [], { y:7.8, pave:false }); }
 
 /* ---- chunks: 1 km of track, ballast, sleepers, catenary, terrain, trees, houses, bridges and tunnels, built on demand */
 const CH = 1000, chunks = new Map(), LANES = [0, 1, 2, 3, 4, 5, 6, 7, 'B', 'C'];
@@ -3707,7 +3887,7 @@ function buildChunk(ci){
       // supports at this mast position
       const back = ROUTE.stations.some(st => st.side < 0 && sm > st.s - 405 && sm < st.s + 5) ? 7.9 : 3.4;   // side platforms: masts at their back edges
       ROUTE.frameAt(sm, _cf); const wl = a - back, wr = b + back;
-      if (ROUTE.kindAt(sm) === 2) continue;   // in a tunnel the wires hang from the lining: no masts
+      if (ROUTE.kindAt(sm) === 2 || underDeck(sm)) continue;   // in a tunnel or under a station slab the wires hang from the lining: no masts
       for (const wm of [wl, wr]){ _cp.copy(_cf.p).sub(O).addScaledVector(_cf.r, wm); mastM.push(new THREE.Matrix4().compose(_cp, _cf.q, tmpB.set(1, dc ? 1.1 : 1, 1))); }
       if (dc){   // portal: the crossbeam as lower chord, an upper chord at 7.95 m on masts raised to 8.1 m, Warren lacing between them
         const up = _ru.crossVectors(_cf.r, _cf.t).clone(), nL = Math.max(2, Math.round((wr - wl) / 1.6)), dl = (wr - wl) / nL, ang = Math.atan2(0.65, dl), len = Math.hypot(0.65, dl);
@@ -3791,7 +3971,7 @@ function buildChunk(ci){
         const inner = c === TERR_D.length - 1 || c === TERR_D.length, wall = Math.abs(a1[3] - a0[3]) < 0.06 && Math.abs(b1[3] - b0[3]) < 0.06;
         if (wall) rgb = WALL_COL;
         else if (a0[5] + a1[5] + b0[5] + b1[5] >= 2 && !inner) rgb = WATER_COL;
-        else if (inner || d < 12){ rgb = VERGE_COL; type = 1; }
+        else if (inner || d < 12){ rgb = underDeck((A.s + B.s) / 2) ? FLOOR_COL : VERGE_COL; type = 1; }
         else rgb = LAND_COL[type];
         const water = rgb === WATER_COL, city = cityAt(A.f.s);
         if (city > 0 && !water && !inner && d >= 12){ const U = URBAN_COL[cityKey]; rgb = [rgb[0] + (U[0] - rgb[0]) * city, rgb[1] + (U[1] - rgb[1]) * city, rgb[2] + (U[2] - rgb[2]) * city]; }
@@ -3973,6 +4153,17 @@ function nextStation(v = S.speed){                 // first station ahead in the
   return null;
 }
 function stationOffset(){ return nearestStation().s - TGV.PLAT_FRONT - S.dist; }
+function stationDeck(){   // the nearest station's slab over the tracks in loco coordinates [x from, to, z from, to], or null
+  const st = nearestStation(), d = STATION_DECK[st.id]; if (!d) return null;
+  const x = TGV.PLAT_FRONT + stationOffset(), z = ROUTE.laneW(0, st.s, 1) - laneMix(S.dist);
+  return [d[0] + x, d[1] + x, d[2] + z, d[3] + z];
+}
+function stationCam(name){   // the nearest station's own view for a camera preset while the train stands at it (Massy: the trench and its slab hide the usual ones), or null
+  const cams = landmarks[nearestStation().id]?.userData.cams;
+  let c = cams && Math.abs(stationOffset()) < 600 ? cams[name] : null;
+  if (typeof c === 'function') c = c();
+  return c || null;
+}
 let stationBuilding = null;
 const BLDG_AT = { fut:[-40, -14, 0], vdm:[-208, 30, Math.PI] };   // [x, z, turn] where the generic building stands in for the real one: Vendôme's is across the tracks
 function poseStation(){
@@ -3982,6 +4173,7 @@ function poseStation(){
   if (!stationBuilding) stationBuilding = station.getObjectByName('stationBuilding');
   const lm = landmarks[st.id];
   for (const k in landmarks) landmarks[k].visible = landmarks[k] === lm;
+  setPlatformRoof(!lm || lm.userData.platRoof !== false);
   if (stationBuilding){
     const b = BLDG_AT[st.id] || [-40, st.side < 0 ? -13.5 : -(Math.max(0, st.nLeft - 1) * 4.5 + 12), 0];   // behind the last track on our left, clear of a side platform
     stationBuilding.visible = !lm; stationBuilding.position.x = b[0]; stationBuilding.position.z = b[1]; stationBuilding.rotation.y = b[2];
@@ -4053,7 +4245,7 @@ function updateRoute(dt){
     const s = S.dist + c.xc + (c.tag === 2 ? base2 : 0);
     poseScene(c.pv, s, laneMix(s), false);
   }
-  poseStation();
+  poseStation(); fitShadow();
   parkedG.visible = S.mode === 'tgv';   // the train on the other face of the platform belongs to the TGV scene
   { const st = nearestStation(), so = st.s - 187, lane = st.side < 0 ? 'C' : 'B';
     for (const c of parked.cars){ const s = so - c.xc; poseWorld(c.pv, s, ROUTE.laneW(lane, s), true); }

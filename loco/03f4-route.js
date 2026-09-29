@@ -131,7 +131,7 @@ const houseWallM = pmat(0xe3ddd0, { roughness:0.9, metalness:0 }), houseRoofM = 
 const bridgeM = pmat(0x9a9da1, { roughness:0.85, metalness:0.05 }), stopM = pmat(0x8a1f1f, { roughness:0.7, metalness:0.1 });
 const tunnelM = new THREE.MeshStandardMaterial({ color:0x6f7276, emissive:0x45484c, emissiveIntensity:1, roughness:1, side:THREE.DoubleSide });   // self-lit a little: the inside of a tube never sees the sun
 const portalM = new THREE.MeshStandardMaterial({ color:0x8e8f8b, roughness:0.95, side:THREE.DoubleSide });
-const WALL_COL = [0.66, 0.65, 0.62];   // concrete retaining walls of a station trench
+const WALL_COL = [0.66, 0.65, 0.62], FLOOR_COL = [0.48, 0.47, 0.44];   // concrete retaining walls of a station trench, its floor under a slab (no grass in the dark)
 const lampM = new THREE.MeshStandardMaterial({ color:0xfff1c0, emissive:0xffe9a0, emissiveIntensity:1.4, roughness:0.5 });
 const dropperM = new THREE.LineBasicMaterial({ color:pal.cat });
 { // ballast: speckle texture repeated along the strip
@@ -169,8 +169,8 @@ function hash2(a, b, c = 0){ let h = (a * 374761393 + b * 668265263 + c * 224682
 function landType(x, z){ const h = hash2(Math.floor(x / 120), Math.floor(z / 120)); return h < 0.35 ? 0 : h < 0.65 ? 1 : h < 0.8 ? 2 : h < 0.9 ? 3 : 4; }
 function laneWAt(k, s){ const u = ROUTE.stationU(s), w = ROUTE.laneW(k, s, u); if (k === 'B' || k === 'C' || k < 2) return w; const w0 = ROUTE.laneW(k - 2, s, u); return w0 + (w - w0) * ROUTE.laneE(k, s); }
 
-/* ---- city approaches: the towns the line stops in (not Futuroscope, Vendôme and Massy, out in the fields or in a trench) and the last kilometres
-   into Paris get urban blocks, boundary walls and road bridges */
+/* ---- city approaches: the towns the line stops in (not Futuroscope and Vendôme, out in the fields), Massy's Atlantis district and the last
+   kilometres into Paris get urban blocks, boundary walls and road bridges */
 const CITY_HALF = { mtb:1500, agn:1500, lbn:1200, ang:1500, pts:2000, chl:1200, spc:2500 };   // half length of the dense core around the station (m)
 const CITY_KEY = { mtb:'tls', agn:'tls', lbn:'bdx', ang:'bdx', pts:'bdx', chl:'loire', spc:'loire' };
 const CITY_Z = ROUTE.stations.flatMap(st => {   // dense from a to b, fading over fa before and fb after; key = building style: brick south (Toulouse's),
@@ -178,6 +178,7 @@ const CITY_Z = ROUTE.stations.flatMap(st => {   // dense from a to b, fading ove
   return st.id === 'tls' ? [{ key:'tls', a:-1, b:s + 3500, fa:0, fb:2500 }]
     : st.id === 'bdx' ? [{ key:'bdx', a:s - 3500, b:s + 1690, fa:2500, fb:1900 }]
     : st.id === 'par' ? [{ key:'par', a:L - 5500, b:L + 1, fa:3500, fb:0 }]
+    : st.id === 'msy' ? [{ key:'par', a:s - 2000, b:s + 5000, fa:1500, fb:1500 }]
     : h ? [{ key:CITY_KEY[st.id], a:s - h, b:s + h, fa:1500, fb:1500 }] : [];
 });
 const cityAt = s => {   // 0 countryside .. 1 dense city
@@ -212,8 +213,9 @@ function cityBox(walls, roofs, cx, cy, cz, w, h, d, yaw, roofH, inset){
   roofs.strip(2, 2, false, (i, k) => hi[i ? 3 - k : k]);
 }
 /* keep the generated scenery off the station models: s from/to relative to the station, w from/to, and how far the ground sinks away from the tracks
-   (Toulouse: the forecourt, the boulevard and the Canal du Midi on the left stand on their own slabs, the sunk ground keeps the water clear of the relief) */
-const LM_BOX = { tls:[-560, 210, -215, 40, 1.6], bdx:[-480, 60, -70, 70], par:[-420, 500, -150, 150] };
+   (Toulouse: the forecourt, the boulevard and the Canal du Midi on the left stand on their own slabs, the sunk ground keeps the water clear of the relief;
+   Massy: a negative sink, the ground is the street level 8.5 m above the trench floor) */
+const LM_BOX = { tls:[-560, 210, -215, 40, 1.6], bdx:[-480, 60, -70, 70], par:[-420, 500, -150, 150], msy:[-620, 140, -175, 255, -8.5] };
 const LM_ZONES = ROUTE.stations.filter(st => LM_BOX[st.id]).map(st => { const b = LM_BOX[st.id]; return [st.s + b[0], st.s + b[1], b[2], b[3], b[4] || 0]; });
 LM_ZONES.push([0, 100, -760, 760, 0]);   // the last 100 m before the Toulouse buffer stop, where the static city behind it begins
 const landmarkZone = (s, w) => LM_ZONES.some(z => s > z[0] && s < z[1] && w > z[2] && w < z[3]);
@@ -230,7 +232,11 @@ const landmarkGround = (s, w, yF, t) => {
 const TRENCH = { msy:[8.5, 5, -700, 130] };
 const TRENCH_Z = ROUTE.stations.filter(st => TRENCH[st.id]).map(st => { const T = TRENCH[st.id]; return { a:st.s + T[2], b:st.s + T[3], depth:T[0], F:T[1] }; });
 const trenchAt = s => { for (const z of TRENCH_Z){ const w = Math.min(ROUTE.sstep((s - z.a) / 60), ROUTE.sstep((z.b - s) / 60)); if (w > 0) return { tz:z.depth * w, F:z.F }; } return null; };
-const NO_WALL_AT = { tls:[-Infinity, 350], mtb:[-800, 350], agn:[-800, 350], bdx:[-800, 350], lbn:[-800, 350], ang:[-800, 350], pts:[-800, 350], chl:[-800, 350], spc:[-800, 350], par:[-500, Infinity] };   // no boundary wall between a station building and its tracks
+/* slabs over a station's tracks (x from, to, z from, to in station coordinates): no catenary masts under them, the wires hang from the soffit */
+const STATION_DECK = { msy:[-510, -68, -14, 31] };
+const DECK_Z = ROUTE.stations.filter(st => STATION_DECK[st.id]).map(st => [st.s + STATION_DECK[st.id][0], st.s + STATION_DECK[st.id][1]]);
+const underDeck = s => DECK_Z.some(z => s > z[0] && s < z[1]);
+const NO_WALL_AT = { tls:[-Infinity, 350], mtb:[-800, 350], agn:[-800, 350], bdx:[-800, 350], lbn:[-800, 350], ang:[-800, 350], pts:[-800, 350], chl:[-800, 350], spc:[-800, 350], par:[-500, Infinity], msy:[-800, 400] };   // no boundary wall between a station building and its tracks
 const NO_WALL = ROUTE.stations.filter(st => NO_WALL_AT[st.id]).map(st => [st.s + NO_WALL_AT[st.id][0], st.s + NO_WALL_AT[st.id][1]]);
 const paveM = pmat(0x9b968e, { roughness:0.95, metalness:0 });
 /* the city behind each terminus, in station coordinates: the route data ends at the buffer stops, so these blocks are static and only shown with the landmark.
@@ -264,6 +270,19 @@ terminusCity('par', landmarks.par, 70, 1350, -760, 760, [[100, 150, 44, 112]]); 
   terminusCity('tls', landmarks.tls, -540, 190, -205, -115, [], { cz:45, y:0.5, pave:false });
   terminusCity('tls', landmarks.tls, -540, -330, -56, -22, [], { cz:34, y:0.5, pave:false });
   terminusCity('tls', landmarks.tls, -80, 190, -56, -22, [], { cz:34, y:0.5, pave:false }); }
+// Massy: the Atlantis towers north of the forecourt, the RER B building and the workshops south of the tracks (OSM footprints and levels) on the
+// street level 8.5 m above the trench floor, their window rows starting at it; filler blocks around them, clear of the camera views over the forecourt
+{ const G = landmarks.msy, walls = new GeoAcc(true), roofs = new GeoAcc(false), shed = new GeoAcc(true), shedRoofs = new GeoAcc(false), YS = 8.08, Y0 = YS - 12;
+  for (const [x0, x1, z0, z1, lv] of [[-484, -458, 73, 103, 12], [-447, -403, 69, 100, 10], [-452, -408, 102, 135, 10], [-489, -461, 108, 153, 14], [-458, -437, 137, 161, 9],
+    [-433, -415, 138, 169, 8], [-489, -445, 173, 259, 16], [-515, -497, 63, 88, 10], [-385, -321, 74, 95.5, 7], [-320, -268, 74, 126.5, 5], [-326, -279, 128, 163, 4],
+    [-395, -375, 97, 119, 5], [-350, -334, 97, 138, 6], [-410, -340, 131, 201, 5], [-580, -530, 67, 82, 8], [-526, -502, 31, 40, 3], [-286, -234, -44, -31, 3], [-326, -303, -42.5, -33.5, 2]])
+    cityBox(walls, roofs, (x0 + x1) / 2, Y0, (z0 + z1) / 2, x1 - x0, YS + 3 * lv + 3 - Y0, z1 - z0, 0, 0.8, 0.4);
+  cityBox(shed, shedRoofs, -236.5, Y0, -109, 217, YS + 12 - Y0, 74, 0, 1.2, 3);
+  const add = (acc, m) => { const o = new THREE.Mesh(acc.build(), m); o.receiveShadow = true; G.add(o); };
+  add(walls, cityWallM.par); add(roofs, cityRoofM.par); add(shed, pmat(0xbdb9b0, { roughness:0.9, metalness:0, side:THREE.DoubleSide })); add(shedRoofs, cityRoofM.par);
+  terminusCity('par', G, -250, 140, 31, 263, [[-120, 100, 25, 100]], { y:7.8, pave:false });
+  terminusCity('par', G, -620, 140, -166, -14, [[-495, -360, -50, -14], [-345, -128, -146, -72], [-326, -234, -44.5, -31]], { y:7.8, pave:false });
+  terminusCity('par', G, -620, -495, 90, 263, [], { y:7.8, pave:false }); }
 
 /* ---- chunks: 1 km of track, ballast, sleepers, catenary, terrain, trees, houses, bridges and tunnels, built on demand */
 const CH = 1000, chunks = new Map(), LANES = [0, 1, 2, 3, 4, 5, 6, 7, 'B', 'C'];
@@ -374,7 +393,7 @@ function buildChunk(ci){
       // supports at this mast position
       const back = ROUTE.stations.some(st => st.side < 0 && sm > st.s - 405 && sm < st.s + 5) ? 7.9 : 3.4;   // side platforms: masts at their back edges
       ROUTE.frameAt(sm, _cf); const wl = a - back, wr = b + back;
-      if (ROUTE.kindAt(sm) === 2) continue;   // in a tunnel the wires hang from the lining: no masts
+      if (ROUTE.kindAt(sm) === 2 || underDeck(sm)) continue;   // in a tunnel or under a station slab the wires hang from the lining: no masts
       for (const wm of [wl, wr]){ _cp.copy(_cf.p).sub(O).addScaledVector(_cf.r, wm); mastM.push(new THREE.Matrix4().compose(_cp, _cf.q, tmpB.set(1, dc ? 1.1 : 1, 1))); }
       if (dc){   // portal: the crossbeam as lower chord, an upper chord at 7.95 m on masts raised to 8.1 m, Warren lacing between them
         const up = _ru.crossVectors(_cf.r, _cf.t).clone(), nL = Math.max(2, Math.round((wr - wl) / 1.6)), dl = (wr - wl) / nL, ang = Math.atan2(0.65, dl), len = Math.hypot(0.65, dl);
@@ -458,7 +477,7 @@ function buildChunk(ci){
         const inner = c === TERR_D.length - 1 || c === TERR_D.length, wall = Math.abs(a1[3] - a0[3]) < 0.06 && Math.abs(b1[3] - b0[3]) < 0.06;
         if (wall) rgb = WALL_COL;
         else if (a0[5] + a1[5] + b0[5] + b1[5] >= 2 && !inner) rgb = WATER_COL;
-        else if (inner || d < 12){ rgb = VERGE_COL; type = 1; }
+        else if (inner || d < 12){ rgb = underDeck((A.s + B.s) / 2) ? FLOOR_COL : VERGE_COL; type = 1; }
         else rgb = LAND_COL[type];
         const water = rgb === WATER_COL, city = cityAt(A.f.s);
         if (city > 0 && !water && !inner && d >= 12){ const U = URBAN_COL[cityKey]; rgb = [rgb[0] + (U[0] - rgb[0]) * city, rgb[1] + (U[1] - rgb[1]) * city, rgb[2] + (U[2] - rgb[2]) * city]; }
@@ -640,6 +659,17 @@ function nextStation(v = S.speed){                 // first station ahead in the
   return null;
 }
 function stationOffset(){ return nearestStation().s - TGV.PLAT_FRONT - S.dist; }
+function stationDeck(){   // the nearest station's slab over the tracks in loco coordinates [x from, to, z from, to], or null
+  const st = nearestStation(), d = STATION_DECK[st.id]; if (!d) return null;
+  const x = TGV.PLAT_FRONT + stationOffset(), z = ROUTE.laneW(0, st.s, 1) - laneMix(S.dist);
+  return [d[0] + x, d[1] + x, d[2] + z, d[3] + z];
+}
+function stationCam(name){   // the nearest station's own view for a camera preset while the train stands at it (Massy: the trench and its slab hide the usual ones), or null
+  const cams = landmarks[nearestStation().id]?.userData.cams;
+  let c = cams && Math.abs(stationOffset()) < 600 ? cams[name] : null;
+  if (typeof c === 'function') c = c();
+  return c || null;
+}
 let stationBuilding = null;
 const BLDG_AT = { fut:[-40, -14, 0], vdm:[-208, 30, Math.PI] };   // [x, z, turn] where the generic building stands in for the real one: Vendôme's is across the tracks
 function poseStation(){
@@ -649,6 +679,7 @@ function poseStation(){
   if (!stationBuilding) stationBuilding = station.getObjectByName('stationBuilding');
   const lm = landmarks[st.id];
   for (const k in landmarks) landmarks[k].visible = landmarks[k] === lm;
+  setPlatformRoof(!lm || lm.userData.platRoof !== false);
   if (stationBuilding){
     const b = BLDG_AT[st.id] || [-40, st.side < 0 ? -13.5 : -(Math.max(0, st.nLeft - 1) * 4.5 + 12), 0];   // behind the last track on our left, clear of a side platform
     stationBuilding.visible = !lm; stationBuilding.position.x = b[0]; stationBuilding.position.z = b[1]; stationBuilding.rotation.y = b[2];
@@ -720,7 +751,7 @@ function updateRoute(dt){
     const s = S.dist + c.xc + (c.tag === 2 ? base2 : 0);
     poseScene(c.pv, s, laneMix(s), false);
   }
-  poseStation();
+  poseStation(); fitShadow();
   parkedG.visible = S.mode === 'tgv';   // the train on the other face of the platform belongs to the TGV scene
   { const st = nearestStation(), so = st.s - 187, lane = st.side < 0 ? 'C' : 'B';
     for (const c of parked.cars){ const s = so - c.xc; poseWorld(c.pv, s, ROUTE.laneW(lane, s), true); }

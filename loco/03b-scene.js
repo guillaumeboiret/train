@@ -21,12 +21,12 @@ sun.shadow.mapSize.set(2048, 2048);
 Object.assign(sun.shadow.camera, { left:-64, right:30, top:26, bottom:-16, near:1, far:120 });
 sun.shadow.bias = -0.0005;
 /* fit the shadow frustum to a world box along the track (the light looks at the origin) */
-function setShadowBox(xMin, xMax, mapSize){
+function setShadowBox(xMin, xMax, mapSize, zMin = -14, zMax = 14){
   const cam = sun.shadow.camera, az = sun.position.clone().normalize();
   const ax = new THREE.Vector3(0, 1, 0).cross(az).normalize(), ay = az.clone().cross(ax);
   let l = Infinity, r = -Infinity, b = Infinity, t = -Infinity, n = Infinity, f = -Infinity;
   const p = new THREE.Vector3();
-  for (const px of [xMin, xMax]) for (const py of [-1, 9]) for (const pz of [-14, 14]){
+  for (const px of [xMin, xMax]) for (const py of [-1, 9]) for (const pz of [zMin, zMax]){
     p.set(px, py, pz).sub(sun.position);
     const cx = p.dot(ax), cy = p.dot(ay), cz = -p.dot(az);
     l = Math.min(l, cx); r = Math.max(r, cx); b = Math.min(b, cy); t = Math.max(t, cy); n = Math.min(n, cz); f = Math.max(f, cz);
@@ -351,7 +351,7 @@ const CAMS = {
   roof:[[6, 11, 8], [0.5, 4.6, 0]],
   under:[[6, -2.6, 8.5], [0, 1.0, 0]],
 };
-function flyPreset(name){   // a preset is [eye, target] to orbit, or {obj, eye, yaw, pitch} to ride in first person
-  let c = CAMS[name]; if (typeof c === 'function') c = c(); if (!c) return;
+function flyPreset(name){   // a preset is [eye, target] to orbit, or {obj, eye, yaw, pitch} to ride in first person; a station can have its own (stationCam)
+  let c = stationCam(name) || CAMS[name]; if (typeof c === 'function') c = c(); if (!c) return;
   if (c.obj){ orbit.look(c.obj, c.eye, c.yaw, c.pitch); orbit.fp.name = name; } else orbit.flyTo(new THREE.Vector3(...c[0]), new THREE.Vector3(...c[1]));
 }

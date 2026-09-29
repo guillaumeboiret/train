@@ -659,12 +659,18 @@ pantoHook = f => { if (S.mode !== 'tgv') return false; posePanto(tgvSets[0].pant
    left at the LGV stations, where platOpp is the other direction's side platform. The letter signs undo the mirror so they read right */
 const station = new THREE.Group(); world.add(station);   // posed on the line at the nearest station by updateRoute
 const platG = new THREE.Group(); station.add(platG);
-const platVariant = {}, letterSigns = [];
-let platOpp = null, platSide = 1;
+const platVariant = {}, letterSigns = [], platRoofs = [], platPosts = [];
+let platOpp = null, platSide = 1, platRoof = true;
 function setPlatformSide(side){
   if (side === platSide) return;
   platSide = side; platG.scale.z = side; platOpp.visible = side < 0; platOpp.position.z = 2 * (2.25 + ROUTE.SD);   // on the far loop, lane 'C'
   for (const sg of letterSigns) sg.scale.z = side;
+}
+function setPlatformRoof(on){   // under a station's slab (Massy) the platforms have no canopy: the coach letters stand on posts instead of hanging from it
+  if (on === platRoof) return;
+  platRoof = on;
+  for (const g of platRoofs) g.visible = on;
+  for (const g of platPosts) g.visible = !on;
 }
 /* the stop's name on every sign that carries one: the platform boards and, in capitals, the generic building's board. One texture each,
    repainted per stop (poseStation); a sign shows the painted part and takes its width from it */
@@ -706,11 +712,12 @@ function letterTex(ch){
     return g;
   };
   const mkPlat = (L, sets, mirrored = true) => {
-    const g = new THREE.Group();
+    const g = new THREE.Group(), roof = new THREE.Group(), posts = new THREE.Group();
+    posts.visible = false; g.add(roof, posts); platRoofs.push(roof); platPosts.push(posts);
     g.add(box(L, 0.97, 6.25, pm, -L / 2, 0.065, 4.875));                       // slab z 1.75..8.0, top at y 0.55
     g.add(box(L, 0.02, 0.3, em, -L / 2, 0.56, 1.95)); g.add(box(L, 0.02, 0.3, em, -L / 2, 0.56, 7.8));   // safety lines on both faces of the island platform
-    for (let x = -6; x > -L + 4; x -= 12) g.add(box(0.25, 3.7, 0.25, sm, x, 2.4, 6.5));
-    g.add(box(L - 6, 0.12, 4.0, cm, -L / 2, 4.25, 5.75));                      // canopy, z 3.75..7.75, clear of the train on the far face; light so its underside reads in the door view
+    for (let x = -6; x > -L + 4; x -= 12) roof.add(box(0.25, 3.7, 0.25, sm, x, 2.4, 6.5));
+    roof.add(box(L - 6, 0.12, 4.0, cm, -L / 2, 4.25, 5.75));                      // canopy, z 3.75..7.75, clear of the train on the far face; light so its underside reads in the door view
     for (let x = -30; x > -L + 20; x -= 60){ g.add(box(4, 1.1, 2.2, sm, x, 1.1, 4.9)); g.add(box(3.6, 0.1, 1.9, glassM, x, 1.7, 4.9)); }   // stair heads down to the underpass, in the middle of the island
     for (let x = -12; x > -L + 10; x -= 48) g.add(nameBoard(x, mirrored));   // between two lamp posts
     const letters = 'ABCDEFGHIJKLMNOP';
@@ -718,7 +725,7 @@ function letterTex(ch){
       const cx = xr + Lc / 2 + (s ? TGV.SET2_X : 0) - TGV.PLAT_FRONT, mat = new THREE.MeshBasicMaterial({ map:letterTex(letters[s * 8 + i]) });
       const sg = new THREE.Group(), back = new THREE.Mesh(letterGeo, mat); back.rotation.y = Math.PI;   // two faces back to back, each reading right
       sg.add(new THREE.Mesh(letterGeo, mat), back); sg.position.set(cx, 3.4, 2.6); g.add(sg); letterSigns.push(sg);
-      g.add(box(0.06, 0.9, 0.06, sm, cx, 3.8, 2.6));
+      roof.add(box(0.06, 0.9, 0.06, sm, cx, 3.8, 2.6)); posts.add(box(0.06, 2.45, 0.06, sm, cx, 1.775, 2.6));   // hung from the canopy, or on a post
     });
     return g;
   };
@@ -1021,13 +1028,26 @@ function seatView(d){   // first person in the viewer's seat of coach 1 (deck d)
   return { obj:c.g, eye:new THREE.Vector3(c.seat[3 * i] + 0.12 * f, c.seat[3 * i + 1] + 1.16, c.seat[3 * i + 2]), yaw:f > 0 ? -0.75 : 0.75 - Math.PI, pitch:-0.14 };
 }
 
+/* ---- the sun's shadow box: over the train (a long one takes a bigger map), stretched over a station's slab near it so the slab shades the
+   tracks under it. Rounded to 20 m so it moves in steps, not every frame */
+let shadowKey = '';
+function fitShadow(){
+  const tgv = S.mode === 'tgv', d = stationDeck(), near = d && d[1] > -600 && d[0] < 600;
+  let x0 = tgv ? (S.sets === 2 || S.coupling !== 0 ? -392 : -195) : -82, x1 = 14, z0 = -14, z1 = 14;
+  if (near){
+    x0 = Math.min(x0, Math.floor(Math.max(d[0], -600) / 20) * 20); x1 = Math.max(x1, Math.ceil(Math.min(d[1], 600) / 20) * 20);
+    z0 = Math.min(z0, Math.floor(Math.max(d[2], -32) / 2) * 2); z1 = Math.max(z1, Math.ceil(Math.min(d[3], 32) / 2) * 2);
+  }
+  const size = Math.min(tgv || near ? 4096 : 2048, renderer.capabilities.maxTextureSize), key = [x0, x1, z0, z1, size].join();
+  if (key !== shadowKey){ setShadowBox(x0, x1, size, z0, z1); shadowKey = key; }
+}
+
 /* ---- per-frame update (tgv mode only) + mode switch hook */
-let tgvShadow = '';
 const tgvDriver = parts.cab.group.getObjectByName('driver');
 function setTgvVisible(on){
   tgvTrain.visible = on; pool.body.visible = pool.head.visible = on;
   parts.cab.group.getObjectByName('cabLoco').visible = !on; parts.cab.group.getObjectByName('cabTgv').visible = on;   // the lead car's cab: loco desk or TGV desk with its driver
-  if (!on){ platVariant[1].visible = true; platVariant[2].visible = false; setShadowBox(-82, 14, 2048); tgvShadow = ''; return; }
+  if (!on){ platVariant[1].visible = true; platVariant[2].visible = false; return; }
   paxResolve();
 }
 function updateTgv(dt){
@@ -1035,8 +1055,6 @@ function updateTgv(dt){
   const wide = S.sets === 2 || S.coupling !== 0;
   s2.group.visible = wide;
   platVariant[1].visible = S.sets === 1; platVariant[2].visible = S.sets === 2;
-  const sh = wide ? 'um' : 'us';
-  if (sh !== tgvShadow){ setShadowBox(wide ? -392 : -195, 14, Math.min(4096, renderer.capabilities.maxTextureSize)); tgvShadow = sh; }
   // pantographs: the rear power car of each set feeds its roof line and the leading one stays folded, except under 1.5 kV DC where every power car collects its own current
   posePanto(s2.pantos[0], S.sets === 2 && S.coupling === 0 ? S.pantoF : (S.coupling !== 0 ? 1 : 0));
   posePanto(s2.pantos[1], S.coupling !== 0 ? S.pantoDcF : S.sets === 2 ? S.pantoF * S.pantoDcF : 0);

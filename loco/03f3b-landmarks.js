@@ -3,6 +3,7 @@
    Toulouse Matabiau: the 1905 stone building along track A, the forecourt, the boulevard and the Canal du Midi under its plane trees.
    Bordeaux Saint-Jean: the 1898 iron and glass train shed (56 m span, 280 m long, crown at 27 m) with the stone passenger building along its west side.
    Paris Montparnasse: 360 m of platforms under the Jardin Atlantique deck, the head hall across the buffer stops and the 210 m tower beyond it.
+   Massy TGV: the trench, the slab over its west half, the membrane hall with its dot clock, the four vaults and the car park on the slab.
    Everything is a child of `station`, so it follows the station pose; only the group of the nearest station is visible (poseStation). */
 const landmarks = {};
 {
@@ -30,6 +31,28 @@ const landmarks = {};
     c.lineWidth = 10; c.beginPath(); c.moveTo(128, 128); c.lineTo(128 + Math.cos(-2.618) * 60, 128 + Math.sin(-2.618) * 60); c.stroke();
     c.lineWidth = 7; c.beginPath(); c.moveTo(128, 128); c.lineTo(128 + Math.cos(-0.524) * 92, 128 + Math.sin(-0.524) * 92); c.stroke();
   });
+  const PO = { polygonOffset:true, polygonOffsetFactor:-1, polygonOffsetUnits:-4 };   // panes, arms, signs and window bands just off a face win the depth test
+  const YQ = a => new THREE.Quaternion().setFromAxisAngle(Y_UP, a), qB = YQ(Math.PI), qW = YQ(-Math.PI / 2), qE = YQ(Math.PI / 2);   // facing −z, −x, +x
+  const prism = (pts, len, m, axis) => {   // a (u, y) profile extruded over len: u = z along x (axis 'x'), u = x along z
+    const g = new THREE.ExtrudeGeometry(new THREE.Shape(pts.map(([u, y]) => new THREE.Vector2(axis === 'x' ? -u : u, y))), { depth:len, bevelEnabled:false }).translate(0, 0, -len / 2);
+    if (axis === 'x') g.rotateY(Math.PI / 2);
+    return new THREE.Mesh(g, m);
+  };
+  const frustum = (w0, d0, w1, d1, h, m) => {   // a hipped roof stage: w0 × d0 at its foot, w1 × d1 h higher, closed on top
+    const b = [[-w0 / 2, 0, -d0 / 2], [w0 / 2, 0, -d0 / 2], [w0 / 2, 0, d0 / 2], [-w0 / 2, 0, d0 / 2]], t = [[-w1 / 2, h, -d1 / 2], [w1 / 2, h, -d1 / 2], [w1 / 2, h, d1 / 2], [-w1 / 2, h, d1 / 2]], pos = [];
+    const quad = (p, q, r, s) => pos.push(...p, ...q, ...r, ...p, ...r, ...s);
+    for (let i = 0; i < 4; i++){ const j = (i + 1) % 4; quad(b[i], t[i], t[j], b[j]); }
+    quad(t[0], t[3], t[2], t[1]);
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.computeVertexNormals();
+    return new THREE.Mesh(g, m);
+  };
+  const archShape = (w, h) => { const s = new THREE.Shape(), r = w / 2; s.moveTo(-r, 0); s.lineTo(r, 0); s.lineTo(r, h - r); s.absarc(0, h - r, r, 0, Math.PI, false); return s; };
+  const rectShape = (w, h) => { const s = new THREE.Shape(); s.moveTo(-w / 2, 0); s.lineTo(w / 2, 0); s.lineTo(w / 2, h); s.lineTo(-w / 2, h); return s; };
+  const winGeo = (sh, w, tw, th = 1.5) => {   // a pane from its outline (bottom centre at the origin), one glazing tile every tw × th metres
+    const g = new THREE.ShapeGeometry(sh, 12), p = g.attributes.position, uv = g.attributes.uv;
+    for (let i = 0; i < p.count; i++) uv.setXY(i, (p.getX(i) + w / 2) / tw, p.getY(i) / th);
+    return g;
+  };
 
   /* Bordeaux Saint-Jean */
   {
@@ -138,32 +161,10 @@ const landmarks = {};
      The ground is slabs over x −540..190 whose bottoms sit in the relief, sunk 1.6 m there (LM_BOX in the route code) so the water stays clear of it. */
   {
     const G = new THREE.Group(); G.visible = false; station.add(G); landmarks.tls = G;
-    const PO = { polygonOffset:true, polygonOffsetFactor:-1, polygonOffsetUnits:-4 };   // panes, arms, signs and window bands just off a face win the depth test
     const stoneM = pmat(0xe6dac2, { roughness:0.9, metalness:0 }), trimM = pmat(0xd5c6a6, { roughness:0.9, metalness:0 }), slateM = pmat(0x3d4650, { roughness:0.7, metalness:0.1 });
     const glazM = pmat(0xffffff, Object.assign({ roughness:0.3, metalness:0.2, map:repeatTex(canvasTex(64, 64, (c) => {   // one pane per tile, light glazing bars
       c.fillStyle = '#cfc6b3'; c.fillRect(0, 0, 64, 64); c.fillStyle = '#2a3642'; c.fillRect(3, 3, 58, 58); c.fillStyle = '#cfc6b3'; c.fillRect(0, 31, 64, 2);
     }), 1, 1) }, PO));
-    const YQ = a => new THREE.Quaternion().setFromAxisAngle(Y_UP, a), qB = YQ(Math.PI), qW = YQ(-Math.PI / 2), qE = YQ(Math.PI / 2);   // facing −z, −x, +x
-    const prism = (pts, len, m, axis) => {   // a (u, y) profile extruded over len: u = z along x (axis 'x'), u = x along z
-      const g = new THREE.ExtrudeGeometry(new THREE.Shape(pts.map(([u, y]) => new THREE.Vector2(axis === 'x' ? -u : u, y))), { depth:len, bevelEnabled:false }).translate(0, 0, -len / 2);
-      if (axis === 'x') g.rotateY(Math.PI / 2);
-      return new THREE.Mesh(g, m);
-    };
-    const frustum = (w0, d0, w1, d1, h, m) => {   // a hipped roof stage: w0 × d0 at its foot, w1 × d1 h higher, closed on top
-      const b = [[-w0 / 2, 0, -d0 / 2], [w0 / 2, 0, -d0 / 2], [w0 / 2, 0, d0 / 2], [-w0 / 2, 0, d0 / 2]], t = [[-w1 / 2, h, -d1 / 2], [w1 / 2, h, -d1 / 2], [w1 / 2, h, d1 / 2], [-w1 / 2, h, d1 / 2]], pos = [];
-      const quad = (p, q, r, s) => pos.push(...p, ...q, ...r, ...p, ...r, ...s);
-      for (let i = 0; i < 4; i++){ const j = (i + 1) % 4; quad(b[i], t[i], t[j], b[j]); }
-      quad(t[0], t[3], t[2], t[1]);
-      const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.computeVertexNormals();
-      return new THREE.Mesh(g, m);
-    };
-    const archShape = (w, h) => { const s = new THREE.Shape(), r = w / 2; s.moveTo(-r, 0); s.lineTo(r, 0); s.lineTo(r, h - r); s.absarc(0, h - r, r, 0, Math.PI, false); return s; };
-    const rectShape = (w, h) => { const s = new THREE.Shape(); s.moveTo(-w / 2, 0); s.lineTo(w / 2, 0); s.lineTo(w / 2, h); s.lineTo(-w / 2, h); return s; };
-    const winGeo = (sh, w, tw, th = 1.5) => {   // a pane from its outline (bottom centre at the origin), one glazing tile every tw × th metres
-      const g = new THREE.ShapeGeometry(sh, 12), p = g.attributes.position, uv = g.attributes.uv;
-      for (let i = 0; i < p.count; i++) uv.setXY(i, (p.getX(i) + w / 2) / tw, p.getY(i) / th);
-      return g;
-    };
     // wings: stone body (track face z −20, canal face z −40), plinth, string course, cornice, mansard; nine bays each at 6.5 m.
     // Like at Saint-Jean every wing end stops 0.5 m inside a pavilion, so no two faces share a plane.
     const WINGS = [[-292.5, -228.5], [-181.5, -117.5]], bays = [];
@@ -287,5 +288,147 @@ const landmarks = {};
       part(2.6, 2.2, 3.4, woodM, -10.4, 1.7, cabC); part(2.7, 0.7, 3.5, bandM, -10.4, 2.2); part(2.9, 0.12, 3.7, paintM, -10.4, 2.86, hullC);   // wheelhouse
     }
     noCast(G); consoles.castShadow = true;
+  }
+
+  /* Massy TGV (1991): four tracks in an 8.5 m trench (dug by the route code) under a slab over its west half (x −510..−68). On the slab the hall
+     across the trench, its white roof hung from six masts, the name and the dot clock on both glazed gables; four small vaults east of it, then
+     the car park with its white fins and the office block. Under the slab: the concourse wall with its window band, blue name boards, round
+     ceiling lights, walls between the platform tracks and the through tracks. Our platform is the mirrored one (z −1.75..−8), so the forecourt
+     (+z) lies across the tracks. The towers around the forecourt are city blocks (route code). */
+  {
+    const G = new THREE.Group(); G.visible = false; station.add(G); landmarks.msy = G;
+    G.userData.platRoof = false;   // the slab roofs the platforms: no canopies (setPlatformRoof)
+    const concM = pmat(0xa7a39b, { roughness:0.95, metalness:0 }), ceilM = pmat(0x77746e, { roughness:0.95, metalness:0, emissive:0x4d4a45 }), whiteM = pmat(0xf0eee8, { roughness:0.7, metalness:0 });   // the soffit glows a little: its own lamps light it, not the sky
+    const paveM = pmat(0xb4aea4, { roughness:0.95, metalness:0 }), membM = pmat(0xf7f5f0, { roughness:0.8, metalness:0, side:THREE.DoubleSide }), railM = pmat(0x59626a, { roughness:0.5, metalness:0.5 });
+    const lightM = new THREE.MeshBasicMaterial({ color:0xfff4d6 }), stayM = new THREE.LineBasicMaterial({ color:0x5f666b });
+    const glazM = pmat(0xffffff, Object.assign({ roughness:0.3, metalness:0.2, map:repeatTex(canvasTex(64, 64, (c) => {   // one pane per tile, white frames
+      c.fillStyle = '#eceae4'; c.fillRect(0, 0, 64, 64); c.fillStyle = '#34495a'; c.fillRect(2, 2, 60, 60);
+    }), 1, 1) }, PO));
+    const tiled = (w, h, d, tw, th) => {   // a box whose map repeats every tw × th metres on its sides
+      const g = new THREE.BoxGeometry(w, h, d), uv = g.attributes.uv, dim = [[d, h], [d, h], [w, d], [w, d], [w, h], [w, h]];
+      for (let i = 0; i < 24; i++){ const f = dim[i >> 2]; uv.setXY(i, uv.getX(i) * f[0] / tw, uv.getY(i) * f[1] / th); }
+      return g;
+    };
+    const YD = 8.4, YC = 6.88, DX0 = -510, DX1 = -68, DZ0 = -14, DZ1 = 31, ZW0 = -8.4, ZW1 = 25.4, YS = 8.08;   // slab top and underside, slab extent, trench walls, street level
+    // the slab: paved on top, bare concrete under; parapets over the trench at both ends, railings along the open east half
+    const deck = new THREE.Mesh(new THREE.BoxGeometry(DX1 - DX0, YD - YC, DZ1 - DZ0), [concM, concM, paveM, ceilM, concM, concM]);
+    deck.position.set((DX0 + DX1) / 2, (YD + YC) / 2, (DZ0 + DZ1) / 2); deck.receiveShadow = true; G.add(deck);
+    for (const x of [DX0 + 0.25, DX1 - 0.25]) G.add(box(0.5, 1.1, ZW1 - ZW0, concM, x, YD + 0.55, (ZW0 + ZW1) / 2));
+    { const pm = [];
+      for (let x = DX1 + 2; x <= 25; x += 2) for (const z of [ZW0 - 0.25, ZW1 + 0.25]) pm.push(M4(x, (YS + 9.1) / 2, z));
+      inst(new THREE.BoxGeometry(0.06, 9.1 - YS, 0.06), railM, pm, G);
+      for (const z of [ZW0 - 0.25, ZW1 + 0.25]) G.add(box(25 - DX1, 0.06, 0.08, railM, (25 + DX1) / 2, 9.1, z));
+    }
+    // under the slab: the concourse wall behind each platform with its window band and the blue name boards, ceiling lights,
+    // the walls between the platform tracks and the through tracks
+    { const wallTex = canvasTex(64, 128, (c) => {
+        c.fillStyle = '#d9d6cf'; c.fillRect(0, 0, 64, 128); c.fillStyle = '#3b4a58'; c.fillRect(0, 12, 64, 28);
+        c.fillStyle = '#d9d6cf'; c.fillRect(0, 12, 3, 28); c.fillRect(31, 12, 3, 28); c.fillStyle = '#b3afa6'; c.fillRect(0, 84, 64, 2);
+      });
+      wallTex.wrapS = THREE.RepeatWrapping;
+      const wallM = pmat(0xffffff, { roughness:0.9, metalness:0, map:wallTex, emissive:0xffffff, emissiveMap:wallTex, emissiveIntensity:0.3 });   // lit from the soffit
+      for (const [x0, z, ry] of [[-455, ZW0 + 0.3, 0], [-440, ZW1 - 0.3, Math.PI]]){   // the walls stop where the trench widens west of the platforms
+        const L = DX1 - x0, g = new THREE.PlaneGeometry(L, YC + 0.42), uv = g.attributes.uv;
+        for (let i = 0; i < uv.count; i++) uv.setX(i, uv.getX(i) * L / 3);
+        const m = new THREE.Mesh(g, wallM); m.position.set((x0 + DX1) / 2, (YC - 0.42) / 2, z); m.rotation.y = ry; m.receiveShadow = true; G.add(m);
+      }
+      const nameM = new THREE.MeshBasicMaterial(Object.assign({ map:textTex('MASSY TGV', 1024, 128, '#1f4fa0', '#ffffff') }, PO)), nm = [];
+      for (let x = -84; x > -440; x -= 48) nm.push(M4(x, 3.2, ZW0 + 0.32), M4(x, 3.2, ZW1 - 0.32, qB));
+      inst(new THREE.PlaneGeometry(6.4, 0.8), nameM, nm, G);
+      const lm = [];
+      for (let x = DX0 + 5, k = 0; x < DX1 - 2; x += 12, k++){ lm.push(M4(x, YC - 0.02, -4.9), M4(x, YC - 0.02, 21.9)); if (k % 2 === 0) lm.push(M4(x, YC - 0.02, 8.5)); }
+      inst(new THREE.CircleGeometry(0.6, 16).rotateX(Math.PI / 2), lightM, lm, G);
+      for (const z of [3.1, 13.9]) G.add(box(DX1 + 460, YC + 0.42, 0.5, concM, (DX1 - 460) / 2, (YC - 0.42) / 2, z));
+    }
+    // the hall across the trench: glazed on all four sides, the white roof curving down to both long sides, hung from three masts on each
+    const HX0 = -447, HX1 = -415, HXC = (HX0 + HX1) / 2, HZ0 = -12, HZ1 = 30, HZC = (HZ0 + HZ1) / 2, HE = 12.5, HR = 7;   // walls 12.5 m high, crown 7 m above them
+    const roofY = u => YD + HE + HR * (1 - Math.abs(u / 16) ** 3);
+    { const N = 24, pos = [], idx = [], z0 = HZ0 - 1.5, z1 = HZ1 + 1.5, us = Array.from({ length:N + 1 }, (_, k) => -16.6 + 33.2 * k / N);
+      us.forEach(u => pos.push(HXC + u, roofY(u), z0, HXC + u, roofY(u), z1));
+      for (let k = 0; k < N; k++){ const a = 2 * k; idx.push(a, a + 1, a + 2, a + 2, a + 1, a + 3); }
+      const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
+      G.add(new THREE.Mesh(g, membM));
+      const edge = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(us.map(u => new THREE.Vector3(u, roofY(u) - YD, 0))), 48, 0.3, 8);
+      inst(edge, whiteM, [M4(HXC, YD, z0), M4(HXC, YD, z1)], G);
+      for (const x of [HX0, HX1]) G.add(cyl(0.35, HZ1 - HZ0 + 3, whiteM, 'z', x, YD + HE, HZC, 12));
+      const gs = new THREE.Shape(); gs.moveTo(-16, 0); gs.lineTo(16, 0);
+      for (let k = 0; k <= 16; k++){ const u = 16 - 2 * k; gs.lineTo(u, roofY(u) - YD - 0.1); }
+      inst(winGeo(gs, 32, 2.0, 2.4), glazM, [M4(HXC, YD, HZ0, qB), M4(HXC, YD, HZ1)], G);
+      inst(winGeo(rectShape(42, HE), 42, 2, 2.4), glazM, [M4(HX0, YD, HZC, qW), M4(HX1, YD, HZC, qE)], G);
+      // on each gable: two white beams, the name with the SNCF logo on the glass between them, the dot clock high up
+      const signTex = canvasTex(2048, 150, (c, W, H) => {
+        c.font = 'bold 104px Inter, Arial, sans-serif'; c.textBaseline = 'middle';
+        const t = 'GARE DE MASSY TGV', tw = c.measureText(t).width, lw = 290, x0 = (W - tw - 70 - lw) / 2, lx = x0 + tw + 70;
+        c.fillStyle = '#f2f2ee'; c.fillText(t, x0, H / 2 + 4);
+        rrect(c, lx, 16, lw, H - 32, 26, 26); c.fillStyle = '#c4003a'; c.fill();
+        c.fillStyle = '#ffffff'; c.font = 'italic bold 92px Inter, Arial, sans-serif'; c.textAlign = 'center'; c.fillText('SNCF', lx + lw / 2, H / 2 + 4);
+      });
+      const dotTex = canvasTex(256, 256, (c) => {
+        c.fillStyle = c.strokeStyle = '#f4f4f0'; c.lineCap = 'round';
+        for (let i = 0; i < 12; i++){ const a = i / 12 * Math.PI * 2; c.beginPath(); c.arc(128 + Math.cos(a) * 110, 128 + Math.sin(a) * 110, i % 3 ? 7 : 11, 0, Math.PI * 2); c.fill(); }
+        c.lineWidth = 11; c.beginPath(); c.moveTo(128, 128); c.lineTo(128 + Math.cos(-2.618) * 62, 128 + Math.sin(-2.618) * 62); c.stroke();
+        c.lineWidth = 7; c.beginPath(); c.moveTo(128, 128); c.lineTo(128 + Math.cos(-0.524) * 96, 128 + Math.sin(-0.524) * 96); c.stroke();
+      });
+      const signM = new THREE.MeshBasicMaterial(Object.assign({ map:signTex, transparent:true, alphaTest:0.2 }, PO)), dotM = new THREE.MeshBasicMaterial(Object.assign({ map:dotTex, transparent:true, alphaTest:0.2 }, PO));
+      for (const [z, o, q] of [[HZ0, -1, qB], [HZ1, 1, _qI]]){
+        G.add(box(33.6, 0.7, 1.2, whiteM, HXC, YD + 5.95, z + o * 0.6), box(33.6, 0.4, 1.5, whiteM, HXC, YD + 9.8, z + o * 0.75));
+        const s = new THREE.Mesh(new THREE.PlaneGeometry(15, 1.1), signM); s.position.set(HXC, YD + 7.4, z + o * 0.04); s.quaternion.copy(q); G.add(s);
+        const d = new THREE.Mesh(new THREE.PlaneGeometry(4.6, 4.6), dotM); d.position.set(HXC, YD + 15.2, z + o * 0.04); d.quaternion.copy(q); G.add(d);
+      }
+      inst(new THREE.CylinderGeometry(0.75, 0.75, HE, 16), whiteM, [HX0, HX1].flatMap(x => [HZ0, HZ1].map(z => M4(x, YD + HE / 2, z))), G);
+      // masts 26 m tall beside both long sides, stays down to the roof and back to the slab (west) or the vaults (east)
+      const mm = [], st = [];
+      for (const z of [-8, HZC, 26]) for (const [x, ru, bx, by] of [[HX0 - 2.5, [-12, -5], HX0 - 15, YD], [HX1 + 1, [12, 5], -398, YD + 12]]){
+        mm.push(M4(x, YD + 13, z));
+        for (const u of ru) st.push(x, YD + 26, z, HXC + u, roofY(u), z);
+        st.push(x, YD + 26, z, bx, by, z);
+      }
+      inst(new THREE.CylinderGeometry(0.22, 0.3, 26, 10), whiteM, mm, G);
+      const sg = new THREE.BufferGeometry(); sg.setAttribute('position', new THREE.Float32BufferAttribute(st, 3)); G.add(new THREE.LineSegments(sg, stayM));
+    }
+    // four small vaults east of the hall on their glazed base, lunettes at both ends, little masts in the valleys
+    { const VX = [-408, -398, -388, -378], VR = 5.32, VS = YD + 8.5, VY = VS + 3.5 - VR;   // 10 m wide, 3.5 m rise, springing 8.5 m above the slab
+      inst(new THREE.CylinderGeometry(VR, VR, 42, 16, 1, true, Math.PI - 1.222, 2.444).rotateX(Math.PI / 2), membM, VX.map(x => M4(x, VY, HZC)), G);
+      G.add(box(40, VS - YD, 42, whiteM, -393, (YD + VS) / 2, HZC));
+      inst(winGeo(rectShape(39, 6.6), 39, 2.0, 2.2), glazM, [M4(-393, YD + 0.9, HZ0 - 0.02, qB), M4(-393, YD + 0.9, HZ1 + 0.02)], G);
+      const lun = new THREE.Shape(); lun.moveTo(-5, 0); lun.lineTo(5, 0); lun.absarc(0, VY - VS, VR, 0.349, 2.793, false);
+      inst(winGeo(lun, 10, 1.25, 1.2), glazM, VX.flatMap(x => [M4(x, VS, HZ0, qB), M4(x, VS, HZ1)]), G);
+      const mm = [], st = [];
+      for (const x of [-403, -393, -383]) for (const z of [-4, 22]){ mm.push(M4(x, VS + 3.75, z)); st.push(x, VS + 7.5, z, x - 5, VS + 3.5, z, x, VS + 7.5, z, x + 5, VS + 3.5, z); }
+      inst(new THREE.CylinderGeometry(0.16, 0.2, 7.5, 8), whiteM, mm, G);
+      const sg = new THREE.BufferGeometry(); sg.setAttribute('position', new THREE.Float32BufferAttribute(st, 3)); G.add(new THREE.LineSegments(sg, stayM));
+    }
+    // the car park on the slab: three decks behind cream spandrels, white hooked fins along both long faces; the office block at its forecourt end
+    { const PX0 = -357, PX1 = -94, PZ0 = -7.9, PZ1 = 30.3, PH = 11;
+      const cpM = pmat(0xffffff, { roughness:0.9, metalness:0, map:repeatTex(canvasTex(64, 64, (c) => { c.fillStyle = '#e6e0d2'; c.fillRect(0, 0, 64, 64); c.fillStyle = '#3a4450'; c.fillRect(4, 5, 60, 37); }), 1, 1) });
+      const topM = pmat(0x6b6d70, { roughness:0.95, metalness:0 });
+      const body = new THREE.Mesh(tiled(PX1 - PX0, PH, PZ1 - PZ0, 8, PH / 3), [cpM, cpM, topM, topM, cpM, cpM]);
+      body.position.set((PX0 + PX1) / 2, YD + PH / 2, (PZ0 + PZ1) / 2); G.add(body);
+      const fm = [];
+      for (let x = PX0 + 6; x < PX1 - 3; x += 11){ fm.push(M4(x, YD, PZ0)); if (x < -302 || x > -253) fm.push(M4(x, YD, PZ1, qB)); }
+      inst(prism([[0, 0], [-2.6, 0], [-0.6, 10.4], [-1.4, 11.7], [0, 11.7]], 0.5, whiteM, 'x').geometry, whiteM, fm, G);
+      const oM = pmat(0xffffff, { roughness:0.85, metalness:0, map:repeatTex(canvasTex(64, 64, (c) => { c.fillStyle = '#d8d2c4'; c.fillRect(0, 0, 64, 64); c.fillStyle = '#34404c'; c.fillRect(6, 10, 52, 40); }), 1, 1) });
+      const office = new THREE.Mesh(tiled(49, 18, 10.4, 3, 3.6), [oM, oM, topM, topM, oM, oM]); office.position.set(-277.5, YS + 9, 35.5); G.add(office);
+    }
+    // the forecourt and the paving on the far side, saucer lamps on both and on the slab
+    G.add(box(140, 0.4, 35, paveM, -430, YS + 0.12, 48.5), box(135, 0.4, 36, paveM, -427.5, YS + 0.12, -32));
+    { const lampM = pmat(0x6a5d52, { roughness:0.6, metalness:0.3 }), base = [];
+      for (let x = -490; x <= -370; x += 24) for (const z of [40, 58]) base.push(M4(x, YS + 0.3, z));
+      for (const x of [-500, -470]) for (const z of [-8, 4, 16, 27]) base.push(M4(x, YD, z));
+      inst(new THREE.CylinderGeometry(0.09, 0.14, 8, 6).translate(0, 4, 0), lampM, base, G);
+      inst(new THREE.CylinderGeometry(1.1, 0.5, 0.3, 16).translate(0, 8, 0), lampM, base, G);
+    }
+    noCast(G); deck.castShadow = true;
+    // the usual views land in the trench walls or on the car park here (loco coordinates, or the station's with at): the hall's gable from the
+    // forecourt, the train's side from our platform, the whole train from the open east end, the rear roof from under the slab
+    const at = (x, y, z) => { station.updateWorldMatrix(true, false); return station.localToWorld(new THREE.Vector3(x, y, z)).toArray(); };
+    G.userData.cams = {
+      station: () => [at(-434, 16, 68.5), at(-434, 18.5, 30)],
+      overview: [[22, 12.5, 30], [-2, 2.2, 0]],
+      side: [[-18, 3.4, -7.3], [2, 2, 0]],
+      far: [[46, 24, 54], [-12, 2, 0]],
+      train: () => S.mode === 'tgv' ? [[60, 25, 30], [-40, 2, 0]] : null,
+      rearroof: [[-158, 5.9, -7.6], [-176, 4.2, 0]],
+    };
   }
 }
