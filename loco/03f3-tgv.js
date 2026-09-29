@@ -543,6 +543,20 @@ const TR = (() => {
   const leaf = { p:paint(doorLeafGeo(pts, 1, ...DOOR.slice(2), DOOR[1] - DOOR[0])), n:paint(doorLeafGeo(pts, -1, ...DOOR.slice(2), DOOR[1] - DOOR[0])) };
   return { geo, tex, lin, pane, lining, surround, pts, yBot, yTop, leaf, doorX:(DOOR[0] + DOOR[1]) / 2 };
 })();
+/* rubber fairings over the car gaps, as on the real sets: each car's own section 2 cm in all round, lofted across the gap and 1 cm
+   into both cars. They read as a dark seam that follows the roof (a box across the gap stood out of the rounded roof shoulders). */
+const GANG = (() => {
+  const inset = (pts, d) => pts.map(([z, y], j) => {   // d in along the normal (the ring runs anticlockwise in z, y)
+    const [z0, y0] = pts[(j + RING_N - 1) % RING_N], [z1, y1] = pts[(j + 1) % RING_N], l = Math.hypot(z1 - z0, y1 - y0);
+    return [z - d * (y1 - y0) / l, y + d * (z1 - z0) / l];
+  });
+  const tr = inset(TR.pts, 0.02), pc = inset(PC.rings[0].pts, 0.02), o = 0.01;
+  return {
+    tr:loftGeo([{ x:-0.5 - o, pts:tr }, { x:o, pts:tr }]).body,                                               // behind a trailer (x 0) to the next one
+    pcFront:loftGeo([{ x:-o, pts:tr }, { x:0, pts:tr }, { x:0.6, pts:pc }, { x:0.6 + o, pts:pc }]).body,     // ahead of the first trailer (x 0) to its power car
+    pcRear:loftGeo([{ x:-0.6 - o, pts:pc }, { x:-0.6, pts:pc }, { x:0, pts:tr }, { x:o, pts:tr }]).body,     // behind the last trailer (x 0) to its power car
+  };
+})();
 const carNumTex = {};
 function carNumber(n){
   if (!carNumTex[n]) carNumTex[n] = canvasTex(128, 64, (c, W, H) => {
@@ -582,7 +596,8 @@ function buildSet(opts){
     lining.add(new THREE.Mesh(TR.surround[L], frameM));   // shown with the lining
     g.add(box(L - 1.0, 0.16, 2.6, endM, L / 2, 0.83, 0));                                 // underframe
     g.add(box(L - 3.0, 0.5, 2.9, endM, L / 2, 0.55, 0));                                  // low floor tanks/equipment
-    if (i < TGV.TRAILERS.length - 1) g.add(skin(box(0.5, 3.3, 2.5, bellowsM, -0.25, 2.5, 0)));   // gangway bellows over the Jacobs bogie
+    g.add(skin(new THREE.Mesh(i < TGV.TRAILERS.length - 1 ? GANG.tr : GANG.pcRear, bellowsM)));   // gangway fairing behind: over the Jacobs bogie, or to the rear power car
+    if (i === 0){ const f = new THREE.Mesh(GANG.pcFront, bellowsM); f.position.x = L; g.add(skin(f)); }   // and to the front power car
     G.trailers.add(g); trailerRear.push(xr);
     // plug-sliding door at the -x end of each trailer, both sides; only +z (platform) leaves animate
     [1, -1].forEach(s => {
@@ -602,7 +617,6 @@ function buildSet(opts){
   for (let i = 0; i < TGV.TRAILERS.length - 1; i++) tgvBogie(G.jacobs, TGV.TRAILERS[i][0] - 0.25, mk, 3.0, true);
   tgvBogie(G.jacobs, -161.0, mk, 3.0, false);
   // rear power car (nose toward -x) + its pantograph; the front car is the loco shell (set 1) or built here (set 2)
-  G.trailers.add(skin(box(0.6, 3.3, 2.5, bellowsM, -9.9, 2.5, 0))); G.trailers.add(skin(box(0.6, 3.3, 2.5, bellowsM, -164.2, 2.5, 0)));   // gangways to both power cars
   const rear = buildPowerCarBody(G.power, TGV.REAR_PC, -1, mk, true, internals);
   set.hatches.push(rear.hatch); set.lamps.rear = { hl:rear.hl, tl:rear.tl };
   if (internals) equipPowerCar(rear, -2); else [TGV.REAR_PC - 6, TGV.REAR_PC + 6].forEach(x => tgvBogie(G.power, x, mk, 3.0, false));
