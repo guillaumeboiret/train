@@ -742,22 +742,31 @@ for (const n of [31, 41]){ const g = new THREE.Group(); g.visible = false; world
   for (const o of opp){ o.set.lamps.front.hl.emissiveIntensity = 2.2; o.set.lamps.rear.tl.emissiveIntensity = 1.4; }
 }
 let oppTimer = 25;
+// where a train running into a terminus stops (its leading power car's origin): on the platform, level with our own train at that terminus
+const oppEnd = dir => dir > 0 ? ROUTE.stations[ROUTE.stations.length - 1].s - TGV.PLAT_FRONT : ROUTE.stations[0].s - TGV.PLAT_FRONT + TGV.TIP_R + TGV.TIP_F;
 function updateOpposing(dt){
+  // a train only comes and goes out of sight: the fog hides it fully beyond its far distance in depth, and the corners of the view see up to 1.7 times
+  // further than the middle, so twice the fog's reach from the camera (in the TGV mode 1.3 km in the sun, 0.5 km in the rain; 1.6 times less in the others)
+  const camS = S.dist + camera.position.x, gone = 2 * scene.fog.far, reach = Math.max(2500, gone + 150);
   oppTimer -= dt;
   if (oppTimer <= 0){
     oppTimer = 90 + Math.random() * 150;
-    const free = opp.find(o => !o.active), sp = S.dist + 2500 * S.dir;
-    if (free && trackSettled() && sp > 300 && sp < ROUTE.L - 300){   // 2.5 km ahead, running against us on the other track
+    const free = opp.find(o => !o.active), sp = camS + reach * S.dir;
+    if (free && trackSettled() && !opp.some(o => o.active && o.v < 0.1) && sp > oppEnd(-1) && sp < oppEnd(1)){   // out of sight ahead, running against us on the other track; none while one stands at a terminus
       free.active = true; free.group.visible = true; free.lane = 1 - trk.to; free.s = sp; free.dir = -S.dir; free.horned = false;
       free.v = Math.min(300, ROUTE.lineLimit(free.s)) / 3.6; posePanto(free.set.pantos[1], dcUp(free.s));
     }
   }
   for (const o of opp){
     if (!o.active) continue;
-    o.v = approach(o.v, Math.min(300, ROUTE.lineLimit(o.s)) / 3.6, dt * 0.5);
+    const room = Math.max(0, (oppEnd(o.dir) - o.s) * o.dir);   // to its stop at the terminus ahead, braking at 0.5 m/s²
+    o.v = Math.min(approach(o.v, Math.min(300, ROUTE.lineLimit(o.s)) / 3.6, dt * 0.5), Math.sqrt(room));
     o.s += o.v * o.dir * dt;
+    if ((o.s - oppEnd(o.dir)) * o.dir >= 0){ o.s = oppEnd(o.dir); o.v = 0; }
     { const p = o.set.pantos[1], up = dcUp(o.s); if (p.f !== up) posePanto(p, approach(p.f, up, dt * (up ? 1 / 7 : 1 / 3))); }
-    if ((o.s - S.dist) * o.dir > 900 || Math.abs(o.s - S.dist) > 3500 || o.s < 300 || o.s > ROUTE.L - 300){ o.active = false; o.group.visible = false; continue; }
+    const a = o.s + TGV.TIP_F * o.dir, b = o.s + TGV.TIP_R * o.dir, lo = Math.min(a, b), hi = Math.max(a, b);
+    const away = o.v < 0.1 || (lo > camS) === (o.dir > 0);   // standing, or running away from the camera
+    if ((Math.max(lo - camS, camS - hi) > gone && away) || Math.abs(o.s - camS) > reach + 1000){ o.active = false; o.group.visible = false; continue; }
     for (const ax of o.ax) ax.rotation.z -= (o.v / WHEEL_R) * dt;
     for (const c of o.cars){ const s = o.s + c.xc * o.dir; poseWorld(c.pv, s, ROUTE.laneW(o.lane, s), o.dir < 0); }
   }
