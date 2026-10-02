@@ -504,6 +504,7 @@ function keepWalker(dt){
   }
   if (!on) return;
   const open = barIsOpen(), k = m => !open && keys.has(m) ? 1 : 0, mv = STICK.move, lk = STICK.look;   // the bar's menu open: the keys are the menu's
+  if (open && BAR.choco !== S.dist < CHOCOLATINE_S) barRender();   // in or out of chocolatine country, the menu open: the pastry's name follows
   let f = k('fwd') - k('back'), s = k('right') - k('left'), v = keys.has('shift') ? 2.6 : 1.3;
   if (mv.on && !open){ f = -mv.y; s = mv.x; v = 2; }
   if (lk.on && !open) orbit.turn(-lk.x * 2 * dt, -lk.y * 1.2 * dt);
@@ -542,13 +543,14 @@ $('walkSit').addEventListener('click', () => walkSitNear());
 $('walkLeave').addEventListener('click', () => cabActions.leave());
 /* ---- the bar car's counter (03f3): its menu, a purse of play money (in cents, for this visit only) and a tray of what was bought, the
    last wait of them still being fetched by the barista (the 3D tray shows the others) */
-const BAR = { wallet:2000, tray:[], wait:0 }, BAR_TRAY = 12, BAR_DEAREST = Math.max(...BAR_MENU.map(m => m.p));
+const BAR = { wallet:2000, tray:[], wait:0, choco:false }, BAR_TRAY = 12, BAR_DEAREST = Math.max(...BAR_MENU.map(m => m.p));
 const barIsOpen = () => !$('barMenu').hidden;
 const money = c => (c / 100).toFixed(2).replace('.', S.lang === 'fr' ? ',' : '.') + '€';
 const price = p => p ? money(p) : t('bar_free');
 const barItem = id => BAR_MENU.find(m => m.id === id);
+const barName = id => t(id === 'painchoc' && BAR.choco ? 'bar_i_chocolatine' : 'bar_i_' + id);   // BAR.choco: the menu last shown in chocolatine country (CHOCOLATINE_S)
 function barRender(){
-  const box = $('barItems');
+  const box = $('barItems'); BAR.choco = S.dist < CHOCOLATINE_S;
   if (!box.children.length) for (const it of BAR_MENU){
     const b = document.createElement('button'); b.type = 'button'; b.className = 'bar-item'; b.dataset.id = it.id;
     b.innerHTML = `<span class="bar-e" aria-hidden="true">${it.e}</span><span class="bar-n"></span><span class="bar-p"></span>`;
@@ -556,13 +558,13 @@ function barRender(){
   }
   for (const b of box.children){
     const it = barItem(b.dataset.id);
-    b.querySelector('.bar-n').textContent = t('bar_i_' + it.id); b.querySelector('.bar-p').textContent = price(it.p);
+    b.querySelector('.bar-n').textContent = barName(it.id); b.querySelector('.bar-p').textContent = price(it.p);
     b.classList.toggle('dear', it.p > BAR.wallet);
   }
   $('barWallet').textContent = `👛 ${money(BAR.wallet)}`;
   const tray = $('barTray'); tray.textContent = '';
   BAR.tray.forEach((id, k) => {
-    const b = document.createElement('button'), n = t('bar_i_' + id); b.type = 'button'; b.className = 'bar-chip'; b.textContent = barItem(id).e;
+    const b = document.createElement('button'), n = barName(id); b.type = 'button'; b.className = 'bar-chip'; b.textContent = barItem(id).e;
     b.setAttribute('aria-label', n); b.title = n; b.addEventListener('click', () => barEat(k)); tray.append(b);
   });
   $('barTrayHint').textContent = t(BAR.tray.length ? 'bar_tray_hint' : 'bar_empty');
