@@ -162,6 +162,16 @@ function chime(ctx, lvl){   // SNCF's sound logo before an announcement (Michaë
     o.connect(g); g.connect(out); o.start(t); o.stop(t + 0.015 + 7 * tau);
   }
 }
+function tillDing(){   // the till's bell as the bar sells something: bell partials over the drawer's click
+  const ctx = SND.ctx; if (!ctx || !SND.v) return;
+  const t0 = ctx.currentTime + 0.02, out = ctx.createGain(); out.gain.value = 0.12; out.connect(SND.master); out.connect(SND.v.room);
+  for (const [f, a, tau] of [[1975, 1, 0.5], [2960, 0.45, 0.25], [4980, 0.15, 0.1]]){
+    const o = ctx.createOscillator(), g = ctx.createGain(); o.frequency.value = f;
+    g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime(a, t0 + 0.004); g.gain.setTargetAtTime(0, t0 + 0.004, tau);
+    o.connect(g); g.connect(out); o.start(t0); o.stop(t0 + 7 * tau);
+  }
+  puff(ctx, out, 'bandpass', 3000, 1.2, 0.5, 0.002, 0.01, 0.015);
+}
 function doorsClose(ctx){   // the doors' warning beeps, then the lock: recorded, else square beeps; cut short if the doors reopen
   const v = SND.v, t0 = ctx.currentTime, g = ctx.createGain(), out = v.closing = ctx.createGain();
   g.connect(out); out.connect(v.door.g);

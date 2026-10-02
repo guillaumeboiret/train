@@ -234,6 +234,12 @@
       </div>
       <button type="button" class="walk-sit" id="walkSit" data-i18n="walk_sit">S'asseoir</button>
       <button type="button" class="walk-leave" id="walkLeave" aria-label="Arrêter de marcher" title="Arrêter de marcher" data-i18n-aria="walk_leave" data-i18n-title="walk_leave">✕</button>
+      <div class="bar-menu" id="barMenu" role="dialog" aria-labelledby="barTitle" hidden>
+        <div class="bar-head"><span class="bar-cup" aria-hidden="true">☕</span><span class="bar-title" id="barTitle" data-i18n="bar_title">Le bar</span><span class="bar-wallet" id="barWallet" title="Porte-monnaie" data-i18n-title="bar_wallet"></span><button type="button" class="bar-x" id="barClose" aria-label="Fermer le menu" title="Fermer le menu" data-i18n-aria="bar_close" data-i18n-title="bar_close">✕</button></div>
+        <div class="bar-items" id="barItems"></div>
+        <div class="bar-tray"><span class="bar-tray-h" data-i18n="bar_tray">Mon plateau</span> <span class="bar-tray-hint" id="barTrayHint"></span><div class="bar-chips" id="barTray"></div></div>
+        <button type="button" class="bar-pocket" id="barPocket" data-i18n="bar_pocket" hidden>Argent de poche +10€</button>
+      </div>
     </div>
   </main>
 </div>

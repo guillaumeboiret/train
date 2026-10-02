@@ -186,6 +186,32 @@ body.walking :is(.dock,.infocard,.gauges,.hud,.compass,#labels){display:none}
 .walk-leave{position:absolute;top:12px;right:12px;width:44px;height:44px;padding:0;border-radius:50%;font-size:20px;line-height:1}
 .walk-say{position:absolute;top:14px;left:50%;transform:translateX(-50%);max-width:min(560px,calc(100% - 140px));background:var(--panel);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid var(--line);border-radius:8px;padding:8px 14px;font-size:13.5px;text-align:center;pointer-events:none}
 .walk-say[hidden]{display:none}
+/* the bar car's menu: over the view, bottom right (a sheet along the bottom on a phone); Sit, the pad and ✕ step aside while it is open */
+body.bar-open :is(#walkPad,#walkSit,#walkLeave){display:none}
+.bar-menu{position:absolute;right:16px;bottom:16px;width:min(400px,calc(100% - 32px));max-height:calc(100% - 90px);overflow:auto;overscroll-behavior:contain;display:flex;flex-direction:column;gap:10px;padding:14px;background:var(--panel-solid);border:1px solid var(--line);border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.35);color:var(--ink)}
+.bar-menu[hidden]{display:none}
+.walk-bar .bar-menu button{touch-action:manipulation;-webkit-backdrop-filter:none;backdrop-filter:none;background:var(--panel-2)}
+.bar-head{display:flex;align-items:center;gap:8px}
+.bar-cup{font-size:22px}
+.bar-title{font:700 22px/1 var(--font-display);letter-spacing:.04em;text-transform:uppercase;flex:1}
+.bar-wallet{font:600 13px/1 var(--font-mono);padding:7px 10px;border-radius:999px;background:var(--panel-2);border:1px solid var(--line);white-space:nowrap}
+.walk-bar .bar-menu .bar-x{width:36px;height:36px;padding:0;border-radius:50%;font-size:16px;line-height:1;flex:0 0 auto}
+.bar-items{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:6px}
+.walk-bar .bar-menu .bar-item{display:grid;grid-template-columns:auto 1fr;grid-template-rows:auto auto;column-gap:8px;align-items:center;text-align:left;min-height:52px;padding:6px 8px;border-radius:10px}
+.bar-e{grid-row:span 2;font-size:24px;line-height:1}
+.bar-n{font-size:13px;font-weight:600;line-height:1.15}
+.bar-p{font:12px/1.2 var(--font-mono);color:var(--muted)}
+.bar-item.dear{opacity:.5}
+.walk-bar .bar-menu .bar-item:hover:not(.dear){border-color:var(--accent)}
+.bar-tray{font-size:13px}
+.bar-tray-h{font-weight:600}
+.bar-tray-hint{color:var(--muted)}
+.bar-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.bar-chips:empty{display:none}
+.walk-bar .bar-menu .bar-chip{width:40px;height:40px;padding:0;border-radius:50%;font-size:22px;line-height:1}
+.walk-bar .bar-menu .bar-pocket{align-self:flex-start;padding:9px 16px;border-radius:999px;font-weight:600;font-size:13.5px;background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.bar-pocket[hidden]{display:none}
+@media (max-width:560px){.bar-menu{left:8px;right:8px;bottom:8px;width:auto;max-height:62%}}
 /* while the train runs and nobody touches the page the overlays fade away (ui-idle, set by the page's script); any move, tap or key brings them back */
 :is(.dock,.infocard,.gauges,.hud,.compass,#labels,.cab-bar,.cab-deck,.walk-bar){transition:opacity .2s}
 body.ui-idle :is(.dock,.infocard,.gauges,.hud,.compass,#labels,.cab-bar,.cab-deck,.walk-bar){opacity:0;visibility:hidden;pointer-events:none;transition:opacity .8s,visibility 0s .8s}

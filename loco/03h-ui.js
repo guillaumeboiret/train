@@ -25,6 +25,7 @@ function applyLang(){
   $('langSeg').querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.lang === S.lang)));
   buildPartList(); buildStepList(); refreshInfo(); syncControls();   // syncControls: the control panel's state labels (doors, platform, coupling)
   for (const id in labels) labels[id].textContent = PARTS[id][S.lang].name;
+  if (document.body.classList.contains('bar-open')) barRender();   // its names and prices (2,80€ or 2.80€)
   document.documentElement.removeAttribute('data-i18n-wait');
 }
 
@@ -225,9 +226,10 @@ $('nextStep').addEventListener('click', () => { stopAuto(); goStep(stepIdx + 1);
 $('autoPlay').addEventListener('click', () => autoOn ? stopAuto() : startAuto());
 window.addEventListener('keydown', e => {
   if (e.target.matches('input,textarea,select')) return;
-  if (walking){   // the arrows walk (the keys below); Enter sits down or stands up, Esc stops walking
-    if (e.key === 'Escape') cabActions.leave();
-    else if (e.key === 'Enter' && !e.target.closest('button,a')){ e.preventDefault(); if (!e.repeat) walkSitNear(); }
+  if (walking){   // the arrows walk (the keys below); Enter sits down, stands up or orders at the bar, Esc closes the bar's menu or stops walking
+    if (e.key === 'Escape'){ if (barIsOpen()) barClose(); else cabActions.leave(); }
+    else if (e.key === 'Enter' && e.repeat) e.preventDefault();   // held: not one more of what has the focus
+    else if (e.key === 'Enter' && !e.target.closest('button,a') && !barIsOpen()){ e.preventDefault(); walkSitNear(); }
     return;
   }
   if (e.key === 'ArrowRight'){ stopAuto(); goStep(stepIdx + 1); }
@@ -371,7 +373,7 @@ orbit.onClick = e => {
   const r = canvas.getBoundingClientRect();
   ptr.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
   ray.setFromCamera(ptr, camera);
-  if (walking){ walkPick(ray); return; }   // walking: a tap on a free seat sits there
+  if (walking){ if (barIsOpen()) barClose(); else walkPick(ray); return; }   // walking: a tap on a free seat sits there (the bar's menu open: a tap beside it puts it away)
   const catG = [...chunks.values()].map(c => c.cat);
   const hits = ray.intersectObjects(S.mode === 'tgv' ? [loco, catenary, tgvTrain, ...catG] : [loco, catenary, ...catG], true);
   for (const h of hits){
@@ -440,7 +442,7 @@ let walking = false, walkSayT = 0;
 function walkSay(key, n, ms = 2200){   // a word over the view: the car just entered, why that seat cannot be taken, how to walk; no key: away
   const el = $('walkSay'); clearTimeout(walkSayT);
   if (!key){ el.hidden = true; return; }
-  el.textContent = key === 'walk_car' ? `${t('walk_car')} ${n}${n % 10 <= 3 ? ' · ' + t('walk_first') : ''}` : t(key);
+  el.textContent = key === 'walk_car' ? `${t('walk_car')} ${n}${n % 10 <= 3 ? ' · ' + t('walk_first') : n % 10 === 4 ? ' · ' + t('walk_bar') : ''}` : t(key);
   el.hidden = false; readFor(el.textContent);
   walkSayT = setTimeout(() => { el.hidden = true; }, ms);
 }
@@ -449,11 +451,12 @@ function keepWalker(dt){
   if (on !== walking){
     walking = on; document.body.classList.toggle('walking', on);
     if (on){ document.activeElement?.blur?.(); walkSay(lastPtr === 'mouse' ? 'walk_hint' : 'walk_hint_touch', 0, 6000); }   // off the Walk button: Enter now sits
-    else { walkFree(); walkSay(null); keys.clear(); }
+    else { barClose(); walkFree(); walkSay(null); keys.clear(); }
   }
   if (!on) return;
-  walkMove(dt, m => keys.has(m));
-  const sit = WK.seat >= 0 ? 'walk_stand' : 'walk_sit', b = $('walkSit');
+  const open = barIsOpen();
+  walkMove(dt, m => !open && keys.has(m));   // the bar's menu open: the keys are the menu's
+  const sit = barNear() ? 'bar_order' : WK.seat >= 0 || WK.stool >= 0 ? 'walk_stand' : 'walk_sit', b = $('walkSit');
   if (b.dataset.i18n !== sit){ b.dataset.i18n = sit; b.textContent = t(sit); }
 }
 document.querySelectorAll('#walkPad button[data-move]').forEach(b => {   // held like the key it stands for
@@ -464,6 +467,56 @@ document.querySelectorAll('#walkPad button[data-move]').forEach(b => {   // held
 });
 $('walkSit').addEventListener('click', () => walkSitNear());
 $('walkLeave').addEventListener('click', () => cabActions.leave());
+/* ---- the bar car's counter (03f3): its menu, a purse of play money (in cents, for this visit only) and a tray of what was bought */
+const BAR = { wallet:2000, tray:[] }, BAR_TRAY = 12, BAR_DEAREST = Math.max(...BAR_MENU.map(m => m.p));
+const barIsOpen = () => !$('barMenu').hidden;
+const money = c => (c / 100).toFixed(2).replace('.', S.lang === 'fr' ? ',' : '.') + '€';
+const price = p => p ? money(p) : t('bar_free');
+const barItem = id => BAR_MENU.find(m => m.id === id);
+function barRender(){
+  const box = $('barItems');
+  if (!box.children.length) for (const it of BAR_MENU){
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'bar-item'; b.dataset.id = it.id;
+    b.innerHTML = `<span class="bar-e" aria-hidden="true">${it.e}</span><span class="bar-n"></span><span class="bar-p"></span>`;
+    b.addEventListener('click', () => barBuy(it.id)); box.append(b);
+  }
+  for (const b of box.children){
+    const it = barItem(b.dataset.id);
+    b.querySelector('.bar-n').textContent = t('bar_i_' + it.id); b.querySelector('.bar-p').textContent = price(it.p);
+    b.classList.toggle('dear', it.p > BAR.wallet);
+  }
+  $('barWallet').textContent = `👛 ${money(BAR.wallet)}`;
+  const tray = $('barTray'); tray.textContent = '';
+  BAR.tray.forEach((id, k) => {
+    const b = document.createElement('button'), n = t('bar_i_' + id); b.type = 'button'; b.className = 'bar-chip'; b.textContent = barItem(id).e;
+    b.setAttribute('aria-label', n); b.title = n; b.addEventListener('click', () => barEat(k)); tray.append(b);
+  });
+  $('barTrayHint').textContent = t(BAR.tray.length ? 'bar_tray_hint' : 'bar_empty');
+  $('barPocket').hidden = BAR.wallet >= BAR_DEAREST;   // pocket money once the dearest thing is out of reach
+}
+function barOpen(){
+  if (!walking) return;
+  barRender(); $('barMenu').hidden = false; document.body.classList.add('bar-open'); keys.clear(); walkSay(null);
+  $('barItems').firstElementChild.focus({ preventScroll:true });
+}
+function barClose(){
+  const m = $('barMenu'); if (m.hidden) return;
+  m.hidden = true; document.body.classList.remove('bar-open');
+  if (m.contains(document.activeElement)) document.activeElement.blur();
+}
+function barBuy(id){   // paid from the purse onto the tray; the till rings and the barista fetches it
+  const it = barItem(id);
+  if (it.p > BAR.wallet){ walkSay('bar_broke'); return; }
+  if (BAR.tray.length >= BAR_TRAY){ walkSay('bar_full'); return; }
+  BAR.wallet -= it.p; BAR.tray.push(id); tillDing(); barServe(it.st); walkSay('bar_thanks'); barRender();
+}
+function barEat(k){   // off the tray: eaten or drunk
+  const id = BAR.tray[k]; if (!id) return;
+  BAR.tray.splice(k, 1); walkSay(barItem(id).st === 'food' ? 'bar_yum' : 'bar_gulp'); barRender();
+  const ch = $('barTray').children; (ch[Math.min(k, ch.length - 1)] ?? $('barItems').firstElementChild).focus({ preventScroll:true });
+}
+$('barPocket').addEventListener('click', () => { BAR.wallet += 1000; walkSay('bar_pocket_say'); barRender(); if ($('barPocket').hidden) $('barItems').firstElementChild.focus({ preventScroll:true }); });
+$('barClose').addEventListener('click', () => barClose());
 const cabLever = (() => {   // the HTML lever: drag or tap along it, or ↑ ↓; it follows the train when the autopilot or the page's controls move it
   const tr = $('clTrack'), knob = $('clKnob'), val = $('clVal'), L = { min:-8, max:8 };   // the kid build makes it 0 to 8, its own lever's range
   const at = v => `${((L.max - v) / (L.max - L.min) * 100).toFixed(2)}%`;   // the top is full power
@@ -786,7 +839,7 @@ for (const ev of ['pointermove', 'pointerdown', 'keydown', 'wheel']) window.addE
 function readFor(txt){ idleT = Math.min(idleT, -txt.split(/\s+/).length / READ_WPS); if (document.body.classList.contains('ui-idle')) document.body.classList.remove('ui-idle'); }
 function updateIdle(dt){
   const B = document.body.classList;
-  if (B.contains('kid')) return;
+  if (B.contains('kid') || B.contains('bar-open')) return;   // the bar's menu stays up while open
   idleT += dt;
   if (Math.abs(S.speed) < 0.3){ idleT = Math.min(idleT, 0); if (B.contains('ui-idle')) B.remove('ui-idle'); return; }   // a train at rest brings them back
   if (idleT < IDLE_S || B.contains('ui-idle')) return;
@@ -806,4 +859,4 @@ resize();
 setShell(0.18); setCut('none'); setExplode(0);
 setMode('diesel');
 requestAnimationFrame(loop);
-window.locoDebug = { CAB, driverSeat, cabActions, cabLever, S, simulate, animate, updateFlows, updateGauges, orbit, renderer, scene, camera, goStep, setMode, setCut, setExplode, setShell, select, parts, TGV, tgvSets, station, updateTgv, syncControls, tick:window.tick, ROUTE, horn, chunks, requestTrack, trk, opp, parked, cars, curveLocal, updateHud, jumpToStation, jumpTo, setWeather, pcHosts, pcShells, flowObjs, landmarks, flyPreset, SND, PX, pool, paxResolve, paxHolding, allCoaches, world, keys, WK, walkMove, walkSitNear, walkPick, walkStand, walkZones };
+window.locoDebug = { BAR, BAR_MENU, barOpen, barClose, barBuy, barEat, barNear, barIsOpen, walkSitStool, updateBar, CAB, driverSeat, cabActions, cabLever, S, simulate, animate, updateFlows, updateGauges, orbit, renderer, scene, camera, goStep, setMode, setCut, setExplode, setShell, select, parts, TGV, tgvSets, station, updateTgv, syncControls, tick:window.tick, ROUTE, horn, chunks, requestTrack, trk, opp, parked, cars, curveLocal, updateHud, jumpToStation, jumpTo, setWeather, pcHosts, pcShells, flowObjs, landmarks, flyPreset, SND, PX, pool, paxResolve, paxHolding, allCoaches, world, keys, WK, walkMove, walkSitNear, walkPick, walkStand, walkZones };

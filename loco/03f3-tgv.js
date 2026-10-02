@@ -481,28 +481,30 @@ function paxPut(m, k, x, y, z, yaw, sit, ph, amp, turn){   // instance k of m at
   const P = m.geometry.attributes.paxPose.array; P[4 * k] = sit; P[4 * k + 1] = ph % (2 * Math.PI); P[4 * k + 2] = amp; P[4 * k + 3] = turn;
 }
 const DECK_GEO = {};
-function deckGeo(L){   // per body length, x from the car's -x end: lower floor + upper floor + stair + tables in one mesh, the lower deck's ceiling (the upper floor's underside) in another
-  if (!DECK_GEO[L]){
+function deckGeo(L, bar = false){   // per body length, x from the car's -x end: lower floor + upper floor + stair + tables (not in the bar car) in one mesh, the lower deck's ceiling (the upper floor's underside) in another
+  const key = L + (bar ? 'b' : '');
+  if (!DECK_GEO[key]){
     const x0 = 3.4, w = L - 3.43, xb = seatRows(L).bay;   // the upper floor runs to the front gangway and is open over the vestibule and the stair, but for a bridge from it to the rear gangway
     const br = [new THREE.BoxGeometry(x0 - 0.03, 0.06, 0.9).translate(x0 / 2 + 0.015, DECK.up - 0.03, 0)];   // the bridge, between parapets
     for (const s of [1, -1]) br.push(new THREE.BoxGeometry(x0 - 0.03, 0.9, 0.03).translate(x0 / 2 + 0.015, DECK.up + 0.45, s * 0.46));
     const st = new THREE.BoxGeometry(Math.hypot(1.7, DECK.up - DECK.lo), 0.06, 0.9).rotateZ(Math.atan2(DECK.up - DECK.lo, 1.7)).translate(2.7, (DECK.lo + DECK.up) / 2 - 0.03, -0.9);   // stair: vestibule (x 1.85) up to the upper deck (x 3.55)
     const tb = [];   // the bay's tables on both decks and sides, on a pedestal: top 0.7 over the floor, clear of the aisle, the feet and the wall
-    for (const y of [DECK.lo, DECK.up]) for (const s of [1, -1]) tb.push(new THREE.BoxGeometry(0.4, 0.04, 1.08).translate(xb, y + 0.68, s * 0.84), new THREE.BoxGeometry(0.06, 0.66, 0.06).translate(xb, y + 0.33, s * 0.72));
-    DECK_GEO[L] = {
+    if (!bar) for (const y of [DECK.lo, DECK.up]) for (const s of [1, -1]) tb.push(new THREE.BoxGeometry(0.4, 0.04, 1.08).translate(xb, y + 0.68, s * 0.84), new THREE.BoxGeometry(0.06, 0.66, 0.06).translate(xb, y + 0.33, s * 0.72));
+    DECK_GEO[key] = {
       floor:mergeGeos([new THREE.BoxGeometry(L - 0.2, 0.06, 2.28).translate(L / 2, DECK.lo - 0.03, 0), new THREE.BoxGeometry(w, 0.06, 2.98).translate(x0 + w / 2, DECK.up - 0.03, 0), ...br, st, ...tb], [null, [18, 24], [18, 24]]),   // the upper floor and the bridge without their -y faces
       ceil:mergeGeos([new THREE.PlaneGeometry(w, 2.98).rotateX(Math.PI / 2).translate(x0 + w / 2, DECK.up - 0.06, 0), new THREE.PlaneGeometry(x0 - 0.03, 0.9).rotateX(Math.PI / 2).translate(x0 / 2 + 0.015, DECK.up - 0.06, 0)]),
     };
   }
-  return DECK_GEO[L];
+  return DECK_GEO[key];
 }
 const Q0 = new THREE.Quaternion(), QB = new THREE.Quaternion(0, 1, 0, 0);   // QB: half a turn about y, for what faces -x
 const hash32 = i => { i = Math.imul(i ^ (i >>> 16), 0x45d9f3b); i = Math.imul(i ^ (i >>> 16), 0x45d9f3b); return (i ^ (i >>> 16)) >>> 0; };
 function buildCoach(parent, cm, xr, L, carNo){
   const g = new THREE.Group(); g.visible = false; parent.add(g);
-  const fl = new THREE.Mesh(deckGeo(L).floor, cm.floor), ce = new THREE.Mesh(deckGeo(L).ceil, cm.ceil); fl.position.x = ce.position.x = xr;
+  const bar = carNo % 10 === 4;   // car 4 (14, 24...) is the bar car: no seats, the bar upstairs (buildBar)
+  const fl = new THREE.Mesh(deckGeo(L, bar).floor, cm.floor), ce = new THREE.Mesh(deckGeo(L, bar).ceil, cm.ceil); fl.position.x = ce.position.x = xr;
   const seat = [], deck = [], face = [], view = [];   // view[2 * deck + (facing -x ? 1 : 0)]: the viewer's seats
-  for (const [d, y] of [[0, DECK.lo], [1, DECK.up]]) for (const [x, f] of seatRows(L).rows) for (const z of [-0.95, -0.48, 0.48, 0.95]){
+  if (!bar) for (const [d, y] of [[0, DECK.lo], [1, DECK.up]]) for (const [x, f] of seatRows(L).rows) for (const z of [-0.95, -0.48, 0.48, 0.95]){
     const v = f > 0 ? 0 : 1;
     if (z === 0.95 && Math.abs(x - SEAT_VIEW[v]) < 0.1) view[2 * d + v] = deck.length;
     seat.push(xr + x, y, z); deck.push(d); face.push(f);
@@ -517,9 +519,228 @@ function buildCoach(parent, cm, xr, L, carNo){
   }
   const sphere = new THREE.Sphere(new THREE.Vector3(xr + L / 2, 2.5, 0), L / 2 + 1.5);   // people only move inside the coach and its doorway: one fixed bound for both instanced meshes
   for (const m of [seats, people]) m.boundingSphere = sphere;
-  for (const m of [fl, ce, seats, people]) g.add(m);   // no shadows inside: the saloon is lit by its own lights (emissive lining and ceiling)
+  for (const m of bar ? [fl, ce] : [fl, ce, seats, people]) g.add(m);   // no shadows inside: the saloon is lit by its own lights (emissive lining and ceiling)
   paxSeed(c);
+  if (bar) buildBar(c, cm);
   return c;
+}
+/* ---- the bar car (car 4 of every set, as on the Duplex): no seats. Its upper deck is the bar: a counter along the -z side from x 4.8 to
+   9.4 with the barista's aisle behind it (coffee machine, grinder and drinks fridge on the back counter; till and pastry case on the
+   front one), window ledges down both sides with two stools to a window, a speed screen on the wall over the fridge. Its lower deck past the stair's foot is the
+   crew's store, shut by a partition with a staff door. Everything fixed is one mesh coloured per vertex, what glows another; the
+   barista and four customers are a small people mesh of the car's own (c.bar.people), posed by poseBar while the car is drawn. The
+   walker orders at the counter (the menu, 03h) or takes a free stool (walkSitStool) */
+const BAR_FONT = '"Barlow Condensed","Arial Narrow",Arial,sans-serif', barScr = { key:'' };   // barScr.key: what the live screen shows
+function colGeo(parts){   // one indexed geometry (position + normal + colour) from [geometry, 0xRRGGBB] pairs, indexed or not
+  const pos = [], nrm = [], col = [], idx = [], c = new THREE.Color();
+  for (const [g, hex] of parts){
+    const o = pos.length / 3, P = g.getAttribute('position'), N = g.getAttribute('normal'); c.set(hex);
+    for (let i = 0; i < P.count; i++){ pos.push(P.getX(i), P.getY(i), P.getZ(i)); nrm.push(N.getX(i), N.getY(i), N.getZ(i)); col.push(c.r, c.g, c.b); }
+    if (g.index) for (const i of g.index.array) idx.push(o + i); else for (let i = 0; i < P.count; i++) idx.push(o + i);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(nrm, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); g.setIndex(idx);
+  return g;
+}
+function barScreenPaint(tex, cap, big, unit){   // the screen over the counter: a caption over a big number and its unit, or just a word
+  const c = tex.image.getContext('2d'), W = 256, H = 128, g = c.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, '#2a1438'); g.addColorStop(1, '#14081c'); c.fillStyle = g; c.fillRect(0, 0, W, H);
+  c.textBaseline = 'alphabetic'; c.textAlign = 'center';
+  if (cap){ c.fillStyle = '#d9cfe3'; c.font = `600 20px ${BAR_FONT}`; c.fillText(cap.toUpperCase(), W / 2, 30, W - 20); }
+  c.textAlign = 'left'; c.font = `700 64px ${BAR_FONT}`; const wb = c.measureText(big).width;
+  c.font = `700 24px ${BAR_FONT}`; const wu = unit ? c.measureText(unit).width + 6 : 0, x = (W - wb - wu) / 2, y = cap ? 100 : 88;   // number and unit centred together
+  c.fillStyle = '#fff'; c.font = `700 64px ${BAR_FONT}`; c.fillText(big, x, y);
+  if (unit){ c.fillStyle = '#e0447f'; c.font = `700 24px ${BAR_FONT}`; c.fillText(unit, x + wb + 6, y); }
+  tex.needsUpdate = true;
+}
+const BAR_TEX = {
+  fridge:canvasTex(352, 144, (c, W, H) => {   // the drinks fridge's glass door: three lit shelves of cans and bottles
+    const g = c.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#dff2fc'); g.addColorStop(1, '#a9cfe6'); c.fillStyle = g; c.fillRect(0, 0, W, H);
+    const cols = ['#e0447f', '#f2c53d', '#43c977', '#3c8dea', '#ff7f3f', '#c084ff', '#f4f4f4', '#d23a3a'];
+    for (let r = 0; r < 3; r++){
+      const y = 46 + r * 42;   // the shelf
+      for (let k = 0, x = 16; x < W - 30; k++){
+        const h = hash32(r * 97 + k + 5), bottle = h % 3 === 0, w = bottle ? 12 : 16, hh = bottle ? 32 : 24;
+        c.fillStyle = cols[(h >>> 4) % cols.length];
+        if (bottle){ c.fillRect(x, y - hh + 10, w, hh - 10); c.fillRect(x + 4, y - hh, 4, 10); } else c.fillRect(x, y - hh, w, hh);
+        c.fillStyle = 'rgba(255,255,255,0.4)'; c.fillRect(x + 2, y - hh + (bottle ? 12 : 3), 3, hh - (bottle ? 15 : 6));
+        x += w + 6;
+      }
+      c.fillStyle = '#7f98a8'; c.fillRect(10, y, W - 20, 4);
+    }
+    c.fillStyle = 'rgba(255,255,255,0.25)'; c.beginPath(); c.moveTo(W * 0.62, 0); c.lineTo(W * 0.72, 0); c.lineTo(W * 0.5, H); c.lineTo(W * 0.4, H); c.fill();   // glare
+    c.strokeStyle = '#5d636b'; c.lineWidth = 10; c.strokeRect(5, 5, W - 10, H - 10);   // the door's frame
+  }),
+  idle:canvasTex(256, 128, () => {}), live:canvasTex(256, 128, () => {}),   // other trains' screens say BAR; ours show the train's speed (updateBar)
+};
+barScreenPaint(BAR_TEX.idle, '', 'BAR', ''); barScreenPaint(BAR_TEX.live, '', '0', 'km/h');
+document.fonts && Promise.all([600, 700].map(w => document.fonts.load(`${w} 40px "Barlow Condensed"`))).then(() => { barScreenPaint(BAR_TEX.idle, '', 'BAR', ''); barScr.key = ''; }, () => {});   // a canvas does not fetch a web font by itself: paint again once it is here
+const BAR_GEO = {}, BAR_STAND = 13.33;   // BAR_STAND: the two standing at the -z ledge, either side of that window's middle (buildBar)
+function barGeo(L){   // per body length, x from the car's -x end: the fixed fittings (solid), what glows, the fridge's door, the screen, the stools [x, z, ...], the two customers' stools
+  if (BAR_GEO[L]) return BAR_GEO[L];
+  const F = DECK.up, sol = [], glo = [], st = [], add = (g, c) => sol.push([g, c]), glow = (g, c) => glo.push([g, c]);
+  const WALNUT = 0x5a4636, STONE = 0xd9d4cc, STEEL = 0xb9bec4, DARK = 0x2a2724, CHROME = 0xc9cdd2, OAK = 0x8a6a4c;
+  const bx = (x0, x1, y0, y1, z0, z1) => new THREE.BoxGeometry(x1 - x0, y1 - y0, z1 - z0).translate((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2);
+  const cy = (r, y0, y1, x, z, seg = 12, r1 = r) => new THREE.CylinderGeometry(r, r1, y1 - y0, seg).translate(x, (y0 + y1) / 2, z);   // upright: r at the top, r1 at the foot
+  const cx = (r, x0, x1, y, z) => new THREE.CylinderGeometry(r, r, x1 - x0, 8).rotateZ(Math.PI / 2).translate((x0 + x1) / 2, y, z);   // along x
+  const ball = (r, sx, sy, sz, x, y, z) => new THREE.SphereGeometry(r, 10, 6).scale(sx, sy, sz).translate(x, y, z);
+  // the counter: walnut front on a dark plinth, a stone top with a warm light under its lip, a foot rail, end panels back to the wall
+  add(bx(4.8, 9.4, F + 0.1, F + 0.9, -0.62, -0.30), WALNUT); add(bx(4.85, 9.35, F, F + 0.1, -0.60, -0.36), DARK);
+  add(bx(4.75, 9.45, F + 0.90, F + 0.94, -0.66, -0.22), STONE); glow(bx(4.8, 9.4, F + 0.88, F + 0.895, -0.30, -0.28), 0xffcf8a);
+  add(cx(0.02, 4.9, 9.3, F + 0.16, -0.20), CHROME);
+  for (const x of [5.2, 7.1, 9.0]){ add(cy(0.012, F, F + 0.16, x, -0.20, 6), CHROME); add(bx(x - 0.012, x + 0.012, F + 0.148, F + 0.172, -0.30, -0.20), CHROME); }
+  for (const x of [4.70, 9.45]) add(bx(x, x + 0.05, F, F + 0.94, -1.40, -0.30), WALNUT);
+  // the back counter: steel doors under a stone top
+  add(bx(4.8, 9.4, F, F + 0.80, -1.40, -1.10), STEEL); add(bx(4.8, 9.4, F + 0.80, F + 0.83, -1.42, -1.08), STONE);
+  for (let k = 0; k < 7; k++){ const x = 5.4 + 0.6 * k; add(bx(x - 0.004, x + 0.004, F + 0.05, F + 0.78, -1.10, -1.096), DARK); add(bx(x - 0.12, x - 0.04, F + 0.70, F + 0.715, -1.096, -1.08), CHROME); }
+  // the coffee corner: the espresso machine (cups warming on top, two group heads), its drip tray and steam wand, the grinder
+  add(bx(5.2, 5.9, F + 0.83, F + 1.22, -1.30, -1.12), 0x1d1f22); add(bx(5.2, 5.9, F + 1.22, F + 1.26, -1.30, -1.12), CHROME);
+  for (const x of [5.4, 5.7]){ add(cy(0.03, F + 0.98, F + 1.04, x, -1.08, 10), CHROME); add(bx(x - 0.01, x + 0.01, F + 0.965, F + 0.98, -1.06, -0.97), DARK); }
+  add(bx(5.25, 5.85, F + 0.83, F + 0.85, -1.12, -1.02), DARK); add(cy(0.006, F + 0.92, F + 1.12, 5.84, -1.07, 6), CHROME);
+  for (const x of [5.3, 5.45, 5.6, 5.75]) add(cy(0.032, F + 1.26, F + 1.32, x, -1.21, 10, 0.026), 0xf4f2ee);
+  add(cy(0.07, F + 0.83, F + 1.13, 6.15, -1.2, 14), 0x2a2d33); add(cy(0.07, F + 1.13, F + 1.27, 6.15, -1.2, 14, 0.045), 0x4a2c1a);
+  add(bx(7.1, 8.2, F + 0.83, F + 1.30, -1.28, -1.10), 0xe9eaec);   // the drinks fridge (its glass door: BAR_TEX.fridge)
+  // the pastry case on the front counter: a lit base, chrome posts, a lid; croissants, pains au chocolat, cookies, madeleines, muffins, sandwiches
+  glow(bx(8.3, 9.3, F + 0.94, F + 0.97, -0.62, -0.32), 0xfff1d6);
+  for (const x of [8.31, 9.29]) for (const z of [-0.61, -0.33]) add(bx(x - 0.01, x + 0.01, F + 0.97, F + 1.22, z - 0.01, z + 0.01), CHROME);
+  add(bx(8.3, 9.3, F + 1.22, F + 1.24, -0.62, -0.32), 0xdfe6ea);
+  const P0 = F + 0.97, cake = {
+    croissant:(x, z) => add(ball(0.05, 1.3, 0.55, 0.7, x, P0 + 0.026, z), 0xd9a24e),
+    painchoc:(x, z) => add(bx(x - 0.045, x + 0.045, P0, P0 + 0.04, z - 0.03, z + 0.03), 0xc98a3a),
+    cookie:(x, z) => add(cy(0.035, P0, P0 + 0.012, x, z, 12), 0xc08a4f),
+    madeleine:(x, z) => add(ball(0.03, 1.2, 0.5, 0.8, x, P0 + 0.014, z), 0xe8b75a),
+    muffin:(x, z) => { add(cy(0.032, P0, P0 + 0.04, x, z, 10, 0.026), 0x6b3f2a); add(new THREE.SphereGeometry(0.036, 10, 5, 0, 2 * Math.PI, 0, Math.PI / 2).translate(x, P0 + 0.04, z), 0x7a4a30); },
+    sandwich:(x, z) => { add(bx(x - 0.05, x + 0.05, P0, P0 + 0.045, z - 0.035, z + 0.035), 0xe7d2a5); add(bx(x - 0.052, x + 0.052, P0 + 0.02, P0 + 0.026, z - 0.037, z + 0.037), 0x6aa84f); },
+  };
+  [['croissant', 'painchoc', 'cookie', 'madeleine'], ['muffin', 'sandwich', 'croissant', 'muffin']].forEach((row, r) => row.forEach((k, j) => { for (const d of [-0.05, 0.05]) cake[k](8.42 + 0.24 * j + d, r ? -0.54 : -0.41); }));
+  // the till, its screen turned to the customer, and the card reader
+  add(bx(6.25, 6.55, F + 0.94, F + 0.99, -0.58, -0.40), 0x30343b); add(bx(6.38, 6.42, F + 0.99, F + 1.04, -0.49, -0.45), DARK);
+  add(new THREE.BoxGeometry(0.26, 0.17, 0.02).rotateX(-0.35).translate(6.4, F + 1.08, -0.46), DARK);
+  glow(new THREE.PlaneGeometry(0.235, 0.145).rotateX(-0.35).translate(6.4, F + 1.08 + 0.343 * 0.012, -0.46 + 0.939 * 0.012), 0x6fa8ff);
+  add(bx(6.68, 6.76, F + 0.94, F + 0.965, -0.40, -0.28), 0x30343b); glow(bx(6.70, 6.74, F + 0.965, F + 0.968, -0.32, -0.30), 0x43c977);
+  // overhead: two pendant lamps over the counter
+  for (const x of [5.4, 8.9]){ add(cy(0.004, 3.97, 4.24, x, -0.48, 4), DARK); add(cy(0.05, 3.87, 3.97, x, -0.48, 14, 0.11), 0x22262b); glow(new THREE.SphereGeometry(0.045, 10, 6).translate(x, 3.86, -0.48), 0xffe3a8); }
+  // the speed screen in its housing on the wall over the fridge, along the upper wall's slope from 3.95 to 4.17 (over the barista's head from
+  // the counter, out of the walker's eye line), turned down to the counter. at(d): d in from that chord, the wall curving out behind it
+  const ya = 3.95, yb = 4.17, za = -zAtY(TR.pts, ya), zb = -zAtY(TR.pts, yb), tilt = Math.atan2(zb - za, yb - ya);
+  const at = d => [7.65, (ya + yb) / 2 - Math.sin(tilt) * d, (za + zb) / 2 + Math.cos(tilt) * d];
+  add(new THREE.BoxGeometry(0.66, 0.36, 0.025).rotateX(tilt).translate(...at(0.0315)), DARK);
+  // window ledges on steel brackets and a foot rail along the wall: the +z side all the way, the -z side past the counter
+  for (const [s, x0] of [[1, 4.8], [-1, 10.0]]){
+    const z = (a, b) => s > 0 ? [a, b] : [-b, -a];
+    add(bx(x0, L - 0.6, F + 0.86, F + 0.90, ...z(1.08, 1.40)), OAK);
+    for (const x of [5.4, 7.0, 8.6, 10.8, 13.2, 15.6, 17.5]) if (x > x0 && x < L - 0.6) add(bx(x - 0.01, x + 0.01, F + 0.62, F + 0.86, ...z(1.25, 1.40)), STEEL);
+    add(cx(0.015, x0 + 0.1, L - 0.7, F + 0.13, s * 1.30), CHROME);
+    for (let x = x0 + 0.3; x < L - 0.7; x += 1.6) add(bx(x - 0.01, x + 0.01, F + 0.12, F + 0.14, ...z(1.30, 1.46)), CHROME);
+  }
+  // stools: two to each upper window facing it, 0.85 m out from the middle; on the -z side only past the counter, and none where two stand at the ledge
+  const stool = (x, z) => {
+    add(cy(0.17, F + 0.49, F + 0.55, x, z, 16), 0xe0447f); add(cy(0.025, F + 0.03, F + 0.49, x, z, 8), CHROME); add(cy(0.17, F, F + 0.03, x, z, 16, 0.19), 0x5d636b);
+    add(new THREE.TorusGeometry(0.12, 0.012, 4, 14).rotateX(Math.PI / 2).translate(x, F + 0.22, z), CHROME); add(bx(x - 0.12, x + 0.12, F + 0.215, F + 0.225, z - 0.006, z + 0.006), CHROME);
+    st.push(x, z);
+  };
+  for (const [x0, x1, y0] of TR.holes(L)) if (y0 > 2.9 && x0 > 5) for (const s of [1, -1]) if (s > 0 || (x0 > 10 && (x1 < BAR_STAND || x0 > BAR_STAND))) for (const d of [-0.305, 0.305]) stool((x0 + x1) / 2 + d, s * 0.85);
+  // a bin at the counter's end; cups left on the ledges, before the two customers' stools (sat) and between the two standing
+  add(bx(9.55, 9.9, F, F + 0.75, -1.30, -0.92), 0x3d4248); add(bx(9.53, 9.92, F + 0.75, F + 0.78, -1.32, -0.90), 0x6b7078); add(bx(9.62, 9.83, F + 0.78, F + 0.785, -1.0, -0.94), DARK);
+  const near = (x, z) => { let b = 0; for (let k = 1; k < st.length / 2; k++) if (Math.hypot(st[2 * k] - x, st[2 * k + 1] - z) < Math.hypot(st[2 * b] - x, st[2 * b + 1] - z)) b = k; return b; };
+  const sat = [near(7.4, 0.85), near(15.2, -0.85)];
+  for (const [x, z] of [[BAR_STAND, -1.2], ...sat.map(k => [st[2 * k], Math.sign(st[2 * k + 1]) * 1.2])]) add(cy(0.035, F + 0.90, F + 1.0, x, z, 10, 0.028), 0xffffff);
+  // the lower deck: a partition just past the stair's foot (under the upper floor, and lower under the stair), a staff door in it, cabinets down both sides
+  const wz = y => zAtY(TR.pts, y) - 0.01, ys = [];
+  for (let k = 0; k <= 12; k++) ys.push(DECK.lo + (2.40 - DECK.lo) * k / 12);
+  const sh = new THREE.Shape(); sh.moveTo(wz(DECK.lo), DECK.lo);
+  for (const y of ys.slice(1)) sh.lineTo(wz(y), y);
+  sh.lineTo(-0.45, 2.40); sh.lineTo(-0.45, 2.28); sh.lineTo(-wz(2.28), 2.28);
+  for (const y of ys.filter(y => y < 2.27).reverse()) sh.lineTo(-wz(y), y);
+  add(new THREE.ExtrudeGeometry(sh, { depth:0.05, bevelEnabled:false }).rotateY(-Math.PI / 2).translate(3.50, 0, 0), 0xcbc5ba);   // the shape is (z, y): x runs 3.45..3.50
+  add(bx(3.425, 3.45, DECK.lo, 2.30, 0.05, 0.85), 0x8a9099); add(bx(3.40, 3.425, 1.80, 1.84, 0.12, 0.24), CHROME); add(bx(3.42, 3.425, 1.85, 2.15, 0.3, 0.6), 0x1c2530);
+  const n = Math.round((L - 3.9) / 1.2), w = (L - 0.3 - 3.6) / n;
+  for (let k = 0; k < n; k++) for (const s of [1, -1]) add(bx(3.6 + k * w + 0.01, 3.6 + (k + 1) * w - 0.01, DECK.lo, 2.30, s > 0 ? 0.35 : -1.10, s > 0 ? 1.10 : -0.35), k % 2 ? 0x7d838c : 0x8a9099);
+  return BAR_GEO[L] = {
+    solid:colGeo(sol), glow:colGeo(glo), stools:new Float32Array(st), sat,
+    fridge:new THREE.PlaneGeometry(0.98, 0.40).translate(7.65, F + 1.065, -1.095),
+    screen:new THREE.PlaneGeometry(0.60, 0.30).rotateX(tilt).translate(...at(0.045)),
+  };
+}
+function buildBar(c, cm){   // the bar car's fittings and its people: the barista by the till, two at a ledge over a coffee, two on stools facing the windows (one on the phone)
+  const G = barGeo(c.L), F = DECK.up, put = (geo, mat) => { const m = new THREE.Mesh(geo, mat); m.position.x = c.xr; c.g.add(m); return m; };
+  c.solid.push(put(G.solid, cm.bar)); put(G.glow, cm.glow); put(G.fridge, cm.fridge); put(G.screen, cm.screen);
+  const people = paxMesh(5, cm.people), st = G.stools, taken = new Uint8Array(st.length / 2);   // taken: 1 a customer, 4 the walker (walkSitStool)
+  people.count = 5; people.boundingSphere = c.people.boundingSphere; c.g.add(people);
+  const [s3, s4] = G.sat; taken[s3] = taken[s4] = 1;
+  const npc = [
+    { x:6.1, z:-0.86, y:F, yaw:-Math.PI / 2, sit:0 },
+    { x:BAR_STAND - 0.335, z:-0.95, y:F, yaw:0.4, sit:0 }, { x:BAR_STAND + 0.335, z:-0.95, y:F, yaw:Math.PI - 0.4, sit:0 },
+    { x:st[2 * s3], z:st[2 * s3 + 1], y:F + 0.13, yaw:-Math.PI / 2, sit:1 }, { x:st[2 * s4], z:st[2 * s4 + 1], y:F + 0.13, yaw:Math.PI / 2, sit:1 },   // 0.42 under the cushion, as on a seat
+  ];
+  const A = people.geometry.attributes, C = A.paxCol.array, Lk = A.paxLook.array;
+  npc.forEach((p, k) => {
+    paxLookAt(people, k, hash32(c.id * 1000 + 900 + k));
+    if (!k){ C[0] = 0x2a2d33; C[1] = 0x1f2328; Lk[2] = Lk[2] & ~(2 | 4 | 16); }   // the barista: dark uniform, long sleeves, no phone, no backpack
+    else Lk[4 * k + 2] = k === 3 ? Lk[4 * k + 2] | 4 : Lk[4 * k + 2] & ~4;
+    Object.assign(p, { ph:0, amp:0, turn:0, goal:p.x });
+    paxPut(people, k, c.xr + p.x, p.y, p.z, p.yaw, p.sit, 0, 0, 0);
+  });
+  c.bar = { people, st, taken, npc, stand:npc.slice(1, 3).map(p => [p.x, p.z]), t:0, serve:null };   // stand: the two at the ledge, whom the walker does not walk through
+}
+function updateBar(dt){   // our sets' bar cars while drawn: their people, and the screen over the counter (the train's speed)
+  let on = false;
+  for (const set of tgvSets) for (const c of set.coaches) if (c.bar && c.lod > 0){ poseBar(c, dt); on = true; }
+  const kmh = Math.round(Math.abs(S.speed) * 3.6), key = `${kmh} ${S.lang}`;
+  if (on && key !== barScr.key){ barScr.key = key; barScreenPaint(BAR_TEX.live, t('bar_speed'), String(kmh), 'km/h'); }
+}
+function poseBar(c, dt){   // the barista keeps level with the walker along the counter and fetches what was bought (facing the machine, the fridge or the case a moment); the others glance at the walker close by
+  const b = c.bar, p = b.npc[0], me = WK.on && tgvSets[0].coaches[WK.i] === c && WK.y > 1.7;
+  b.t += dt;
+  if (!me) p.goal = 6.1;   // back by the till
+  else if (WK.x > 4.4 && WK.x < 9.9){ const g = THREE.MathUtils.clamp(WK.x, 5.0, 9.0); if (Math.abs(g - p.goal) > 0.5) p.goal = g; }
+  const to = b.serve ? b.serve.x : p.goal, d = to - p.x, moving = Math.abs(d) > 0.01, step = Math.min(Math.abs(d), dt * 1.0);
+  if (moving){ p.x += Math.sign(d) * step; p.ph = (p.ph + step * STRIDE) % (2 * Math.PI); }
+  else if (b.serve && (b.serve.t -= dt) <= 0) b.serve = null;   // the serving time runs once there
+  p.amp = approach(p.amp, moving ? 1 : 0, dt * 5);
+  p.yaw = turnTo(p.yaw, moving ? (d > 0 ? 0 : Math.PI) : b.serve ? b.serve.face : -Math.PI / 2, dt * 7);
+  const look = (q, lim) => {   // the head's turn toward the walker (0: out of sight behind)
+    const dx = WK.x - q.x, dz = WK.z - q.z, a = Math.atan2(dx * Math.sin(q.yaw) + dz * Math.cos(q.yaw), dx * Math.cos(q.yaw) - dz * Math.sin(q.yaw));
+    return Math.abs(a) > lim + 0.4 ? null : THREE.MathUtils.clamp(a, -lim, lim);
+  };
+  const ease = (q, a, r) => { q.turn += (a - q.turn) * Math.min(1, dt * r); };
+  ease(p, me && !moving && !b.serve ? (look(p, 1) ?? 0) : 0, 4);
+  paxPut(b.people, 0, c.xr + p.x, p.y, p.z, p.yaw, 0, p.ph, p.amp, p.turn);
+  for (let k = 1; k < b.npc.length; k++){
+    const q = b.npc[k], a = me && Math.hypot(WK.x - q.x, WK.z - q.z) < 2 ? look(q, 1.1) : null;
+    ease(q, a ?? 0.35 * Math.sin(b.t * 0.3 + k * 1.7), 3);
+    paxPut(b.people, k, c.xr + q.x, q.y, q.z, q.yaw, q.sit, 0, 0, q.turn);
+  }
+  b.people.instanceMatrix.needsUpdate = b.people.geometry.attributes.paxPose.needsUpdate = true;
+}
+const BAR_AT = { hot:[5.55, Math.PI / 2], cold:[7.65, Math.PI / 2], food:[8.8, -Math.PI / 2] };   // where the barista fetches each kind of thing, and the way they face there
+function barServe(st){ const c = tgvSets[0].coaches[WK.i]; if (c?.bar && BAR_AT[st]) c.bar.serve = { x:BAR_AT[st][0], face:BAR_AT[st][1], t:1.1 }; }
+function barNear(){   // standing at the counter, not turned away from it: Enter (or the button) orders
+  if (!WK.on || WK.seat >= 0 || WK.stool >= 0 || WK.y < 1.7 || !tgvSets[0].coaches[WK.i].bar) return false;
+  return WK.x > 4.4 && WK.x < 9.8 && -Math.sin(orbit.fp?.yaw ?? 0) < 0.5;
+}
+function barTap(){ if (WK.y > 1.7 && WK.x > 4.4 && WK.x < 9.8) barOpen(); else walkSay('walk_far'); }   // the counter or the barista tapped: near enough, the menu
+function barPick(c, ray){   // walking in the bar car: a tap on the counter or the barista orders, on a free stool within reach sits there
+  const b = c.bar, F = DECK.up, h = ray.intersectObjects([...c.solid, b.people], false)[0];
+  if (!h) return;
+  if (h.object === b.people){ if (h.instanceId === 0) barTap(); else if (h.instanceId >= 3) walkSay('walk_taken'); return; }
+  c.g.updateWorldMatrix(true, false); const p = c.g.worldToLocal(_wk.copy(h.point)); p.x -= c.xr;
+  if (p.y > F + 0.1 && p.y < F + 1.6 && p.z < -0.2 && p.x > 4.65 && p.x < 9.55){ barTap(); return; }
+  for (let k = 0; k < b.taken.length; k++){
+    const sx = b.st[2 * k], sz = b.st[2 * k + 1];
+    if (Math.hypot(p.x - sx, p.z - sz) > 0.22 || p.y < F - 0.05 || p.y > F + 0.65) continue;
+    if (k === WK.stool) return;
+    if (b.taken[k]) walkSay('walk_taken');
+    else if (WK.y < 1.7 || Math.hypot(WK.x - sx, WK.z - sz) > WALK_REACH) walkSay('walk_far');
+    else walkSitStool(k);
+    return;
+  }
+}
+function walkSitStool(k){   // onto stool k of the walker's (bar) car: the eye over it, looking out of its window; standing up puts the walker in the aisle beside it
+  const c = tgvSets[0].coaches[WK.i], b = c.bar, F = DECK.up, x = b.st[2 * k], z = b.st[2 * k + 1], s = Math.sign(z);
+  if (WK.stool >= 0) b.taken[WK.stool] = 0;
+  b.taken[k] = 4; Object.assign(WK, { stool:k, hold:true, x, y:F, ey:F, z:0.45 * s });
+  orbit.look(c.g, new THREE.Vector3(c.xr + x, F + 1.29, z), s > 0 ? -Math.PI / 2 : Math.PI / 2, -0.3); orbit.fp.name = 'walk';
 }
 function equipPowerCar(pc, pantoX){
   for (const ax of axles) ax.userData.axle = 1;          // tags survive clone(): the copies' wheels and rotors turn with the train
@@ -699,7 +920,7 @@ const TR = (() => {
     return g;
   };
   const leaf = { p:paint(doorLeafGeo(pts, 1, ...DOOR.slice(2), DOOR[1] - DOOR[0])), n:paint(doorLeafGeo(pts, -1, ...DOOR.slice(2), DOOR[1] - DOOR[0])) };
-  return { geo, tex, lin, pane, lining, surround, cap, pts, yBot, yTop, leaf, doorX:(DOOR[0] + DOOR[1]) / 2 };
+  return { geo, tex, lin, pane, lining, surround, cap, pts, yBot, yTop, leaf, holes, doorX:(DOOR[0] + DOOR[1]) / 2 };
 })();
 /* rubber fairings over the car gaps, as on the real sets: each car's own section 2 cm in all round, lofted across the gap and 1 cm
    into both cars. They read as a dark seam that follows the roof (a box across the gap stood out of the rounded roof shoulders). */
@@ -752,7 +973,9 @@ function buildSet(opts){
   const skin = m => { if (internals) trShells.meshes.push(m); return m; };   // what the shell control fades: body, ends, gangways, doors (the underframe stays); the other trains stay opaque
   if (internals) trShells.mats.push(...Object.values(bodyM), capM, bellowsM, doorM, glassM);
   set.coaches = [];
-  const coachM = { floor:mk(0x3a3f46, { roughness:0.9 }), ceil:mk(0xe6e2da, { roughness:0.9, emissive:0xe6e2da, emissiveIntensity:0.45 }), seat:mk(0xffffff, { roughness:0.85 }), people:paxMat(mk) };
+  const coachM = { floor:mk(0x3a3f46, { roughness:0.9 }), ceil:mk(0xe6e2da, { roughness:0.9, emissive:0xe6e2da, emissiveIntensity:0.45 }), seat:mk(0xffffff, { roughness:0.85 }), people:paxMat(mk),
+                  bar:mk(0xffffff, { vertexColors:true, roughness:0.7, metalness:0.05 }), glow:new THREE.MeshBasicMaterial({ vertexColors:true, toneMapped:false }),   // the bar car's fittings, and what glows in it
+                  fridge:new THREE.MeshBasicMaterial({ map:BAR_TEX.fridge, toneMapped:false }), screen:new THREE.MeshBasicMaterial({ map:internals ? BAR_TEX.live : BAR_TEX.idle, toneMapped:false }) };
   const gangM = [coachM.floor, frameM, coachM.ceil], staffM = mk(LIN.rack, { roughness:0.6, metalness:0.2, emissive:LIN.rack, emissiveIntensity:0.25 }), staffGeo = new THREE.PlaneGeometry(0.9, 4.05 - DECK.up);
   const trailerRear = [];
   TGV.TRAILERS.forEach(([xr, L], i) => {
@@ -1044,7 +1267,7 @@ function buildCrowd(st){   // people waiting on the platform, in two files besid
   const plan = stationPlan(st);
   tgvSets.forEach((set, k) => { for (const c of set.coaches){
     c.crowd[0].length = c.crowd[1].length = 0;
-    if (k >= S.sets) continue;
+    if (k >= S.sets || !c.n) continue;   // the bar car has no seats: nobody waits at its door
     let seated = 0; for (let i = 0; i < c.n; i++) if (c.occ[i] === 1) seated++;
     const want = plan === 'terminus' ? 0.35 * c.n : plan === 'origin' ? Math.max(3, 0.43 * c.n - seated) : Math.max(0, 0.4 * c.n - 0.75 * seated);   // the coach leaves a third to two fifths full
     const per = Math.min(21, Math.round(want / 2)), nd = c.xr + 1.65 + (k ? TGV.SET2_X : 0) - TGV.PLAT_FRONT;
@@ -1243,14 +1466,20 @@ function seatView(d){   // first person in the viewer's seat of coach 1 (deck d)
 /* ---- walking through set 1 in first person (CAMS.walk): up the stair at a car's rear end, over the bridge and through the upper-deck
    gangway into the next car, either way, and into any free seat (occ 4 while taken). The walker stands at x from the rear end of car
    WK.i, on floor y, at z across, inside the boxes of that car's floor plan (walkZones). keepWalker (03h) drives it every frame */
-const WK = { on:false, i:0, x:0, y:0, z:0, ey:0, seat:-1, hold:false };   // ey: the eye's floor, eased up and down the stair; hold: forward still held from before sitting
+const WK = { on:false, i:0, x:0, y:0, z:0, ey:0, seat:-1, stool:-1, hold:false };   // ey: the eye's floor, eased up and down the stair; stool: the bar car's stool sat on; hold: forward still held from before sitting
 const WALK_EYE = 1.33, WALK_R = 0.35, WALK_REACH = 2.2;   // eye over the floor; room kept from anyone walking in the car; how far a seat can be taken from
 const _wk = new THREE.Vector3(), _wk2 = new THREE.Vector3(), _wkQ = new THREE.Quaternion(), _wkQ2 = new THREE.Quaternion();
 const WALK_Z = {};
 function walkZones(i){   // [x0, x1, z0, z1, floor at x0, floor at x1]: where the walker's centre may be, 0.18 m clear of walls, rails and seats (and the eye 0.2 m clear of the curved upper wall)
   if (WALK_Z[i]) return WALK_Z[i];
   const L = TGV.TRAILERS[i][1], rows = seatRows(L).rows, e = rows[rows.length - 1][0] + 0.4, lo = DECK.lo, up = DECK.up;
-  const Z = [
+  const Z = tgvSets[0].coaches[i].bar ? [   // the bar car: up the stair to the bar (the lower deck past the stair's foot is the crew's)
+    [0.2, 1.85, -0.95, 0.95, lo, lo], [1.85, 3.27, -0.27, 0.95, lo, lo], [1.85, 3.55, -1.05, -0.63, lo, up],
+    [i < TGV.TRAILERS.length - 1 ? -0.6 : 0.21, 3.4, -0.27, 0.27, up, up], [3.4, 3.6, -1.05, 1.05, up, up],
+    [3.4, 4.52, -1.05, 1.05, up, up],                                          // in at the counter's end
+    [4.52, 9.68, -0.04, 0.47, up, up],                                         // along the counter, clear of its foot rail and of the stools
+    [9.68, L - 0.2, -0.47, 0.47, up, up],                                      // the lounge between the stools
+  ] : [
     [0.2, 1.85, -0.95, 0.95, lo, lo],                                          // the vestibule, between the doors
     [1.85, 3.6, -0.27, 0.95, lo, lo],                                          // beside the stair's foot, into the lower saloon
     [3.4, L - 0.2, -0.08, 0.08, lo, lo], [e, L - 0.2, -0.95, 0.95, lo, lo],    // the lower aisle; the room past the last row
@@ -1279,11 +1508,12 @@ function walkCrowded(c, x, z){   // someone walking in car c (to or from a seat)
   };
   for (const w of c.walk) if (near(pathAt(w.p, w.s, _wk))) return true;
   for (const e of PX.list) if (e.c === c) for (const ln of e.L) for (const w of ln.outs) if (PX.t >= w.rel && near(pathAt(w.p, w.s, _wk))) return true;
+  if (c.bar && WK.y > 1.7) for (const [px, pz] of c.bar.stand){ const d = Math.hypot(x - px, z - pz); if (d < WALK_R && d < Math.hypot(WK.x - px, WK.z - pz)) return true; }   // the two at the ledge
   return false;
 }
 function walkMove(dt, on){   // on(move): that key or pad button is held. Forward and back walk the way the eye looks, left and right turn, up and down tilt the head
   const f = orbit.fp, k = m => on(m) ? 1 : 0;
-  if (WK.seat >= 0){   // seated: the head turns; forward stands up (pressed anew: the one that walked here may still be held)
+  if (WK.seat >= 0 || WK.stool >= 0){   // seated: the head turns; forward stands up (pressed anew: the one that walked here may still be held)
     if (!on('fwd')) WK.hold = false; else if (!WK.hold){ walkStand(); return; }
     orbit.turn((k('left') - k('right')) * 1.3 * dt, (k('up') - k('down')) * 1.3 * dt); return;
   }
@@ -1320,14 +1550,31 @@ function walkSit(i){   // into seat i of the walker's car: the eye over the cush
   c.occ[i] = 4; Object.assign(WK, { seat:i, hold:true, x:x - c.xr + 0.42 * f, y, ey:y, z:0 });   // x, z: where standing up puts the walker, the aisle beside it
   orbit.look(c.g, new THREE.Vector3(x + 0.12 * f, y + 1.16, z), (f > 0 ? 0 : Math.PI) - Math.sign(z) * f * 0.35, -0.1); orbit.fp.name = 'walk';
 }
-function walkStand(){   // up into the aisle beside the seat, facing along it the way the seat did
-  const c = tgvSets[0].coaches[WK.i], i = WK.seat; if (i < 0) return;
+function walkStand(){   // up into the aisle beside the seat, facing along it the way the seat did; off a stool at the counter facing the counter, in the lounge facing back to it
+  const c = tgvSets[0].coaches[WK.i], i = WK.seat;
+  if (WK.stool >= 0){
+    c.bar.taken[WK.stool] = 0; WK.stool = -1;
+    orbit.look(c.g, new THREE.Vector3(c.xr + WK.x, WK.y + WALK_EYE, WK.z), WK.x < 9.65 ? Math.PI / 2 : Math.PI, -0.05); orbit.fp.name = 'walk'; return;
+  }
+  if (i < 0) return;
   c.occ[i] = 0; WK.seat = -1;
   orbit.look(c.g, new THREE.Vector3(c.xr + WK.x, WK.y + WALK_EYE, WK.z), c.face[i] > 0 ? 0 : Math.PI, -0.05); orbit.fp.name = 'walk';
 }
-function walkSitNear(){   // Sit (or Enter): the nearest free seat within reach on this deck, one ahead rather than one behind; seated: stand up
-  if (WK.seat >= 0){ walkStand(); return; }
+function walkSitNear(){   // Sit (or Enter): the nearest free seat within reach on this deck, one ahead rather than one behind; seated: stand up. The bar car: at the counter, order; else the nearest free stool
+  if (WK.seat >= 0 || WK.stool >= 0){ walkStand(); return; }
   const c = tgvSets[0].coaches[WK.i], d = WK.y > 1.7 ? 1 : 0, fx = Math.cos(orbit.fp.yaw), fz = -Math.sin(orbit.fp.yaw);
+  if (c.bar){
+    if (barNear()){ barOpen(); return; }
+    const b = c.bar; let best = -1, bs = Infinity;
+    if (d) for (let k = 0; k < b.taken.length; k++){
+      const dx = b.st[2 * k] - WK.x, dz = b.st[2 * k + 1] - WK.z, s = Math.hypot(dx, dz);
+      if (b.taken[k] || s > WALK_REACH) continue;
+      const sc = s + (dx * fx + dz * fz < 0 ? 1 : 0);
+      if (sc < bs){ bs = sc; best = k; }
+    }
+    if (best >= 0) walkSitStool(best); else walkSay('walk_noseat');
+    return;
+  }
   let best = -1, bs = Infinity;
   for (let i = 0; i < c.n; i++){
     if (c.deck[i] !== d || c.occ[i] !== 0) continue;
@@ -1339,14 +1586,21 @@ function walkSitNear(){   // Sit (or Enter): the nearest free seat within reach 
   if (best >= 0) walkSit(best); else walkSay('walk_noseat');
 }
 function walkPick(ray){   // a tap on a seat of the walker's car (not through the floor): taken if it is free and within reach, else a word why not
-  const c = tgvSets[0].coaches[WK.i], h = ray.intersectObjects([c.seats, ...c.solid], false)[0];
+  const c = tgvSets[0].coaches[WK.i];
+  if (c.bar){ barPick(c, ray); return; }
+  const h = ray.intersectObjects([c.seats, ...c.solid], false)[0];
   if (!h || h.object !== c.seats || h.instanceId === WK.seat) return;
   const i = h.instanceId;
   if (c.deck[i] !== (WK.y > 1.7 ? 1 : 0) || Math.hypot(c.seat[3 * i] - c.xr - WK.x, c.seat[3 * i + 2] - WK.z) > WALK_REACH) walkSay('walk_far');
   else if (c.occ[i] !== 0) walkSay('walk_taken');
   else walkSit(i);
 }
-function walkFree(){ if (WK.seat >= 0) tgvSets[0].coaches[WK.i].occ[WK.seat] = 0; WK.seat = -1; WK.on = false; }   // out of the walk: the seat is free again
+function walkFree(){   // out of the walk: the seat (or the stool) is free again
+  const c = tgvSets[0].coaches[WK.i];
+  if (WK.seat >= 0) c.occ[WK.seat] = 0;
+  if (WK.stool >= 0) c.bar.taken[WK.stool] = 0;
+  WK.seat = WK.stool = -1; WK.on = false;
+}
 function walkView(){   // standing at coach 1's stair head facing the bridge to coach 2, or in the aisle beside the seat the viewer had; already walking: stay put
   if (S.mode !== 'tgv' || WK.on) return null;
   const c = tgvSets[0].coaches[0], fp = orbit.fp;
@@ -1355,7 +1609,7 @@ function walkView(){   // standing at coach 1's stair head facing the bridge to 
     const i = c.view[2 * (fp.name === 'seatUp' ? 1 : 0) + (seatFace > 0 ? 0 : 1)], f = c.face[i];
     x = c.seat[3 * i] - c.xr + 0.42 * f; y = c.seat[3 * i + 1]; yaw = f > 0 ? 0 : Math.PI;
   }
-  Object.assign(WK, { on:true, i:0, x, y, z:0, ey:y, seat:-1, hold:false });
+  Object.assign(WK, { on:true, i:0, x, y, z:0, ey:y, seat:-1, stool:-1, hold:false });
   return { obj:c.g, eye:new THREE.Vector3(c.xr + x, y + WALK_EYE, 0), yaw, pitch:-0.05 };
 }
 
@@ -1406,5 +1660,5 @@ function updateTgv(dt){
   for (const h of pcHosts) h.driver.visible = S.dir < 0 && h === (wide ? pcHosts[1] : pcHosts[0]) && h.driver.parent !== fpCab;
   const fp = orbit.fp?.name;
   if ((fp === 'seatUp' || fp === 'seatLo') && seatFace !== S.dir) flyPreset(fp);   // the train turned round: the viewer moves to the seat facing the new way
-  updatePax(dt);
+  updatePax(dt); updateBar(dt);
 }

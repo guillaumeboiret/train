@@ -38,6 +38,12 @@ body.kid .walk-pad button.on{background:#f28c28;color:#1b1206}
 body.kid .walk-sit{right:10px;bottom:calc(10px + env(safe-area-inset-bottom,0px));height:64px;border-radius:32px;padding:0 26px;font:700 18px/1 var(--font-display);letter-spacing:.06em;text-transform:uppercase}
 body.kid .walk-leave{top:10px;right:10px;width:56px;height:56px;font-size:28px}
 body.kid .walk-say{top:12px;max-width:calc(100% - 160px);background:rgba(255,255,255,.93);color:#1b2430;border:0;border-radius:16px;box-shadow:0 6px 18px rgba(0,0,0,.25);-webkit-backdrop-filter:none;backdrop-filter:none;font:600 17px/1.3 var(--font-body)}
+body.kid .bar-menu{background:rgba(255,255,255,.97);color:#1b2430;border:0;border-radius:20px;box-shadow:0 8px 24px rgba(0,0,0,.3);padding:16px}
+body.kid .walk-bar .bar-menu button{border:0;background:#eef2f6;color:#1b2430;box-shadow:none}
+body.kid .walk-bar .bar-menu .bar-item{min-height:64px;border-radius:14px}body.kid .bar-e{font-size:30px}body.kid .bar-n{font-size:15px}body.kid .bar-p{color:#5b6672;font-size:13px}
+body.kid .bar-title{font-size:26px}body.kid .bar-wallet{background:#fff4e6;border-color:#f28c28;color:#1b2430;font-size:15px}body.kid .walk-bar .bar-menu .bar-x{width:44px;height:44px;font-size:20px}
+body.kid .walk-bar .bar-menu .bar-chip{width:52px;height:52px;font-size:28px}body.kid .bar-tray{font-size:15px}body.kid .bar-tray-hint{color:#5b6672}
+body.kid .walk-bar .bar-menu .bar-pocket{background:#f28c28;color:#1b1206;font:700 16px/1 var(--font-display);letter-spacing:.04em;text-transform:uppercase;padding:12px 18px}
 body.kid .lbl{font:600 15px/1 var(--font-body);padding:8px 12px;border-radius:10px;background:#fff;color:#1b2430;border-color:#fff}
 body.kid .lbl::after{background:#fff;height:18px}
 #kid{position:absolute;inset:0;pointer-events:none;color:#1b2430;font-family:var(--font-body);-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
@@ -135,6 +141,7 @@ body.kid #rbTip{font-size:13px;padding:5px 9px;top:-30px;border-radius:8px}
   body.kid .walk-pad{left:6px;bottom:calc(6px + env(safe-area-inset-bottom,0px));grid-template-columns:repeat(3,50px);grid-template-rows:repeat(2,50px);gap:6px}body.kid .walk-pad button{font-size:22px}
   body.kid .walk-sit{right:6px;bottom:calc(6px + env(safe-area-inset-bottom,0px));height:50px;padding:0 18px;font-size:15px}
   body.kid .walk-leave{top:6px;right:6px;width:46px;height:46px;font-size:23px}body.kid .walk-say{top:8px;font-size:15px}
+  body.kid .bar-menu{right:6px;bottom:calc(6px + env(safe-area-inset-bottom,0px));max-height:calc(100% - 64px);padding:10px}body.kid .walk-bar .bar-menu .bar-item{min-height:50px}body.kid .bar-e{font-size:24px}body.kid .walk-bar .bar-menu .bar-chip{width:44px;height:44px;font-size:24px}
   .kid-bottom{left:6px;right:6px;bottom:calc(6px + env(safe-area-inset-bottom,0px));gap:6px}
   .kid-route{padding:4px 12px 0}
   body.kid #routeBar{height:34px}body.kid #routeBar::before{top:7px;height:4px}
