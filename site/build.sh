@@ -17,12 +17,17 @@ page(){   # page <built page> <url path>; the built pages' markup is French, hen
     notice
     printf '<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">\n<link rel="icon" href="/favicon.svg">\n'
     sed -e 's#https://claude.ai/artifact/EMVu67YYfT7DzW8UozZAj6#/locomotive/#g' \
-        -e 's#https://claude.ai/artifact/UWxzgcLXNw8nW2AxP75imT#/conducteur/#g' \
+        -e 's#https://claude.ai/artifact/UWxzgcLXNw8nW2AxP75imT#/playground/#g' \
         -e 's#https://claude.ai/artifact/YTRJvuYiFZpzyjxXD6vqQR#/aiguillages/#g' "$SRC/$1"
   } > "$OUT/$2/index.html"
 }
 rm -rf "$OUT"; mkdir -p "$OUT"
-page locomotive-kid.html conducteur
+page locomotive-kid.html playground
+# the kid page's first address, French and named for the driver: old links and home screen icons land on the new one, ?lang= and #... kept
+mkdir -p "$OUT/conducteur"
+printf '%s\n' '<!doctype html><html><head><meta charset="utf-8"><title>Train playground</title><link rel="canonical" href="/playground/">' \
+  "<script>location.replace('/playground/' + location.search + location.hash)</script>" \
+  '<meta http-equiv="refresh" content="0; url=/playground/"></head><body><a href="/playground/">/playground/</a></body></html>' > "$OUT/conducteur/index.html"
 page locomotive-3d.html locomotive
 page aiguillages.html aiguillages
 { sed '/<meta charset="utf-8">/q' "$SRC/site/index.html"; langjs; notice; sed '1,/<meta charset="utf-8">/d' "$SRC/site/index.html"; } > "$OUT/index.html"

@@ -226,10 +226,11 @@ $('nextStep').addEventListener('click', () => { stopAuto(); goStep(stepIdx + 1);
 $('autoPlay').addEventListener('click', () => autoOn ? stopAuto() : startAuto());
 window.addEventListener('keydown', e => {
   if (e.target.matches('input,textarea,select')) return;
-  if (walking){   // the arrows walk (the keys below); Enter sits down, stands up or orders at the bar, Esc closes the bar's menu or stops walking
-    if (e.key === 'Escape'){ if (barIsOpen()) barClose(); else cabActions.leave(); }
-    else if (e.key === 'Enter' && e.repeat) e.preventDefault();   // held: not one more of what has the focus
-    else if (e.key === 'Enter' && !e.target.closest('button,a') && !barIsOpen()){ e.preventDefault(); walkSitNear(); }
+  if (walking){   // WASD or the arrows walk (the keys below); E or Enter sits down, stands up or orders at the bar; Esc closes the bar's menu or stops walking, once the mouse is free (taken by the view, Esc only frees it)
+    const sitKey = e.code === 'KeyE' || e.key === 'Enter' && !e.target.closest('button,a');
+    if (e.key === 'Escape'){ if (walkLocked() || performance.now() - lockOffT < 300) return; if (barIsOpen()) barClose(); else cabActions.leave(); }
+    else if (sitKey && e.repeat) e.preventDefault();   // held: not once more
+    else if (sitKey && !barIsOpen()){ e.preventDefault(); walkSitNear(); }
     return;
   }
   if (e.key === 'ArrowRight'){ stopAuto(); goStep(stepIdx + 1); }
@@ -351,7 +352,7 @@ function setExplode(f){
 $('rgExplode').addEventListener('input', e => setExplode(+e.target.value));
 $('camRow').addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b) return;
-  if (b.dataset.cam.startsWith('seat') || b.dataset.cam === 'driver' || b.dataset.cam === 'walk'){   // a passenger's or the driver's view: the body whole and opaque, the windows glazed
+  if (b.dataset.cam === 'driver' || b.dataset.cam === 'walk'){   // the passenger's or the driver's view: the body whole and opaque, the windows glazed
     if (shellLevel < 1) setShell(1);
     if (cutAxis !== 'none') setCut('none');
     if (S.explode > 0){ setExplode(0); $('rgExplode').value = 0; }
@@ -377,8 +378,10 @@ const ray = new THREE.Raycaster(), ptr = new THREE.Vector2();
 orbit.onClick = e => {
   if (inCab){ wakeTap = false; cabTap(e); return; }   // nothing to pick from the driver's seat: its view's edges jump along the line
   if (wakeTap){ wakeTap = false; return; }   // that tap only brought the controls back
+  if (walking && !lockAtDown && walkLocked()) return;   // that click took the mouse for the view, it picks nothing
   const r = canvas.getBoundingClientRect();
-  ptr.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+  if (lockAtDown) ptr.set(0, 0);   // the mouse taken: what the crosshair, in the middle, points at
+  else ptr.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
   ray.setFromCamera(ptr, camera);
   if (walking){ if (barIsOpen()) barClose(); else walkPick(ray); return; }   // walking: a tap on a free seat sits there (the bar's menu open: a tap beside it puts it away)
   const catG = [...chunks.values()].map(c => c.cat);
@@ -483,7 +486,9 @@ $('cabUi').addEventListener('click', () => showCabUi(!document.body.classList.co
 $('cabLeave').addEventListener('click', () => cabActions.leave());
 $('cabDir').addEventListener('click', e => { const b = e.target.closest('button'); if (b) cabActions.dir(+b.dataset.dir); });
 $('cabNext').addEventListener('click', () => cabActions.next());   // the desk's Next stop, within reach where the desk is out of view (a phone held upright)
-/* ---- walking through the train (CAMS.walk, 03f3): the page's controls step aside for a pad (the arrows), Sit and ✕; a tap on a free seat sits there */
+/* ---- walking through the train (CAMS.walk, 03f3), as in a game: the page's controls step aside for Sit and ✕; WASD or the arrows walk and
+   a click on the view hands the mouse to the head (pointer lock, Esc frees it); on a touch screen the left stick walks and the right one
+   looks. A tap on a free seat, or a click with the crosshair on it, sits there */
 let walking = false, walkSayT = 0;
 function walkSay(key, n, ms = 2200){   // a word over the view: the car just entered, why that seat cannot be taken, how to walk; no key: away
   const el = $('walkSay'); clearTimeout(walkSayT);
@@ -496,20 +501,54 @@ function keepWalker(dt){
   const on = orbit.fp?.name === 'walk';
   if (on !== walking){
     walking = on; document.body.classList.toggle('walking', on);
-    if (on){ document.activeElement?.blur?.(); walkSay(lastPtr === 'mouse' ? 'walk_hint' : 'walk_hint_touch', 0, 6000); }   // off the Walk button: Enter now sits
-    else { barClose(); walkFree(); walkSay(null); keys.clear(); }
+    if (on){ document.activeElement?.blur?.(); walkSay(document.body.classList.contains('touch') ? 'walk_hint_touch' : 'walk_hint', 0, 8000); }   // off the Passenger button: Enter now sits
+    else { barClose(); walkFree(); walkSay(null); keys.clear(); stickReset(); walkUnlock(); }
   }
   if (!on) return;
-  const open = barIsOpen();
-  walkMove(dt, m => !open && keys.has(m));   // the bar's menu open: the keys are the menu's
+  const open = barIsOpen(), k = m => !open && keys.has(m) ? 1 : 0, mv = STICK.move, lk = STICK.look;   // the bar's menu open: the keys are the menu's
+  let f = k('fwd') - k('back'), s = k('right') - k('left'), v = keys.has('shift') ? 2.6 : 1.3;
+  if (mv.on && !open){ f = -mv.y; s = mv.x; v = 2; }
+  if (lk.on && !open) orbit.turn(-lk.x * 2 * dt, -lk.y * 1.2 * dt);
+  walkMove(dt, f, s, v);
+  if (f || s || mv.on || lk.on) idleT = Math.min(idleT, 0);   // walking or looking round: the controls stay up
   const sit = barNear() ? 'bar_order' : WK.seat >= 0 || WK.stool >= 0 ? 'walk_stand' : 'walk_sit', b = $('walkSit');
   if (b.dataset.i18n !== sit){ b.dataset.i18n = sit; b.textContent = t(sit); }
 }
-document.querySelectorAll('#walkPad button[data-move]').forEach(b => {   // held like the key it stands for
-  const mv = b.dataset.move, up = () => { keys.delete(mv); b.classList.remove('on'); };
-  b.addEventListener('pointerdown', e => { e.preventDefault(); keys.add(mv); b.classList.add('on'); });
-  for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) b.addEventListener(ev, up);
-  b.addEventListener('contextmenu', e => e.preventDefault());
+const STICK = {};   // {x, y}: where the stick is pushed, -1..1 each way (y down); on: held; id: by which finger
+document.querySelectorAll('.walk-stick').forEach(el => {   // the knob follows the thumb within the ring; the middle is dead, then the push grows gently so a small one stays small
+  const st = STICK[el.dataset.stick] = { x:0, y:0, on:false, id:-1, el }, knob = el.firstElementChild;
+  const put = e => {
+    const r = el.getBoundingClientRect(), R = r.width / 2, dx = e.clientX - r.left - R, dy = e.clientY - r.top - R, a = Math.hypot(dx, dy) / R || 1e-9, m = Math.min(1, a);
+    const g = m < 0.12 ? 0 : ((m - 0.12) / 0.88) ** 2 / a / R;
+    st.x = dx * g; st.y = dy * g;
+    knob.style.transform = `translate(calc(-50% + ${(dx / a * m * 0.55).toFixed(1)}px), calc(-50% + ${(dy / a * m * 0.55).toFixed(1)}px))`;
+  };
+  el.addEventListener('pointerdown', e => {
+    e.preventDefault(); if (st.on) return;
+    st.on = true; st.id = e.pointerId; el.setPointerCapture(e.pointerId); el.classList.add('on'); put(e);
+  });
+  el.addEventListener('pointermove', e => { if (st.on && e.pointerId === st.id) put(e); });
+  for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture']) el.addEventListener(ev, e => { if (e.pointerId === st.id) stickUp(st); });
+  el.addEventListener('contextmenu', e => e.preventDefault());
+});
+function stickUp(st){ st.on = false; st.id = -1; st.x = st.y = 0; st.el.classList.remove('on'); st.el.firstElementChild.style.transform = ''; }
+function stickReset(){ for (const st of Object.values(STICK)) stickUp(st); }
+let lockAtDown = false, lockOffT = 0;   // the mouse was the view's when the click began; when it was last freed
+const walkLocked = () => document.pointerLockElement === canvas;
+function walkUnlock(){ if (walkLocked()) document.exitPointerLock(); }
+canvas.addEventListener('pointerdown', e => {   // walking, a click on the view hands it the mouse: the pointer hides and every move turns the head, as in a game
+  lockAtDown = walkLocked();
+  if (lockAtDown || !walking || e.pointerType !== 'mouse' || e.button !== 0 || barIsOpen()) return;
+  try { canvas.requestPointerLock()?.catch?.(() => {}); } catch {}   // refused (too soon after Esc, or not allowed here): the click picks at the pointer as before
+});
+document.addEventListener('pointerlockchange', () => {
+  const on = walkLocked(); document.body.classList.toggle('walk-lock', on);
+  if (!on) lockOffT = performance.now();
+});
+document.addEventListener('mousemove', e => {
+  if (!walking || !walkLocked() || !orbit.fp) return;
+  const k = orbit.cam.fov * Math.PI / 180 / Math.max(1, canvas.clientHeight), mx = e.movementX || 0, my = e.movementY || 0;
+  orbit.turn(-mx * k, -my * k); orbit.moved += Math.abs(mx) + Math.abs(my);   // a click that turned the head is no pick
 });
 $('walkSit').addEventListener('click', () => walkSitNear());
 $('walkLeave').addEventListener('click', () => cabActions.leave());
@@ -543,7 +582,7 @@ function barRender(){
 }
 function barOpen(){
   if (!walking) return;
-  barRender(); $('barMenu').hidden = false; document.body.classList.add('bar-open'); keys.clear(); walkSay(null); barFace();
+  barRender(); $('barMenu').hidden = false; document.body.classList.add('bar-open'); keys.clear(); stickReset(); walkUnlock(); walkSay(null); barFace();
   $('barItems').firstElementChild.focus({ preventScroll:true });
 }
 function barClose(){
@@ -815,8 +854,8 @@ $('timeSeg').addEventListener('click', e => { const b = e.target.closest('button
 const keys = new Set();
 const KEY_MOVE = { w:'fwd', s:'back', a:'left', d:'right', e:'up', r:'up', q:'down', f:'down' };
 const CODE_MOVE = { KeyW:'fwd', KeyS:'back', KeyA:'left', KeyD:'right', KeyE:'up', KeyQ:'down' };   // physical positions, so an AZERTY Z also goes forward
-const ARROW_MOVE = { ArrowUp:'fwd', ArrowDown:'back', ArrowLeft:'left', ArrowRight:'right' };   // walking only: elsewhere ← → step the guide
-const moveOf = e => (walking && (ARROW_MOVE[e.key] || CODE_MOVE[e.code])) || KEY_MOVE[e.key.toLowerCase()] || CODE_MOVE[e.code] || null;   // walking, a key's place first: an AZERTY Q turns left
+const WALK_MOVE = { KeyW:'fwd', ArrowUp:'fwd', KeyS:'back', ArrowDown:'back', KeyA:'left', ArrowLeft:'left', KeyD:'right', ArrowRight:'right' };   // walking: by the key's place (an AZERTY's ZQSD) and the arrows; elsewhere ← → step the guide
+const moveOf = e => walking ? WALK_MOVE[e.code] || WALK_MOVE[e.key] || null : KEY_MOVE[e.key.toLowerCase()] || CODE_MOVE[e.code] || null;
 window.addEventListener('keydown', e => {
   if (e.target.matches('input,textarea,select') || e.metaKey || e.ctrlKey || e.altKey) return;
   const k = e.key.toLowerCase();
@@ -828,7 +867,7 @@ window.addEventListener('keydown', e => {
 window.addEventListener('keyup', e => {
   const k = e.key.toLowerCase();
   if (k === 'shift') keys.delete('shift');
-  for (const mv of [ARROW_MOVE[e.key], CODE_MOVE[e.code], KEY_MOVE[k]]) if (mv) keys.delete(mv);   // all it may have held: walking may have begun or ended since it went down
+  for (const mv of [WALK_MOVE[e.code], WALK_MOVE[e.key], CODE_MOVE[e.code], KEY_MOVE[k]]) if (mv) keys.delete(mv);   // all it may have held: walking may have begun or ended since it went down
   if (k === 'h' || k === ' ') horn.release();
 });
 window.addEventListener('blur', () => { keys.clear(); horn.release(); });
@@ -907,10 +946,12 @@ function updateCompass(){
 /* ---- while the train runs and nobody touches the page, the overlays fade out of the way (the kid build keeps its big buttons in sight) */
 const IDLE_S = 5, READ_WPS = 3.5;   // calm seconds before the fade; words read per second, so a new text stays up long enough to be read
 let idleT = 0, wakeTap = false, lastPtr = 'mouse';
+document.body.classList.toggle('touch', matchMedia('(pointer: coarse)').matches);
 function wakeUi(e){
   if (e.type === 'pointermove' && e.pointerType === 'mouse' && !e.movementX && !e.movementY) return;   // the browser re-checking what lies under a still mouse
   const B = document.body.classList, was = B.contains('ui-idle');
   if (e.pointerType) lastPtr = e.pointerType;
+  if (e.type === 'pointerdown' && e.pointerType) document.body.classList.toggle('touch', e.pointerType !== 'mouse');   // the sticks for a finger, the mouse look for a mouse
   if (e.type === 'pointerdown') wakeTap = was && e.pointerType !== 'mouse';   // a finger on the bare view only wakes the page, it picks nothing
   idleT = Math.min(idleT, 0);
   if (was) B.remove('ui-idle');
@@ -939,4 +980,4 @@ resize();
 setShell(0.18); setCut('none'); setExplode(0);
 setMode('diesel');
 requestAnimationFrame(loop);
-window.locoDebug = { BAR, BAR_MENU, barOpen, barClose, barBuy, barEat, barNear, barIsOpen, walkSitStool, updateBar, CAB, driverSeat, cabActions, cabLever, S, simulate, animate, updateFlows, updateGauges, orbit, renderer, scene, camera, goStep, setMode, setCut, setExplode, setShell, select, parts, TGV, tgvSets, station, updateTgv, syncControls, tick:window.tick, ROUTE, horn, chunks, requestTrack, trk, opp, parked, cars, curveLocal, updateHud, jumpToStation, jumpTo, setWeather, pcHosts, pcShells, flowObjs, landmarks, flyPreset, SND, PX, pool, paxResolve, paxHolding, allCoaches, world, keys, WK, walkMove, walkSitNear, walkPick, walkStand, walkZones };
+window.locoDebug = { BAR, BAR_MENU, barOpen, barClose, barBuy, barEat, barNear, barIsOpen, walkSitStool, updateBar, CAB, driverSeat, cabActions, cabLever, S, simulate, animate, updateFlows, updateGauges, orbit, renderer, scene, camera, goStep, setMode, setCut, setExplode, setShell, select, parts, TGV, tgvSets, station, updateTgv, syncControls, tick:window.tick, ROUTE, horn, chunks, requestTrack, trk, opp, parked, cars, curveLocal, updateHud, jumpToStation, jumpTo, setWeather, pcHosts, pcShells, flowObjs, landmarks, flyPreset, SND, PX, pool, paxResolve, paxHolding, allCoaches, world, keys, WK, walkMove, walkSitNear, walkPick, walkStand, walkZones, STICK, walkLocked };

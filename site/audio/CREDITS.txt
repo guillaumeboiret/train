@@ -1,4 +1,4 @@
-Recorded TGV sounds used by /locomotive/ and /conducteur/. Cut, looped and re-encoded (mono MP3); everything else is synthesised in the pages.
+Recorded TGV sounds used by /locomotive/ and /playground/. Cut, looped and re-encoded (mono MP3); everything else is synthesised in the pages.
 
 tgv_in.mp3     Inside a TGV coach at speed, looped.
                "inside TGV train car" by bruno.auzet, Freesound 745896, CC0 1.0

@@ -1,4 +1,4 @@
-<title>Conducteur de train</title>
+<title>Jouer au train</title>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
@@ -181,24 +181,25 @@ body.in-cab .cab-say:not([hidden]){display:block}
 .cl-track i.z{left:4px;right:4px;height:2px;margin-top:-1px;background:var(--ink)}
 #clKnob{position:absolute;left:0;right:0;top:50%;height:20px;transform:translateY(-50%);border-radius:5px;background:var(--panel-solid);border:2px solid var(--accent);box-shadow:0 2px 6px rgba(0,0,0,.35);transition:top .12s}
 #clVal{position:absolute;left:calc(100% + 18px);top:50%;transform:translateY(-50%);background:var(--accent);color:var(--accent-ink);font:600 11px/1 var(--font-mono);padding:4px 6px;border-radius:4px;white-space:nowrap;pointer-events:none}
-/* walking through the train: the page's controls put away, a pad (held like the arrow keys) at the bottom left, Sit at the bottom right, ✕ top right */
+/* walking through the train: the page's controls put away, ✕ top right; on a touch screen two sticks as in a game (left walks, right looks) with Sit over the right one; with the mouse taken (a click on the view) a crosshair */
 .walk-bar{display:none}
 body.walking .walk-bar{display:block}
 body.walking :is(.dock,.infocard,.gauges,.hud,.compass,#labels){display:none}
 .walk-bar button{border:1px solid var(--line);background:var(--panel);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);color:var(--ink);cursor:pointer;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:none}
-.walk-pad{position:absolute;left:16px;bottom:16px;display:grid;grid-template-columns:repeat(3,52px);grid-template-rows:repeat(2,52px);gap:6px}
-.walk-pad button{border-radius:12px;font-size:20px;padding:0}
-.walk-pad [data-move="fwd"]{grid-column:2}
-.walk-pad [data-move="left"]{grid-column:1;grid-row:2}
-.walk-pad [data-move="back"]{grid-column:2;grid-row:2}
-.walk-pad [data-move="right"]{grid-column:3;grid-row:2}
-.walk-pad button.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
-.walk-sit{position:absolute;right:16px;bottom:16px;height:52px;padding:0 22px;border-radius:26px;font-weight:600;font-size:15px}
+.walk-stick{--d:128px;display:none;position:absolute;left:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));width:var(--d);height:var(--d);border-radius:50%;background:var(--panel);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid var(--line);touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.walk-stick.r{left:auto;right:16px}
+.walk-stick b{position:absolute;left:50%;top:50%;width:calc(var(--d) * .45);height:calc(var(--d) * .45);transform:translate(-50%,-50%);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:calc(var(--d) * .2);font-weight:400;background:var(--panel-solid);border:2px solid var(--line);box-shadow:0 2px 6px rgba(0,0,0,.3);pointer-events:none}
+.walk-stick.on b{border-color:var(--accent)}
+body.touch .walk-stick{display:block}
+.walk-sit{position:absolute;right:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));height:52px;padding:0 22px;border-radius:26px;font-weight:600;font-size:15px}
+body.touch .walk-sit{bottom:calc(156px + env(safe-area-inset-bottom,0px))}   /* over the right stick */
+.walk-cross{display:none;position:absolute;left:50%;top:50%;width:22px;height:22px;margin:-11px 0 0 -11px;pointer-events:none;background:linear-gradient(#fff,#fff) center/2px 100% no-repeat,linear-gradient(#fff,#fff) center/100% 2px no-repeat;filter:drop-shadow(0 0 1.5px rgba(0,0,0,.9))}
+body.walk-lock .walk-cross{display:block}
 .walk-leave{position:absolute;top:12px;right:12px;width:44px;height:44px;padding:0;border-radius:50%;font-size:20px;line-height:1}
 .walk-say{position:absolute;top:14px;left:50%;transform:translateX(-50%);max-width:min(560px,calc(100% - 140px));background:var(--panel);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid var(--line);border-radius:8px;padding:8px 14px;font-size:13.5px;text-align:center;pointer-events:none}
 .walk-say[hidden]{display:none}
-/* the bar car's menu: over the view, bottom right (a sheet along the bottom on a phone); Sit, the pad and ✕ step aside while it is open */
-body.bar-open :is(#walkPad,#walkSit,#walkLeave){display:none}
+/* the bar car's menu: over the view, bottom right (a sheet along the bottom on a phone); Sit, the sticks and ✕ step aside while it is open */
+body.bar-open :is(.walk-stick,#walkSit,#walkLeave){display:none}
 .bar-menu{position:absolute;right:16px;bottom:16px;width:min(400px,calc(100% - 32px));max-height:calc(100% - 90px);overflow:auto;overscroll-behavior:contain;display:flex;flex-direction:column;gap:10px;padding:14px;background:var(--panel-solid);border:1px solid var(--line);border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.35);color:var(--ink)}
 .bar-menu[hidden]{display:none}
 .walk-bar .bar-menu button{touch-action:manipulation;-webkit-backdrop-filter:none;backdrop-filter:none;background:var(--panel-2)}
@@ -450,9 +451,7 @@ body.ui-idle :is(.dock,.infocard,.gauges,.hud,.compass,#labels,.cab-bar,.cab-dec
                 <button type="button" class="btn" data-cam="coupler" data-i18n="cam_coupler">Attelage</button>
                 <button type="button" class="btn" data-cam="station" data-i18n="cam_station">Gare</button>
                 <button type="button" class="btn" data-cam="door" data-i18n="cam_door">Portes</button>
-                <button type="button" class="btn" data-cam="seatUp" data-i18n="cam_seatUp">Place en haut</button>
-                <button type="button" class="btn" data-cam="seatLo" data-i18n="cam_seatLo">Place en bas</button>
-                <button type="button" class="btn" data-cam="walk" data-i18n="cam_walk">Marcher</button>
+                <button type="button" class="btn" data-cam="walk" data-i18n="cam_pax">Passager</button>
               </span>
             </div>
             <div class="hint" data-i18n="cam_hint">Clavier: W A S D déplacent le point de visée le long de la rame, R/F (ou E/Q) montent et descendent, Maj accélère. H ou Espace: klaxon.</div>
@@ -526,12 +525,9 @@ body.ui-idle :is(.dock,.infocard,.gauges,.hud,.compass,#labels,.cab-bar,.cab-dec
     <div class="cab-say" id="cabSay" role="status" aria-live="polite" hidden></div>
     <div class="walk-bar" id="walkBar">
       <div class="walk-say" id="walkSay" role="status" aria-live="polite" hidden></div>
-      <div class="walk-pad" id="walkPad" role="group" aria-label="Marcher" data-i18n-aria="cam_walk">
-        <button type="button" data-move="fwd" aria-label="Avancer" data-i18n-aria="walk_fwd">▲</button>
-        <button type="button" data-move="left" aria-label="Tourner à gauche" data-i18n-aria="walk_left">◀</button>
-        <button type="button" data-move="back" aria-label="Reculer" data-i18n-aria="walk_back">▼</button>
-        <button type="button" data-move="right" aria-label="Tourner à droite" data-i18n-aria="walk_right">▶</button>
-      </div>
+      <div class="walk-stick" id="walkMove" data-stick="move" aria-hidden="true"><b>👣</b></div>
+      <div class="walk-stick r" id="walkLook" data-stick="look" aria-hidden="true"><b>👀</b></div>
+      <div class="walk-cross" aria-hidden="true"></div>
       <button type="button" class="walk-sit" id="walkSit" data-i18n="walk_sit">S'asseoir</button>
       <button type="button" class="walk-leave" id="walkLeave" aria-label="Arrêter de marcher" title="Arrêter de marcher" data-i18n-aria="walk_leave" data-i18n-title="walk_leave">✕</button>
       <div class="bar-menu" id="barMenu" role="dialog" aria-labelledby="barTitle" hidden>
@@ -575,8 +571,8 @@ const T = {
     ctl_doors:"Portes côté quai", doors_open:"Ouvertes", doors_closed:"Fermées", doors_pax:"Échange voyageurs…", doors_hint:"Déverrouillées à l'arrêt seulement. Traction interdite portes ouvertes.",
     ctl_station:"Arrêt en gare (pilote auto)", station_go:"Aller au quai", station_running:"Approche…", station_at:"À quai", station_hint:"Freine et arrête la rame au repère du quai.",
     coupling:"Accostage…", uncoupling:"Séparation…", lamp_doors:"Portes", info_hide:"Masquer la fiche", info_show:"Afficher la fiche", f_roof:"Ligne de toiture 25 kV",
-    cam_train:"Rame entière", cam_rearroof:"Motrice arrière", cam_coupler:"Attelage", cam_station:"Gare", cam_door:"Portes", cam_seatUp:"Place en haut", cam_seatLo:"Place en bas", cam_driver:"Poste de conduite", cab_ui:"Afficher ou masquer les commandes", cab_leave:"Quitter la cabine",
-    cam_walk:"Marcher", walk_fwd:"Avancer", walk_back:"Reculer", walk_left:"Tourner à gauche", walk_right:"Tourner à droite", walk_sit:"S'asseoir", walk_stand:"Se lever", walk_leave:"Arrêter de marcher", walk_taken:"Place occupée", walk_noseat:"Pas de place libre ici", walk_far:"Trop loin", walk_car:"Voiture", walk_first:"1re classe", walk_hint:"Flèches ou ZQSD pour marcher, glisser pour regarder, cliquer sur un siège libre pour s'asseoir. Entrée: s'asseoir ou se lever.", walk_hint_touch:"Les flèches pour marcher, glisser pour regarder, toucher un siège libre pour s'asseoir.", cab_lever:"Manipulateur traction-freinage", cab_lever_tip:"Vers le haut, la traction et la vitesse visée. Vers le bas, le frein. Touches ↑ et ↓.", scr_brake:"Frein", scr_power:"Traction", scr_engine:"Moteur", scr_doors:"Portes", scr_panto_dn:"Panto baissé", btn_horn:"Klaxon", btn_panto:"Panto", btn_doors:"Portes", btn_next:"Prochain arrêt", dir_tls:"Vers Toulouse", dir_par:"Vers Paris", cab_stopped:"Arrêtez d'abord le train", cab_end:"Terminus : changez de sens",
+    cam_train:"Rame entière", cam_rearroof:"Motrice arrière", cam_coupler:"Attelage", cam_station:"Gare", cam_door:"Portes", cam_pax:"Passager", cam_driver:"Poste de conduite", cab_ui:"Afficher ou masquer les commandes", cab_leave:"Quitter la cabine",
+    walk_sit:"S'asseoir", walk_stand:"Se lever", walk_leave:"Arrêter de marcher", walk_taken:"Place occupée", walk_noseat:"Pas de place libre ici", walk_far:"Trop loin", walk_car:"Voiture", walk_first:"1re classe", walk_hint:"ZQSD ou flèches: marcher (Maj: courir). Cliquer dans la vue, puis la souris regarde (Échap la libère). Clic sur un siège libre, ou E: s'asseoir, se lever.", walk_hint_touch:"Joystick gauche: marcher. Joystick droit: regarder. Toucher un siège libre pour s'asseoir.", cab_lever:"Manipulateur traction-freinage", cab_lever_tip:"Vers le haut, la traction et la vitesse visée. Vers le bas, le frein. Touches ↑ et ↓.", scr_brake:"Frein", scr_power:"Traction", scr_engine:"Moteur", scr_doors:"Portes", scr_panto_dn:"Panto baissé", btn_horn:"Klaxon", btn_panto:"Panto", btn_doors:"Portes", btn_next:"Prochain arrêt", dir_tls:"Vers Toulouse", dir_par:"Vers Paris", cab_stopped:"Arrêtez d'abord le train", cab_end:"Terminus : changez de sens",
     walk_bar:"Bar", bar_title:"Le bar", bar_order:"Commander", bar_close:"Fermer le menu", bar_wallet:"Porte-monnaie", bar_tray:"Mon plateau", bar_tray_hint:"Choisis-en un pour le déguster.", bar_empty:"Rien pour l'instant.", bar_pocket:"Argent de poche +10€", bar_pocket_say:"Et 10€ de plus !", bar_broke:"Pas assez de sous", bar_thanks:"Voilà ! Merci.", bar_yum:"Miam !", bar_gulp:"Glou glou !", bar_free:"Gratuit", bar_full:"Plateau plein, goûte d'abord !", bar_speed:"Vitesse du train",
     bar_i_espresso:"Café", bar_i_choco:"Chocolat chaud", bar_i_tea:"Thé", bar_i_soda:"Soda", bar_i_juice:"Jus de pomme", bar_i_water:"Verre d'eau", bar_i_club:"Club sandwich", bar_i_croque:"Croque-monsieur", bar_i_burger:"Burger", bar_i_cookie:"Cookie", bar_i_muffin:"Muffin", bar_i_painchoc:"Pain au chocolat", bar_i_chips:"Chips", bar_i_sweets:"Bonbons",
     ctl_track:"Voie", track_hint:"Changement par une communication 400 m devant la rame.", track_busy:"Communication déjà engagée, attendez.", track_occupied:"Voie occupée par un train en face.", track_2:"Voie 2 (sens Paris)", track_1:"Voie 1 (sens Toulouse)",
@@ -612,8 +608,8 @@ const T = {
     ctl_doors:"Platform-side doors", doors_open:"Open", doors_closed:"Closed", doors_pax:"Passengers boarding…", doors_hint:"Unlocked at standstill only. No traction while open.",
     ctl_station:"Station stop (autopilot)", station_go:"Go to platform", station_running:"Approaching…", station_at:"At platform", station_hint:"Brakes and stops the set at the platform mark.",
     coupling:"Coupling…", uncoupling:"Uncoupling…", lamp_doors:"Doors", info_hide:"Hide card", info_show:"Show card", f_roof:"25 kV roof line",
-    cam_train:"Whole train", cam_rearroof:"Rear power car", cam_coupler:"Coupling", cam_station:"Station", cam_door:"Doors", cam_seatUp:"Seat upstairs", cam_seatLo:"Seat downstairs", cam_driver:"Driver's seat", cab_ui:"Show or hide the controls", cab_leave:"Leave the cab",
-    cam_walk:"Walk", walk_fwd:"Walk forward", walk_back:"Step back", walk_left:"Turn left", walk_right:"Turn right", walk_sit:"Sit down", walk_stand:"Stand up", walk_leave:"Stop walking", walk_taken:"Seat taken", walk_noseat:"No free seat here", walk_far:"Too far", walk_car:"Car", walk_first:"First class", walk_hint:"Arrows or WASD to walk, drag to look around, click a free seat to sit. Enter: sit down or stand up.", walk_hint_touch:"Use the arrows to walk, drag to look around, tap a free seat to sit.", cab_lever:"Power and brake lever", cab_lever_tip:"Up for power and the speed to hold, down to brake. Keys ↑ and ↓.", scr_brake:"Brake", scr_power:"Power", scr_engine:"Engine", scr_doors:"Doors", scr_panto_dn:"Panto down", btn_horn:"Horn", btn_panto:"Panto", btn_doors:"Doors", btn_next:"Next stop", dir_tls:"To Toulouse", dir_par:"To Paris", cab_stopped:"Stop the train first", cab_end:"End of the line: change direction",
+    cam_train:"Whole train", cam_rearroof:"Rear power car", cam_coupler:"Coupling", cam_station:"Station", cam_door:"Doors", cam_pax:"Passenger", cam_driver:"Driver's seat", cab_ui:"Show or hide the controls", cab_leave:"Leave the cab",
+    walk_sit:"Sit down", walk_stand:"Stand up", walk_leave:"Stop walking", walk_taken:"Seat taken", walk_noseat:"No free seat here", walk_far:"Too far", walk_car:"Car", walk_first:"First class", walk_hint:"WASD or arrows: walk (Shift: run). Click the view, then the mouse looks around (Esc frees it). Click a free seat, or E: sit down, stand up.", walk_hint_touch:"Left stick: walk. Right stick: look around. Tap a free seat to sit.", cab_lever:"Power and brake lever", cab_lever_tip:"Up for power and the speed to hold, down to brake. Keys ↑ and ↓.", scr_brake:"Brake", scr_power:"Power", scr_engine:"Engine", scr_doors:"Doors", scr_panto_dn:"Panto down", btn_horn:"Horn", btn_panto:"Panto", btn_doors:"Doors", btn_next:"Next stop", dir_tls:"To Toulouse", dir_par:"To Paris", cab_stopped:"Stop the train first", cab_end:"End of the line: change direction",
     walk_bar:"Bar", bar_title:"The bar", bar_order:"Order", bar_close:"Close the menu", bar_wallet:"Wallet", bar_tray:"My tray", bar_tray_hint:"Pick one to enjoy it.", bar_empty:"Nothing yet.", bar_pocket:"Pocket money +10€", bar_pocket_say:"Here's 10€ more!", bar_broke:"Not enough money", bar_thanks:"Here you go! Thanks.", bar_yum:"Yum!", bar_gulp:"Gulp!", bar_free:"Free", bar_full:"Tray full, enjoy something first!", bar_speed:"Train speed",
     bar_i_espresso:"Espresso", bar_i_choco:"Hot chocolate", bar_i_tea:"Tea", bar_i_soda:"Soda", bar_i_juice:"Apple juice", bar_i_water:"Glass of water", bar_i_club:"Club sandwich", bar_i_croque:"Croque-monsieur", bar_i_burger:"Burger", bar_i_cookie:"Cookie", bar_i_muffin:"Muffin", bar_i_painchoc:"Pain au chocolat", bar_i_chips:"Crisps", bar_i_sweets:"Sweets",
     ctl_track:"Track", track_hint:"Changes over a crossover 400 m ahead of the train.", track_busy:"Crossover already in use, wait.", track_occupied:"Track occupied by an oncoming train.", track_2:"Track 2 (to Paris)", track_1:"Track 1 (to Toulouse)",
@@ -1089,7 +1085,7 @@ class Orbit {
   }
   down(e){
     if (this.onPress?.(e)) return;
-    this.dom.setPointerCapture(e.pointerId);
+    if (!document.pointerLockElement) this.dom.setPointerCapture(e.pointerId);   // the mouse locked to the view (walking, 03h) takes no capture: it would throw
     this.ptrs.set(e.pointerId, { x:e.clientX, y:e.clientY, b:e.button, shift:e.shiftKey });
     this.moved = 0; this.dom.classList.add('dragging');
     if (this.ptrs.size === 2){ const [a, b] = [...this.ptrs.values()]; this.lastPinch = Math.hypot(a.x - b.x, a.y - b.y); this.lastMid = { x:(a.x + b.x) / 2, y:(a.y + b.y) / 2 }; }
@@ -2634,6 +2630,7 @@ function deckGeo(L, bar = false){   // per body length, x from the car's -x end:
     const x0 = 3.4, w = L - 3.43, xb = seatRows(L).bay;   // the upper floor runs to the front gangway and is open over the vestibule and the stair, but for a bridge from it to the rear gangway
     const br = new THREE.BoxGeometry(x0 - 0.03, 0.06, 0.9).translate(x0 / 2 + 0.015, DECK.up - 0.03, 0);   // the bridge, between parapets
     const par = [1, -1].map(s => new THREE.BoxGeometry(x0 - 0.03, 0.9, 0.03).translate(x0 / 2 + 0.015, DECK.up + 0.45, s * 0.46));
+    par.push(new THREE.BoxGeometry(0.03, 0.9, 0.95).translate(x0 + 0.015, DECK.up + 0.45, 0.935));   // and a rail along the upper floor's edge over the well beside the stair, from the parapet to the wall (z 1.42 at its top)
     const sl = Math.hypot(1.7, DECK.up - DECK.lo), stair = g => g.rotateZ(Math.atan2(DECK.up - DECK.lo, 1.7)).translate(2.7, (DECK.lo + DECK.up) / 2 - 0.03, -0.9);   // stair: vestibule (x 1.85) up to the upper deck (x 3.55)
     const tb = [];   // the bay's tables on both decks and sides, on a pedestal: top 0.7 over the floor, clear of the aisle, the feet and the wall
     if (!bar) for (const y of [DECK.lo, DECK.up]) for (const s of [1, -1]) tb.push(new THREE.BoxGeometry(0.4, 0.04, 1.08).translate(xb, y + 0.68, s * 0.84), new THREE.BoxGeometry(0.06, 0.66, 0.06).translate(xb, y + 0.33, s * 0.72));
@@ -2929,7 +2926,7 @@ function barFace(){   // the menu open at the counter: the eye turns to it and a
   if (WK.seat >= 0 || WK.stool >= 0 || !c.bar) return;
   orbit.look(c.g, new THREE.Vector3(c.xr + WK.x, WK.ey + WALK_EYE, WK.z), Math.PI / 2, -0.3); orbit.fp.name = 'walk';
 }
-function barNear(){   // standing at the counter, not turned away from it: Enter (or the button) orders
+function barNear(){   // standing at the counter, not turned away from it: E, Enter or the button orders
   if (!WK.on || WK.seat >= 0 || WK.stool >= 0 || WK.y < 1.7 || !tgvSets[0].coaches[WK.i].bar) return false;
   return WK.x > 4.4 && WK.x < 9.8 && -Math.sin(orbit.fp?.yaw ?? 0) < 0.5;
 }
@@ -3661,8 +3658,6 @@ Object.assign(CAMS, {
   coupler:  () => mirrorCam(S.sets === 2 || S.coupling !== 0 ? [[-186, 3.4, 6.0], [-186, 1.4, 0]] : [[-183, 3.4, 5.5], [-191, 1.4, 0]]),   // from the island platform, inside the row of lamp posts and clear of the train on the far face
   station:  () => mirrorCam([[-30, 10, 34], [-45, 1.5, 4]]),
   door:     () => mirrorCam([[-48, 2.3, 5.9], [-35, 1.7, 1.4]]),   // eye height on the island platform, under the canopy, between the two trains
-  seatUp:   () => seatView(1),
-  seatLo:   () => seatView(0),
   driver:   () => driverView(),
   walk:     () => walkView(),
 });
@@ -3676,11 +3671,6 @@ function driverView(){   // first person in the driver's place, the page's contr
   const pitch = -0.09;   // the dashboard's lower edge (about -32°) on the bottom edge of the widest view (55° tall); a taller one shows more roof and desk alike
   return S.mode === 'tgv' ? { obj, eye:new V(8.3, 3.45, 0), yaw:0, pitch } : { obj, eye:new V(8.25, 3.2, 0.55), yaw:0, pitch };
 }
-let seatFace = 1;   // the way the viewer's seat faces: the way the train ran when the view was taken (updateTgv moves the viewer when it turns round)
-function seatView(d){   // first person in the viewer's seat of coach 1 (deck d), facing the way the train runs, head over the seat, looking ahead toward the window beside it
-  const c = tgvSets[0].coaches[0], f = seatFace = S.dir < 0 ? -1 : 1, i = c.view[2 * d + (f > 0 ? 0 : 1)];
-  return { obj:c.g, eye:new THREE.Vector3(c.seat[3 * i] + 0.12 * f, c.seat[3 * i + 1] + 1.16, c.seat[3 * i + 2]), yaw:f > 0 ? -0.75 : 0.75 - Math.PI, pitch:-0.14 };
-}
 /* ---- walking through set 1 in first person (CAMS.walk): up the stair at a car's rear end, over the bridge and through the upper-deck
    gangway into the next car, either way, and into any free seat (occ 4 while taken). The walker stands at x from the rear end of car
    WK.i, on floor y, at z across, inside the boxes of that car's floor plan (walkZones). keepWalker (03h) drives it every frame */
@@ -3693,8 +3683,8 @@ function walkZones(i){   // [x0, x1, z0, z1, floor at x0, floor at x1]: where th
   const L = TGV.TRAILERS[i][1], rows = seatRows(L).rows, e = rows[rows.length - 1][0] + 0.4, lo = DECK.lo, up = DECK.up;
   const Z = tgvSets[0].coaches[i].bar ? [   // the bar car: up the stair to the bar (the lower deck past the stair's foot is the crew's)
     [0.2, 1.85, -0.95, 0.95, lo, lo], [1.85, 3.27, -0.27, 0.95, lo, lo], [1.85, 3.55, -1.05, -0.63, lo, up],
-    [i < TGV.TRAILERS.length - 1 ? -0.6 : 0.21, 3.4, -0.27, 0.27, up, up], [3.4, 3.6, -1.05, 1.05, up, up],
-    [3.4, 4.52, -1.05, 1.05, up, up],                                          // in at the counter's end
+    [i < TGV.TRAILERS.length - 1 ? -0.6 : 0.21, 3.4, -0.27, 0.27, up, up], [3.4, 3.6, -1.05, 0.27, up, up],
+    [3.6, 4.52, -1.05, 1.05, up, up],                                          // in at the counter's end
     [4.52, 9.68, -0.04, 0.47, up, up],                                         // along the counter, clear of its foot rail and of the stools
     [9.68, L - 0.2, -0.47, 0.47, up, up],                                      // the lounge between the stools
   ] : [
@@ -3703,7 +3693,7 @@ function walkZones(i){   // [x0, x1, z0, z1, floor at x0, floor at x1]: where th
     [3.4, L - 0.2, -0.08, 0.08, lo, lo], [e, L - 0.2, -0.95, 0.95, lo, lo],    // the lower aisle; the room past the last row
     [1.85, 3.55, -1.05, -0.63, lo, up],                                        // the stair
     [i < TGV.TRAILERS.length - 1 ? -0.6 : 0.21, 3.4, -0.27, 0.27, up, up],     // the bridge over the vestibule, on into the rear gangway (car 8: its staff door)
-    [3.4, 3.6, -1.05, 1.05, up, up],                                           // the stair head
+    [3.4, 3.6, -1.05, 0.27, up, up],                                           // the stair head, clear of the rail over the well
     [3.4, L - 0.2, -0.08, 0.08, up, up], [e, L - 0.2, -1.05, 1.05, up, up],    // the upper aisle; the room past the last row (car 1: its staff door)
   ];
   if (i > 0) Z.push([L - 0.2, L + 0.6, -0.27, 0.27, up, up]);                 // the front gangway, into the car ahead
@@ -3729,18 +3719,21 @@ function walkCrowded(c, x, z){   // someone walking in car c (to or from a seat)
   if (c.bar && WK.y > 1.7) for (const [px, pz] of c.bar.stand){ const d = Math.hypot(x - px, z - pz); if (d < WALK_R && d < Math.hypot(WK.x - px, WK.z - pz)) return true; }   // the two at the ledge
   return false;
 }
-function walkMove(dt, on){   // on(move): that key or pad button is held. Forward and back walk the way the eye looks, left and right turn, up and down tilt the head
-  const f = orbit.fp, k = m => on(m) ? 1 : 0;
-  if (WK.seat >= 0 || WK.stool >= 0){   // seated: the head turns; forward stands up (pressed anew: the one that walked here may still be held)
-    if (!on('fwd')) WK.hold = false; else if (!WK.hold){ walkStand(); return; }
-    orbit.turn((k('left') - k('right')) * 1.3 * dt, (k('up') - k('down')) * 1.3 * dt); return;
+function walkMove(dt, f, s, v){   // f, s: forward and to the right, -1..1 (the keys, or the left stick); v: full speed, m/s. Both go by the way the eye looks; the look is the mouse's or the right stick's (03h)
+  const fp = orbit.fp;
+  if (WK.seat >= 0 || WK.stool >= 0){   // seated: forward stands up (pushed anew: the push that walked here may still be held); sideways turns the head
+    if (f < 0.5) WK.hold = false; else if (!WK.hold){ walkStand(); return; }
+    orbit.turn(-s * 1.3 * dt, 0); return;
   }
-  orbit.turn((k('left') - k('right')) * 1.8 * dt, (k('up') - k('down')) * 1.3 * dt);
-  const v = (k('fwd') - k('back')) * 1.3 * (on('shift') ? 2 : 1) * dt;
-  if (v){
-    const c = tgvSets[0].coaches[WK.i], Z = walkZones(WK.i), dx = Math.cos(f.yaw) * v, dz = -Math.sin(f.yaw) * v;
-    const zc = WK.z - Math.sign(WK.z) * Math.min(Math.abs(WK.z), Math.abs(v));   // drawn toward the middle, where the aisles, the bridge and the gangways are
-    for (const [x, z] of [[WK.x + dx, WK.z + dz], [WK.x + dx, WK.z], [WK.x, WK.z + dz], [WK.x + dx, zc], [WK.x, zc]]){   // straight on, sliding along what is in the way, or eased into the opening pushed against
+  const n = Math.hypot(f, s);
+  if (n > 1){ f /= n; s /= n; }   // a diagonal is no faster
+  if (n){
+    const c = tgvSets[0].coaches[WK.i], Z = walkZones(WK.i), cy = Math.cos(fp.yaw), sy = Math.sin(fp.yaw), d = v * dt,
+      dx = (cy * f + sy * s) * d, dz = (cy * s - sy * f) * d,
+      zc = WK.z - Math.sign(WK.z) * Math.min(Math.abs(WK.z), Math.hypot(dx, dz));   // drawn toward the middle, where the aisles, the bridge and the gangways are
+    const tries = [[WK.x + dx, WK.z + dz], [WK.x + dx, WK.z], [WK.x, WK.z + dz]];   // straight on, or sliding along what is in the way
+    if (Math.abs(dx) >= Math.abs(dz)) tries.push([WK.x + dx, zc], [WK.x, zc]);   // or eased into the opening pushed against; not when stepping mostly across, where it would fight the step and shake
+    for (const [x, z] of tries){
       if (Math.abs(x - WK.x) + Math.abs(z - WK.z) < 1e-6) continue;
       const y = walkFloor(Z, x, z, WK.y);
       if (isNaN(y) || walkCrowded(c, x, z)) continue;
@@ -3749,7 +3742,7 @@ function walkMove(dt, on){   // on(move): that key or pad button is held. Forwar
     walkCar();
   }
   WK.ey += (WK.y - WK.ey) * Math.min(1, dt * 12);
-  f.eye.set(tgvSets[0].coaches[WK.i].xr + WK.x, WK.ey + WALK_EYE, WK.z);
+  fp.eye.set(tgvSets[0].coaches[WK.i].xr + WK.x, WK.ey + WALK_EYE, WK.z);
 }
 function walkCar(){   // half way through a gangway the next car takes over, in its own frame (on a curve the two turn apart)
   const n = TGV.TRAILERS.length, L = TGV.TRAILERS[WK.i][1], j = WK.x > L + 0.3 && WK.i > 0 ? WK.i - 1 : WK.x < -0.3 && WK.i < n - 1 ? WK.i + 1 : -1;
@@ -3778,7 +3771,7 @@ function walkStand(){   // up into the aisle beside the seat, facing along it th
   c.occ[i] = 0; WK.seat = -1;
   orbit.look(c.g, new THREE.Vector3(c.xr + WK.x, WK.y + WALK_EYE, WK.z), c.face[i] > 0 ? 0 : Math.PI, -0.05); orbit.fp.name = 'walk';
 }
-function walkSitNear(){   // Sit (or Enter): the nearest free seat within reach on this deck, one ahead rather than one behind; seated: stand up. The bar car: at the counter, order; else the nearest free stool
+function walkSitNear(){   // Sit (or E, or Enter): the nearest free seat within reach on this deck, one ahead rather than one behind; seated: stand up. The bar car: at the counter, order; else the nearest free stool
   if (WK.seat >= 0 || WK.stool >= 0){ walkStand(); return; }
   const c = tgvSets[0].coaches[WK.i], d = WK.y > 1.7 ? 1 : 0, fx = Math.cos(orbit.fp.yaw), fz = -Math.sin(orbit.fp.yaw);
   if (c.bar){
@@ -3819,16 +3812,12 @@ function walkFree(){   // out of the walk: the seat (or the stool) is free again
   if (WK.stool >= 0) c.bar.taken[WK.stool] = 0;
   WK.seat = WK.stool = -1; WK.on = false;
 }
-function walkView(){   // standing at coach 1's stair head facing the bridge to coach 2, or in the aisle beside the seat the viewer had; already walking: stay put
+function walkView(){   // the passenger: seated by the window on coach 1's upper deck, facing the way the train runs (a seat no traveller takes); already walking: stay put
   if (S.mode !== 'tgv' || WK.on) return null;
-  const c = tgvSets[0].coaches[0], fp = orbit.fp;
-  let x = 3.5, y = DECK.up, yaw = Math.PI;
-  if (fp?.obj === c.g && (fp.name === 'seatUp' || fp.name === 'seatLo')){
-    const i = c.view[2 * (fp.name === 'seatUp' ? 1 : 0) + (seatFace > 0 ? 0 : 1)], f = c.face[i];
-    x = c.seat[3 * i] - c.xr + 0.42 * f; y = c.seat[3 * i + 1]; yaw = f > 0 ? 0 : Math.PI;
-  }
-  Object.assign(WK, { on:true, i:0, x, y, z:0, ey:y, seat:-1, stool:-1, hold:false });
-  return { obj:c.g, eye:new THREE.Vector3(c.xr + x, y + WALK_EYE, 0), yaw, pitch:-0.05 };
+  const c = tgvSets[0].coaches[0];
+  Object.assign(WK, { on:true, i:0, seat:-1, stool:-1 });
+  walkSit(c.view[2 + (S.dir < 0 ? 1 : 0)]);   // walkSit takes the view there itself: nothing left for flyPreset to do
+  return null;
 }
 
 /* ---- the sun's shadow box: over the train (a long one takes a bigger map), stretched over a station's slab near it so the slab shades the
@@ -3876,8 +3865,6 @@ function updateTgv(dt){
   const fpCab = orbit.fp?.name === 'driver' ? orbit.fp.obj : null;   // in the driver's place the driver is the viewer: not drawn
   tgvDriver.visible = S.dir > 0 && tgvDriver.parent !== fpCab;   // the driver sits in the leading cab
   for (const h of pcHosts) h.driver.visible = S.dir < 0 && h === (wide ? pcHosts[1] : pcHosts[0]) && h.driver.parent !== fpCab;
-  const fp = orbit.fp?.name;
-  if ((fp === 'seatUp' || fp === 'seatLo') && seatFace !== S.dir) flyPreset(fp);   // the train turned round: the viewer moves to the seat facing the new way
   updatePax(dt); updateBar(dt);
 }
 
@@ -6320,10 +6307,11 @@ $('nextStep').addEventListener('click', () => { stopAuto(); goStep(stepIdx + 1);
 $('autoPlay').addEventListener('click', () => autoOn ? stopAuto() : startAuto());
 window.addEventListener('keydown', e => {
   if (e.target.matches('input,textarea,select')) return;
-  if (walking){   // the arrows walk (the keys below); Enter sits down, stands up or orders at the bar, Esc closes the bar's menu or stops walking
-    if (e.key === 'Escape'){ if (barIsOpen()) barClose(); else cabActions.leave(); }
-    else if (e.key === 'Enter' && e.repeat) e.preventDefault();   // held: not one more of what has the focus
-    else if (e.key === 'Enter' && !e.target.closest('button,a') && !barIsOpen()){ e.preventDefault(); walkSitNear(); }
+  if (walking){   // WASD or the arrows walk (the keys below); E or Enter sits down, stands up or orders at the bar; Esc closes the bar's menu or stops walking, once the mouse is free (taken by the view, Esc only frees it)
+    const sitKey = e.code === 'KeyE' || e.key === 'Enter' && !e.target.closest('button,a');
+    if (e.key === 'Escape'){ if (walkLocked() || performance.now() - lockOffT < 300) return; if (barIsOpen()) barClose(); else cabActions.leave(); }
+    else if (sitKey && e.repeat) e.preventDefault();   // held: not once more
+    else if (sitKey && !barIsOpen()){ e.preventDefault(); walkSitNear(); }
     return;
   }
   if (e.key === 'ArrowRight'){ stopAuto(); goStep(stepIdx + 1); }
@@ -6445,7 +6433,7 @@ function setExplode(f){
 $('rgExplode').addEventListener('input', e => setExplode(+e.target.value));
 $('camRow').addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b) return;
-  if (b.dataset.cam.startsWith('seat') || b.dataset.cam === 'driver' || b.dataset.cam === 'walk'){   // a passenger's or the driver's view: the body whole and opaque, the windows glazed
+  if (b.dataset.cam === 'driver' || b.dataset.cam === 'walk'){   // the passenger's or the driver's view: the body whole and opaque, the windows glazed
     if (shellLevel < 1) setShell(1);
     if (cutAxis !== 'none') setCut('none');
     if (S.explode > 0){ setExplode(0); $('rgExplode').value = 0; }
@@ -6471,8 +6459,10 @@ const ray = new THREE.Raycaster(), ptr = new THREE.Vector2();
 orbit.onClick = e => {
   if (inCab){ wakeTap = false; cabTap(e); return; }   // nothing to pick from the driver's seat: its view's edges jump along the line
   if (wakeTap){ wakeTap = false; return; }   // that tap only brought the controls back
+  if (walking && !lockAtDown && walkLocked()) return;   // that click took the mouse for the view, it picks nothing
   const r = canvas.getBoundingClientRect();
-  ptr.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+  if (lockAtDown) ptr.set(0, 0);   // the mouse taken: what the crosshair, in the middle, points at
+  else ptr.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
   ray.setFromCamera(ptr, camera);
   if (walking){ if (barIsOpen()) barClose(); else walkPick(ray); return; }   // walking: a tap on a free seat sits there (the bar's menu open: a tap beside it puts it away)
   const catG = [...chunks.values()].map(c => c.cat);
@@ -6577,7 +6567,9 @@ $('cabUi').addEventListener('click', () => showCabUi(!document.body.classList.co
 $('cabLeave').addEventListener('click', () => cabActions.leave());
 $('cabDir').addEventListener('click', e => { const b = e.target.closest('button'); if (b) cabActions.dir(+b.dataset.dir); });
 $('cabNext').addEventListener('click', () => cabActions.next());   // the desk's Next stop, within reach where the desk is out of view (a phone held upright)
-/* ---- walking through the train (CAMS.walk, 03f3): the page's controls step aside for a pad (the arrows), Sit and ✕; a tap on a free seat sits there */
+/* ---- walking through the train (CAMS.walk, 03f3), as in a game: the page's controls step aside for Sit and ✕; WASD or the arrows walk and
+   a click on the view hands the mouse to the head (pointer lock, Esc frees it); on a touch screen the left stick walks and the right one
+   looks. A tap on a free seat, or a click with the crosshair on it, sits there */
 let walking = false, walkSayT = 0;
 function walkSay(key, n, ms = 2200){   // a word over the view: the car just entered, why that seat cannot be taken, how to walk; no key: away
   const el = $('walkSay'); clearTimeout(walkSayT);
@@ -6590,20 +6582,54 @@ function keepWalker(dt){
   const on = orbit.fp?.name === 'walk';
   if (on !== walking){
     walking = on; document.body.classList.toggle('walking', on);
-    if (on){ document.activeElement?.blur?.(); walkSay(lastPtr === 'mouse' ? 'walk_hint' : 'walk_hint_touch', 0, 6000); }   // off the Walk button: Enter now sits
-    else { barClose(); walkFree(); walkSay(null); keys.clear(); }
+    if (on){ document.activeElement?.blur?.(); walkSay(document.body.classList.contains('touch') ? 'walk_hint_touch' : 'walk_hint', 0, 8000); }   // off the Passenger button: Enter now sits
+    else { barClose(); walkFree(); walkSay(null); keys.clear(); stickReset(); walkUnlock(); }
   }
   if (!on) return;
-  const open = barIsOpen();
-  walkMove(dt, m => !open && keys.has(m));   // the bar's menu open: the keys are the menu's
+  const open = barIsOpen(), k = m => !open && keys.has(m) ? 1 : 0, mv = STICK.move, lk = STICK.look;   // the bar's menu open: the keys are the menu's
+  let f = k('fwd') - k('back'), s = k('right') - k('left'), v = keys.has('shift') ? 2.6 : 1.3;
+  if (mv.on && !open){ f = -mv.y; s = mv.x; v = 2; }
+  if (lk.on && !open) orbit.turn(-lk.x * 2 * dt, -lk.y * 1.2 * dt);
+  walkMove(dt, f, s, v);
+  if (f || s || mv.on || lk.on) idleT = Math.min(idleT, 0);   // walking or looking round: the controls stay up
   const sit = barNear() ? 'bar_order' : WK.seat >= 0 || WK.stool >= 0 ? 'walk_stand' : 'walk_sit', b = $('walkSit');
   if (b.dataset.i18n !== sit){ b.dataset.i18n = sit; b.textContent = t(sit); }
 }
-document.querySelectorAll('#walkPad button[data-move]').forEach(b => {   // held like the key it stands for
-  const mv = b.dataset.move, up = () => { keys.delete(mv); b.classList.remove('on'); };
-  b.addEventListener('pointerdown', e => { e.preventDefault(); keys.add(mv); b.classList.add('on'); });
-  for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) b.addEventListener(ev, up);
-  b.addEventListener('contextmenu', e => e.preventDefault());
+const STICK = {};   // {x, y}: where the stick is pushed, -1..1 each way (y down); on: held; id: by which finger
+document.querySelectorAll('.walk-stick').forEach(el => {   // the knob follows the thumb within the ring; the middle is dead, then the push grows gently so a small one stays small
+  const st = STICK[el.dataset.stick] = { x:0, y:0, on:false, id:-1, el }, knob = el.firstElementChild;
+  const put = e => {
+    const r = el.getBoundingClientRect(), R = r.width / 2, dx = e.clientX - r.left - R, dy = e.clientY - r.top - R, a = Math.hypot(dx, dy) / R || 1e-9, m = Math.min(1, a);
+    const g = m < 0.12 ? 0 : ((m - 0.12) / 0.88) ** 2 / a / R;
+    st.x = dx * g; st.y = dy * g;
+    knob.style.transform = `translate(calc(-50% + ${(dx / a * m * 0.55).toFixed(1)}px), calc(-50% + ${(dy / a * m * 0.55).toFixed(1)}px))`;
+  };
+  el.addEventListener('pointerdown', e => {
+    e.preventDefault(); if (st.on) return;
+    st.on = true; st.id = e.pointerId; el.setPointerCapture(e.pointerId); el.classList.add('on'); put(e);
+  });
+  el.addEventListener('pointermove', e => { if (st.on && e.pointerId === st.id) put(e); });
+  for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture']) el.addEventListener(ev, e => { if (e.pointerId === st.id) stickUp(st); });
+  el.addEventListener('contextmenu', e => e.preventDefault());
+});
+function stickUp(st){ st.on = false; st.id = -1; st.x = st.y = 0; st.el.classList.remove('on'); st.el.firstElementChild.style.transform = ''; }
+function stickReset(){ for (const st of Object.values(STICK)) stickUp(st); }
+let lockAtDown = false, lockOffT = 0;   // the mouse was the view's when the click began; when it was last freed
+const walkLocked = () => document.pointerLockElement === canvas;
+function walkUnlock(){ if (walkLocked()) document.exitPointerLock(); }
+canvas.addEventListener('pointerdown', e => {   // walking, a click on the view hands it the mouse: the pointer hides and every move turns the head, as in a game
+  lockAtDown = walkLocked();
+  if (lockAtDown || !walking || e.pointerType !== 'mouse' || e.button !== 0 || barIsOpen()) return;
+  try { canvas.requestPointerLock()?.catch?.(() => {}); } catch {}   // refused (too soon after Esc, or not allowed here): the click picks at the pointer as before
+});
+document.addEventListener('pointerlockchange', () => {
+  const on = walkLocked(); document.body.classList.toggle('walk-lock', on);
+  if (!on) lockOffT = performance.now();
+});
+document.addEventListener('mousemove', e => {
+  if (!walking || !walkLocked() || !orbit.fp) return;
+  const k = orbit.cam.fov * Math.PI / 180 / Math.max(1, canvas.clientHeight), mx = e.movementX || 0, my = e.movementY || 0;
+  orbit.turn(-mx * k, -my * k); orbit.moved += Math.abs(mx) + Math.abs(my);   // a click that turned the head is no pick
 });
 $('walkSit').addEventListener('click', () => walkSitNear());
 $('walkLeave').addEventListener('click', () => cabActions.leave());
@@ -6637,7 +6663,7 @@ function barRender(){
 }
 function barOpen(){
   if (!walking) return;
-  barRender(); $('barMenu').hidden = false; document.body.classList.add('bar-open'); keys.clear(); walkSay(null); barFace();
+  barRender(); $('barMenu').hidden = false; document.body.classList.add('bar-open'); keys.clear(); stickReset(); walkUnlock(); walkSay(null); barFace();
   $('barItems').firstElementChild.focus({ preventScroll:true });
 }
 function barClose(){
@@ -6909,8 +6935,8 @@ $('timeSeg').addEventListener('click', e => { const b = e.target.closest('button
 const keys = new Set();
 const KEY_MOVE = { w:'fwd', s:'back', a:'left', d:'right', e:'up', r:'up', q:'down', f:'down' };
 const CODE_MOVE = { KeyW:'fwd', KeyS:'back', KeyA:'left', KeyD:'right', KeyE:'up', KeyQ:'down' };   // physical positions, so an AZERTY Z also goes forward
-const ARROW_MOVE = { ArrowUp:'fwd', ArrowDown:'back', ArrowLeft:'left', ArrowRight:'right' };   // walking only: elsewhere ← → step the guide
-const moveOf = e => (walking && (ARROW_MOVE[e.key] || CODE_MOVE[e.code])) || KEY_MOVE[e.key.toLowerCase()] || CODE_MOVE[e.code] || null;   // walking, a key's place first: an AZERTY Q turns left
+const WALK_MOVE = { KeyW:'fwd', ArrowUp:'fwd', KeyS:'back', ArrowDown:'back', KeyA:'left', ArrowLeft:'left', KeyD:'right', ArrowRight:'right' };   // walking: by the key's place (an AZERTY's ZQSD) and the arrows; elsewhere ← → step the guide
+const moveOf = e => walking ? WALK_MOVE[e.code] || WALK_MOVE[e.key] || null : KEY_MOVE[e.key.toLowerCase()] || CODE_MOVE[e.code] || null;
 window.addEventListener('keydown', e => {
   if (e.target.matches('input,textarea,select') || e.metaKey || e.ctrlKey || e.altKey) return;
   const k = e.key.toLowerCase();
@@ -6922,7 +6948,7 @@ window.addEventListener('keydown', e => {
 window.addEventListener('keyup', e => {
   const k = e.key.toLowerCase();
   if (k === 'shift') keys.delete('shift');
-  for (const mv of [ARROW_MOVE[e.key], CODE_MOVE[e.code], KEY_MOVE[k]]) if (mv) keys.delete(mv);   // all it may have held: walking may have begun or ended since it went down
+  for (const mv of [WALK_MOVE[e.code], WALK_MOVE[e.key], CODE_MOVE[e.code], KEY_MOVE[k]]) if (mv) keys.delete(mv);   // all it may have held: walking may have begun or ended since it went down
   if (k === 'h' || k === ' ') horn.release();
 });
 window.addEventListener('blur', () => { keys.clear(); horn.release(); });
@@ -7001,10 +7027,12 @@ function updateCompass(){
 /* ---- while the train runs and nobody touches the page, the overlays fade out of the way (the kid build keeps its big buttons in sight) */
 const IDLE_S = 5, READ_WPS = 3.5;   // calm seconds before the fade; words read per second, so a new text stays up long enough to be read
 let idleT = 0, wakeTap = false, lastPtr = 'mouse';
+document.body.classList.toggle('touch', matchMedia('(pointer: coarse)').matches);
 function wakeUi(e){
   if (e.type === 'pointermove' && e.pointerType === 'mouse' && !e.movementX && !e.movementY) return;   // the browser re-checking what lies under a still mouse
   const B = document.body.classList, was = B.contains('ui-idle');
   if (e.pointerType) lastPtr = e.pointerType;
+  if (e.type === 'pointerdown' && e.pointerType) document.body.classList.toggle('touch', e.pointerType !== 'mouse');   // the sticks for a finger, the mouse look for a mouse
   if (e.type === 'pointerdown') wakeTap = was && e.pointerType !== 'mouse';   // a finger on the bare view only wakes the page, it picks nothing
   idleT = Math.min(idleT, 0);
   if (was) B.remove('ui-idle');
@@ -7033,25 +7061,29 @@ resize();
 setShell(0.18); setCut('none'); setExplode(0);
 setMode('diesel');
 requestAnimationFrame(loop);
-window.locoDebug = { BAR, BAR_MENU, barOpen, barClose, barBuy, barEat, barNear, barIsOpen, walkSitStool, updateBar, CAB, driverSeat, cabActions, cabLever, S, simulate, animate, updateFlows, updateGauges, orbit, renderer, scene, camera, goStep, setMode, setCut, setExplode, setShell, select, parts, TGV, tgvSets, station, updateTgv, syncControls, tick:window.tick, ROUTE, horn, chunks, requestTrack, trk, opp, parked, cars, curveLocal, updateHud, jumpToStation, jumpTo, setWeather, pcHosts, pcShells, flowObjs, landmarks, flyPreset, SND, PX, pool, paxResolve, paxHolding, allCoaches, world, keys, WK, walkMove, walkSitNear, walkPick, walkStand, walkZones };
+window.locoDebug = { BAR, BAR_MENU, barOpen, barClose, barBuy, barEat, barNear, barIsOpen, walkSitStool, updateBar, CAB, driverSeat, cabActions, cabLever, S, simulate, animate, updateFlows, updateGauges, orbit, renderer, scene, camera, goStep, setMode, setCut, setExplode, setShell, select, parts, TGV, tgvSets, station, updateTgv, syncControls, tick:window.tick, ROUTE, horn, chunks, requestTrack, trk, opp, parked, cars, curveLocal, updateHud, jumpToStation, jumpTo, setWeather, pcHosts, pcShells, flowObjs, landmarks, flyPreset, SND, PX, pool, paxResolve, paxHolding, allCoaches, world, keys, WK, walkMove, walkSitNear, walkPick, walkStand, walkZones, STICK, walkLocked };
 
 /* ============================================================ KID MODE (separate build: same module scope, appended after the UI) */
-/* One screen, no panels: pick a train, push the lever, honk, stop at stations, change the camera and the weather. */
+/* One screen, no panels: pick a train, push the lever, honk, stop at stations, change the weather; in the top right corner, always, the
+   three places to be: the driver's seat, the passenger's (on foot through the TGV) and outside, whose angles open beside it. */
 const KID_T = {
-  fr:{ title:"Conducteur de train", diesel:"Diesel", electric:"Électrique", tgv:"TGV", stop:"Stop", horn:"Klaxon", lever:"Manette", station:"Prochaine gare",
-       back:"Retour à Bordeaux", auto:"Pilote auto…", doors:"Portes", cam:"Caméra", wx:"Météo", xray:"Rayons X", hint:"Pousse la manette pour partir !",
+  fr:{ title:"Jouer au train", diesel:"Diesel", electric:"Électrique", tgv:"TGV", stop:"Stop", horn:"Klaxon", lever:"Manette", station:"Prochaine gare",
+       back:"Retour à Bordeaux", auto:"Pilote auto…", doors:"Portes", wx:"Météo", xray:"Rayons X", hint:"Pousse la manette pour partir !",
        hint_doors:"Ferme les portes… et c'est parti !", hint_pax:"Attends, tout le monde descend !", hint_end:"Terminus ! Appuie sur 🔄 pour faire demi-tour.", hint_stopped:"Le train doit être arrêté.",
        terminus:"Terminus", next:"Prochaine gare", full:"Version complète ↗", game:"Jeu des aiguillages ↗", lang:"Langue",
-       panto:"Pantographe", dir_par:"Vers Paris", dir_tls:"Vers Toulouse", turn:"Demi-tour", hint_panto:"Lève le pantographe !", hint_wait:"Le pantographe monte…", sound:"Son" },
-  en:{ title:"Train driver", diesel:"Diesel", electric:"Electric", tgv:"TGV", stop:"Stop", horn:"Horn", lever:"Lever", station:"Next station",
-       back:"Back to Bordeaux", auto:"Autopilot…", doors:"Doors", cam:"Camera", wx:"Weather", xray:"X-ray", hint:"Push the lever to go!",
+       panto:"Pantographe", dir_par:"Vers Paris", dir_tls:"Vers Toulouse", turn:"Demi-tour", hint_panto:"Lève le pantographe !", hint_wait:"Le pantographe monte…", sound:"Son",
+       v_driver:"Conducteur", v_pax:"Passager", v_out:"Dehors", pax_tgv:"Le passager voyage en TGV : choisis le TGV 🚄",
+       o_overview:"Ensemble", o_side:"Profil", o_train:"Tout le train", o_far:"Paysage", o_door:"Portes" },
+  en:{ title:"Train playground", diesel:"Diesel", electric:"Electric", tgv:"TGV", stop:"Stop", horn:"Horn", lever:"Lever", station:"Next station",
+       back:"Back to Bordeaux", auto:"Autopilot…", doors:"Doors", wx:"Weather", xray:"X-ray", hint:"Push the lever to go!",
        hint_doors:"Closing the doors… off we go!", hint_pax:"Wait, everyone is getting off!", hint_end:"End of the line! Press 🔄 to turn around.", hint_stopped:"The train must be stopped first.",
        terminus:"Terminus", next:"Next station", full:"Full version ↗", game:"Switch game ↗", lang:"Language",
-       panto:"Pantograph", dir_par:"To Paris", dir_tls:"To Toulouse", turn:"Turn around", hint_panto:"Raise the pantograph!", hint_wait:"Pantograph rising…", sound:"Sound" },
+       panto:"Pantograph", dir_par:"To Paris", dir_tls:"To Toulouse", turn:"Turn around", hint_panto:"Raise the pantograph!", hint_wait:"Pantograph rising…", sound:"Sound",
+       v_driver:"Driver", v_pax:"Passenger", v_out:"Outside", pax_tgv:"Passengers ride the TGV: pick the TGV 🚄",
+       o_overview:"Overview", o_side:"Side", o_train:"Whole train", o_far:"Landscape", o_door:"Doors" },
 };
 const kt = k => KID_T[S.lang][k] ?? k;
 const KID_WX = [['sun', '☀️'], ['cloud', '☁️'], ['rain', '🌧️'], ['dusk', '🌆']];
-const KID_CAMS = ['overview', 'driver', 'door', 'seatUp', 'seatLo', 'walk', 'side', 'train', 'far'], KID_TGV_CAMS = ['door', 'seatUp', 'seatLo', 'walk'];   // one tap: next view (the door, the two window seats and the walk through the train on the TGV only)
 Object.assign(CAMS, {
   door: () => {   // on the platform just ahead of coach 1's door, over the heads of the queue: the leaf slides toward the camera
     const x = TGV.TRAILERS[0][0] + TR.doorX, V = THREE.Vector3, k = nearestStation().side;
@@ -7068,13 +7100,14 @@ body.kid .topbar,body.kid .dock,body.kid .infocard,body.kid .gauges,body.kid #hu
 body.in-cab:not(.cab-ui) :is(.kid-top,.kid-menu,.kid-bottom){display:none}
 body.kid.walking :is(.kid-top,.kid-menu,.kid-bottom){display:none}
 body.kid .walk-bar button{border:0;background:rgba(255,255,255,.93);color:#1b2430;box-shadow:0 4px 12px rgba(0,0,0,.25);-webkit-backdrop-filter:none;backdrop-filter:none}
-body.kid .walk-pad{left:10px;bottom:calc(10px + env(safe-area-inset-bottom,0px));grid-template-columns:repeat(3,64px);grid-template-rows:repeat(2,64px);gap:8px}
-body.kid .walk-pad button{font-size:28px;border-radius:18px}
-body.kid .walk-pad button.on{background:#f28c28;color:#1b1206}
+body.kid .walk-stick{--d:150px;left:10px;bottom:calc(10px + env(safe-area-inset-bottom,0px));background:rgba(255,255,255,.3);border:3px solid rgba(255,255,255,.9);box-shadow:0 4px 12px rgba(0,0,0,.25);-webkit-backdrop-filter:none;backdrop-filter:none}
+body.kid .walk-stick.r{left:auto;right:10px}
+body.kid .walk-stick b{background:#fff;border:0;box-shadow:0 4px 10px rgba(0,0,0,.35)}body.kid .walk-stick.on b{background:#f28c28}
 body.kid .walk-sit{right:10px;bottom:calc(10px + env(safe-area-inset-bottom,0px));height:64px;border-radius:32px;padding:0 26px;font:700 18px/1 var(--font-display);letter-spacing:.06em;text-transform:uppercase}
-body.kid .walk-leave{top:10px;right:10px;width:56px;height:56px;font-size:28px}
-body.kid .walk-say{top:12px;max-width:calc(100% - 160px);background:rgba(255,255,255,.93);color:#1b2430;border:0;border-radius:16px;box-shadow:0 6px 18px rgba(0,0,0,.25);-webkit-backdrop-filter:none;backdrop-filter:none;font:600 17px/1.3 var(--font-body)}
-body.kid .bar-menu{background:rgba(255,255,255,.97);color:#1b2430;border:0;border-radius:20px;box-shadow:0 8px 24px rgba(0,0,0,.3);padding:16px}
+body.kid.touch .walk-sit{bottom:calc(174px + env(safe-area-inset-bottom,0px))}   /* over the right stick */
+body.kid .walk-leave,body.kid .cab-bar{display:none}   /* the way out is the corner's views */
+body.kid .walk-say{top:12px;max-width:calc(100% - 2 * (var(--kid-side,110px) + 30px));background:rgba(255,255,255,.93);color:#1b2430;border:0;border-radius:16px;box-shadow:0 6px 18px rgba(0,0,0,.25);-webkit-backdrop-filter:none;backdrop-filter:none;font:600 17px/1.3 var(--font-body)}
+body.kid .bar-menu{right:calc(var(--kid-side,110px) + 20px);background:rgba(255,255,255,.97);color:#1b2430;border:0;border-radius:20px;box-shadow:0 8px 24px rgba(0,0,0,.3);padding:16px}
 body.kid .walk-bar .bar-menu button{border:0;background:#eef2f6;color:#1b2430;box-shadow:none}
 body.kid .walk-bar .bar-menu .bar-item{min-height:64px;border-radius:14px}body.kid .bar-e{font-size:30px}body.kid .bar-n{font-size:15px}body.kid .bar-p{color:#5b6672;font-size:13px}
 body.kid .bar-title{font-size:26px}body.kid .bar-wallet{background:#fff4e6;border-color:#f28c28;color:#1b2430;font-size:15px}body.kid .walk-bar .bar-menu .bar-x{width:44px;height:44px;font-size:20px}
@@ -7086,7 +7119,7 @@ body.kid .lbl::after{background:#fff;height:18px}
 #kid button,#kid input,#kid a{touch-action:manipulation}
 #kid button{font:inherit;cursor:pointer}
 #kid button:focus-visible,#kid a:focus-visible{outline:3px solid #f28c28;outline-offset:2px}
-.kid-top{position:absolute;top:10px;left:10px;right:10px;display:flex;align-items:flex-start;gap:10px;pointer-events:none}
+.kid-top{position:absolute;top:10px;left:10px;right:calc(var(--kid-side,110px) + 20px);display:flex;align-items:flex-start;gap:10px;pointer-events:none}
 .kid-top>*{pointer-events:auto}
 .kid-panel{background:rgba(255,255,255,.93);border-radius:22px;box-shadow:0 6px 18px rgba(0,0,0,.25)}
 .kid-trains{display:flex;gap:4px;padding:6px}
@@ -7098,11 +7131,22 @@ body.kid .lbl::after{background:#fff;height:18px}
 .kid-speed .n{font:700 46px/1 var(--font-display);font-variant-numeric:tabular-nums;letter-spacing:.01em}
 .kid-speed .n small{font-size:16px;margin-left:5px;letter-spacing:.06em}
 .kid-next{font:600 13.5px/1.2 var(--font-body);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
-body.kid .compass{top:64px;right:10px;background:rgba(255,255,255,.93);border:0;box-shadow:0 6px 18px rgba(0,0,0,.25);-webkit-backdrop-filter:none;backdrop-filter:none;--ink:#1b2430;--muted:#5d6b78;--panel-solid:#fff;--accent:#f28c28}
+body.kid .compass{background:rgba(255,255,255,.93);border:0;box-shadow:0 6px 18px rgba(0,0,0,.25);-webkit-backdrop-filter:none;backdrop-filter:none;--ink:#1b2430;--muted:#5d6b78;--panel-solid:#fff;--accent:#f28c28}
 .kid-gear{width:46px;height:46px;border-radius:50%;border:0;background:rgba(255,255,255,.85);font-size:22px;line-height:1;box-shadow:0 4px 12px rgba(0,0,0,.25);flex:0 0 auto}
-body.kid .cab-bar{top:10px;right:10px;gap:10px;flex-direction:column}
-body.kid.in-cab :is(.kid-gear,.kid-menu){display:none}body.kid.in-cab .kid-top{right:76px}body.kid.in-cab .compass{top:142px}   /* in the cab its two buttons take the menu's corner */
-body.kid .cab-deck{inset:10px 76px 10px 10px;gap:10px}body.kid .cab-line{align-self:stretch;width:auto;background:rgba(255,255,255,.93);border:0;border-radius:22px;box-shadow:0 6px 18px rgba(0,0,0,.25);padding:12px 22px 2px;-webkit-backdrop-filter:none;backdrop-filter:none}
+/* the corner column: the views, then in the cab its 🎛️, then the compass; what comes and goes sits under the views, which never move */
+.kid-side{position:absolute;top:10px;right:10px;display:flex;flex-direction:column;align-items:center;gap:10px;pointer-events:none}
+.kid-side>*{pointer-events:auto}
+.kid-views{display:flex;flex-direction:column;gap:4px;padding:6px}
+.kid-views .kt.off{opacity:.45}
+.kid-angles{position:absolute;top:0;right:calc(100% + 10px);display:flex;flex-direction:column;gap:4px;padding:6px}
+.kid-angles[hidden]{display:none}
+.kid-angles .kt{flex-direction:row;justify-content:flex-start;gap:10px;min-width:0;padding:8px 16px 8px 10px;white-space:nowrap}
+.kid-angles .kt .ico{font-size:26px}.kid-angles .kt .lab{display:block}
+body.kid .kid-side .compass{position:relative;top:auto;right:auto}
+body.kid #cabUi{width:56px;height:56px;padding:0;border:0;border-radius:50%;background:rgba(255,255,255,.93);color:#1b2430;font-size:28px;line-height:1;box-shadow:0 4px 12px rgba(0,0,0,.25)}
+body.kid #cabUi[aria-pressed="true"]{background:#f28c28}
+body.kid:not(.in-cab) #cabUi{display:none}
+body.kid .cab-deck{inset:10px calc(var(--kid-side,110px) + 20px) 10px 10px;gap:10px}body.kid .cab-line{align-self:stretch;width:auto;background:rgba(255,255,255,.93);border:0;border-radius:22px;box-shadow:0 6px 18px rgba(0,0,0,.25);padding:12px 22px 2px;-webkit-backdrop-filter:none;backdrop-filter:none}
 body.kid .cab-row .seg{border:0;border-radius:14px;background:#e8edf3}body.kid .cab-row button{padding:8px 16px;font:700 17px/1 var(--font-body);color:#1b2430}body.kid .cab-row button[aria-pressed="true"]{background:#2f9e44;color:#fff}
 body.kid .cab-say{background:rgba(255,255,255,.93);color:#1b2430;border:0;border-radius:16px;box-shadow:0 6px 18px rgba(0,0,0,.25);-webkit-backdrop-filter:none;backdrop-filter:none;font:700 19px/1.3 var(--font-body)}body.kid .cab-say.l{left:116px}
 body.kid .cab-lever{margin:auto 0;gap:4px;padding:10px 12px;background:rgba(255,255,255,.93);border:0;border-radius:22px;box-shadow:0 6px 18px rgba(0,0,0,.25);-webkit-backdrop-filter:none;backdrop-filter:none}
@@ -7112,8 +7156,7 @@ body.kid .cl-track::before{width:24px;top:-10px;bottom:-10px;border-radius:12px;
 body.kid .cl-track i{display:none}
 body.kid #clKnob{left:50%;right:auto;width:52px;height:52px;border-radius:50%;transform:translate(-50%,-50%);background:#fff;border:5px solid #1b2430;box-shadow:0 4px 10px rgba(0,0,0,.35)}
 body.kid #clVal{left:calc(100% + 22px);font:700 16px/1 var(--font-display);letter-spacing:.04em;padding:7px 10px;border-radius:10px;background:#f28c28;color:#1b1206}
-body.kid .cab-bar button{width:56px;height:56px;border:0;background:rgba(255,255,255,.93);color:#1b2430;font-size:28px;box-shadow:0 4px 12px rgba(0,0,0,.25);-webkit-backdrop-filter:none;backdrop-filter:none;touch-action:manipulation}
-.kid-menu{position:absolute;top:64px;right:10px;padding:12px;display:flex;flex-direction:column;gap:8px;min-width:220px;pointer-events:auto}
+.kid-menu{position:absolute;top:64px;right:calc(var(--kid-side,110px) + 20px);padding:12px;display:flex;flex-direction:column;gap:8px;min-width:220px;pointer-events:auto}
 .kid-menu[hidden]{display:none}
 .kid-menu .seg{display:flex;border:2px solid #1b2430;border-radius:10px;overflow:hidden}
 .kid-menu .seg button{flex:1;border:0;background:#fff;padding:8px;font-weight:700;color:#1b2430}
@@ -7167,19 +7210,20 @@ body.kid #rbTip{font-size:13px;padding:5px 9px;top:-30px;border-radius:8px}
   body.kid .rb-st{width:18px}body.kid .rb-st i{width:12px;height:12px}   /* 13 stops 26 px apart: room to tap between two dots */
 }
 @media (max-height:520px){   /* phone held sideways: one thin row of controls, the view stays visible */
-  .kid-top{top:6px;left:6px;right:6px;gap:6px}
+  .kid-top{top:6px;left:6px;right:calc(var(--kid-side,80px) + 12px);gap:6px}
+  .kid-side{top:6px;right:6px;gap:6px}.kid-views,.kid-angles{padding:4px;gap:2px}.kid-angles{right:calc(100% + 6px)}.kid-angles .kt{padding:5px 12px 5px 8px}.kid-angles .kt .ico{font-size:22px}
+  body.kid #cabUi{width:46px;height:46px;font-size:23px}
   .kt{min-width:46px;padding:3px 6px}.kt .ico{font-size:22px}.kt .lab{display:none}
   .kid-speed{padding:2px 12px 3px;min-width:0}.kid-speed .n{font-size:26px}.kid-speed .n small{font-size:12px}.kid-next{display:block;font-size:11px;margin-top:0}
-  .kid-gear{width:36px;height:36px;font-size:17px}.kid-menu{top:48px;right:6px}
-  body.kid .compass{top:48px;right:6px;width:44px;height:44px}
-  body.kid .cab-deck{inset:6px 58px 6px 6px;gap:6px}body.kid .cab-line{padding:6px 14px 0}body.kid .cab-lever{padding:6px 8px}body.kid .cl-end{font-size:20px}
+  .kid-gear{width:36px;height:36px;font-size:17px}.kid-menu{top:48px;right:calc(var(--kid-side,80px) + 12px)}
+  body.kid .compass{width:44px;height:44px}
+  body.kid .cab-deck{inset:6px calc(var(--kid-side,80px) + 12px) 6px 6px;gap:6px}body.kid .cab-line{padding:6px 14px 0}body.kid .cab-lever{padding:6px 8px}body.kid .cl-end{font-size:20px}
   body.kid .cl-track{width:48px;margin:20px 0}body.kid #clKnob{width:42px;height:42px;border-width:4px}
-  body.kid .cab-bar{top:6px;right:6px;gap:8px}body.kid .cab-bar button{width:46px;height:46px;font-size:23px}body.kid.in-cab .kid-top{right:58px}body.kid.in-cab .compass{top:114px}
   .kid-toast{font-size:17px;padding:10px 16px;top:32%}
-  body.kid .walk-pad{left:6px;bottom:calc(6px + env(safe-area-inset-bottom,0px));grid-template-columns:repeat(3,50px);grid-template-rows:repeat(2,50px);gap:6px}body.kid .walk-pad button{font-size:22px}
-  body.kid .walk-sit{right:6px;bottom:calc(6px + env(safe-area-inset-bottom,0px));height:50px;padding:0 18px;font-size:15px}
-  body.kid .walk-leave{top:6px;right:6px;width:46px;height:46px;font-size:23px}body.kid .walk-say{top:8px;font-size:15px}
-  body.kid .bar-menu{right:6px;bottom:calc(6px + env(safe-area-inset-bottom,0px));max-height:calc(100% - 64px);padding:10px}body.kid .walk-bar .bar-menu .bar-item{min-height:50px}body.kid .bar-e{font-size:24px}body.kid .walk-bar .bar-menu .bar-chip{width:44px;height:44px;font-size:24px}
+  body.kid .walk-stick{--d:110px;left:6px;bottom:calc(6px + env(safe-area-inset-bottom,0px))}body.kid .walk-stick.r{left:auto;right:6px}
+  body.kid .walk-sit{right:6px;bottom:calc(6px + env(safe-area-inset-bottom,0px));height:50px;padding:0 18px;font-size:15px}body.kid.touch .walk-sit{bottom:calc(124px + env(safe-area-inset-bottom,0px))}
+  body.kid .walk-say{top:8px;font-size:15px;max-width:calc(100% - 2 * (var(--kid-side,80px) + 18px))}
+  body.kid .bar-menu{right:calc(var(--kid-side,80px) + 12px);bottom:calc(6px + env(safe-area-inset-bottom,0px));max-height:calc(100% - 64px);padding:10px}body.kid .walk-bar .bar-menu .bar-item{min-height:50px}body.kid .bar-e{font-size:24px}body.kid .walk-bar .bar-menu .bar-chip{width:44px;height:44px;font-size:24px}
   .kid-bottom{left:6px;right:6px;bottom:calc(6px + env(safe-area-inset-bottom,0px));gap:6px}
   .kid-route{padding:4px 12px 0}
   body.kid #routeBar{height:34px}body.kid #routeBar::before{top:7px;height:4px}
@@ -7225,14 +7269,28 @@ $('c3d').parentElement.insertAdjacentHTML('beforeend', `<div id="kid">
       <button type="button" class="kb green" id="kidStation"><span class="ico">🚉</span><span class="lab" id="kidStationLab"></span></button>
       <button type="button" class="kb" id="kidDir"><span class="ico">🔄</span><span class="lab" id="kidDirLab"></span></button>
       <span class="tgv-only"><button type="button" class="kb blue" id="kidDoors" aria-pressed="false"><span class="ico">🚪</span><span class="lab" data-kid="doors"></span></button></span>
-      <button type="button" class="kb" id="kidCam"><span class="ico">📷</span><span class="lab" data-kid="cam"></span></button>
       <button type="button" class="kb" id="kidWx"><span class="ico" id="kidWxIco">☀️</span><span class="lab" data-kid="wx"></span></button>
       <button type="button" class="kb" id="kidXray" aria-pressed="false"><span class="ico">👀</span><span class="lab" data-kid="xray"></span></button>
     </div>
   </div>
+  <div class="kid-side" id="kidSide">
+    <div class="kid-panel kid-views" id="kidViews" role="group">
+      <button type="button" class="kt" data-view="driver" aria-pressed="false"><span class="ico">🧑‍✈️</span><span class="lab" data-kid="v_driver"></span></button>
+      <button type="button" class="kt" data-view="pax" aria-pressed="false"><span class="ico">💺</span><span class="lab" data-kid="v_pax"></span></button>
+      <button type="button" class="kt" data-view="out" aria-pressed="true" aria-expanded="false" aria-controls="kidAngles"><span class="ico">📷</span><span class="lab" data-kid="v_out"></span></button>
+    </div>
+    <div class="kid-panel kid-angles" id="kidAngles" role="group" hidden>
+      <button type="button" class="kt" data-cam="overview" aria-pressed="true"><span class="ico">🚄</span><span class="lab" data-kid="o_overview"></span></button>
+      <button type="button" class="kt" data-cam="side" aria-pressed="false"><span class="ico">↔️</span><span class="lab" data-kid="o_side"></span></button>
+      <button type="button" class="kt" data-cam="train" aria-pressed="false"><span class="ico">🛤️</span><span class="lab" data-kid="o_train"></span></button>
+      <button type="button" class="kt" data-cam="far" aria-pressed="false"><span class="ico">🏞️</span><span class="lab" data-kid="o_far"></span></button>
+      <span class="tgv-only"><button type="button" class="kt" data-cam="door" aria-pressed="false"><span class="ico">🚪</span><span class="lab" data-kid="o_door"></span></button></span>
+    </div>
+  </div>
 </div>`);
 $('kidRoute').appendChild($('routeBar'));   // the line with its station dots keeps its own click, drag and teleport handlers
-for (const b of [$('cabLeave'), $('walkLeave')]){ b.textContent = '📷'; delete b.dataset.i18nAria; delete b.dataset.i18nTitle; }   // in the cab and walking the way out is the camera button: next view
+$('kidSide').append($('cabUi'), $('compass'));   // under the views: the cab's 🎛️ (shown there only) and the compass
+new ResizeObserver(() => document.body.style.setProperty('--kid-side', $('kidSide').offsetWidth + 'px')).observe($('kidSide'));   // the other panels keep clear of the column
 
 /* ---- helpers */
 function kidPower(full){ ensureBattery(); if (S.mode === 'diesel') ensureRunning(); else if (full) ensureLive(); }   // full: pantograph up and line closed at once (start, train change)
@@ -7284,23 +7342,32 @@ function kidDoors(stay){   // stay: pressed from the cab desk, the view stays in
   if (S.speed > 0.1){ kidToast('hint_stopped', 2500); return; }
   if (S.doors && paxHolding()){ kidToast('hint_pax', 3000); PX.closeWhenDone = true; return; }
   S.doors = !S.doors; syncControls();
-  if (S.doors && !stay){ camIdx = KID_CAMS.indexOf('door'); flyPreset('door'); }   // opening: land beside the first door to watch it
+  if (S.doors && !stay) kidGo('door');   // opening: land beside the first door to watch it
 }
-let camIdx = 0, wxIdx = 0;
-function kidCam(){
-  do camIdx = (camIdx + 1) % KID_CAMS.length; while (S.mode !== 'tgv' && KID_TGV_CAMS.includes(KID_CAMS[camIdx]));
-  flyPreset(KID_CAMS[camIdx]);
+let kidOut = 'overview', wxIdx = 0;   // kidOut: the angle outside, kept for the way back out
+const kidWhere = () => orbit.fp?.name === 'driver' ? 'driver' : orbit.fp?.name === 'walk' ? 'pax' : 'out';
+function kidAngles(open){ $('kidAngles').hidden = !open; document.querySelector('#kidViews [data-view="out"]').setAttribute('aria-expanded', String(open)); }
+function kidGo(cam){   // outside, from that angle (the door's on the TGV only)
+  if (cam === 'door' && S.mode !== 'tgv') cam = 'overview';
+  kidOut = cam; kidAngles(false); flyPreset(cam);
+}
+function kidView(v){   // one tap from anywhere: the driver's seat, the passenger's (seated upstairs in car 1, then on foot), or back outside; outside already, its angles
+  const open = !$('kidAngles').hidden; kidAngles(false);
+  if (v === 'out'){ if (kidWhere() === 'out') kidAngles(!open); else kidGo(kidOut); return; }
+  if (v === 'pax' && S.mode !== 'tgv'){ kidToast('pax_tgv', 3000); return; }
+  if (shellLevel < 1){ setShell(1); $('kidXray').setAttribute('aria-pressed', 'false'); }   // inside, the train whole: the X-ray button is out of sight there
+  flyPreset(v === 'pax' ? 'walk' : 'driver');
 }
 function kidWx(){ wxIdx = (wxIdx + 1) % KID_WX.length; setWeather(KID_WX[wxIdx][0]); $('kidWxIco').textContent = KID_WX[wxIdx][1]; }
 function kidXray(){ setShell(shellLevel >= 1 ? 0.18 : 1); $('kidXray').setAttribute('aria-pressed', String(shellLevel < 1)); }
 function kidTrain(mode){
-  const d = S.dist, dir = S.dir;
+  const d = S.dist, dir = S.dir, where = kidWhere();
   setMode(mode);                 // resets the sim at Bordeaux and rebuilds the flows
   Object.assign(SIM_MUL, KID_MUL[mode]);
   S.dir = dir; jumpTo(d, true);  // back to where the child was, stopped, same way round
   kidPower(true); S.brake = 4; S.notch = 0; $('kidLever').value = 0; syncControls();
   $('kidTrains').querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.mode === mode)));
-  camIdx = 0; flyPreset(KID_CAMS[0]);
+  if (where === 'driver') flyPreset('driver'); else kidGo(kidOut);   // the driver stays the driver, in the new train's seat
   kidLang();
 }
 function kidLang(){
@@ -7308,7 +7375,6 @@ function kidLang(){
   document.querySelectorAll('[data-kid]').forEach(el => { el.textContent = kt(el.dataset.kid); });
   $('kidLang').querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.lang === S.lang)));
   $('kidLever').setAttribute('aria-label', kt('lever')); $('clTrack').setAttribute('aria-label', kt('lever'));
-  for (const b of [$('cabLeave'), $('walkLeave')]){ b.setAttribute('aria-label', kt('cam')); b.title = kt('cam'); }
 }
 function kidTick(){
   $('kidSpeed').textContent = Math.round(S.speed * 3.6);
@@ -7321,6 +7387,10 @@ function kidTick(){
   const lv = $('kidLever'); if (document.activeElement !== lv) lv.value = S.notch; $('kidLeverBox').classList.toggle('auto', S.autoStop);
   $('kidDoors').setAttribute('aria-pressed', String(S.doorsF > 0.5)); $('kidDoors').disabled = S.speed > 0.1 && S.doorsF < 0.02;
   $('kidHorn').classList.toggle('on', horn.active);
+  const where = kidWhere(), tgv = S.mode === 'tgv';
+  $('kidViews').querySelectorAll('[data-view]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.view === where)));
+  const pax = $('kidViews').querySelector('[data-view="pax"]'); pax.classList.toggle('off', !tgv); pax.setAttribute('aria-disabled', String(!tgv));
+  $('kidAngles').querySelectorAll('[data-cam]').forEach(b => b.setAttribute('aria-pressed', String(where === 'out' && b.dataset.cam === kidOut)));
 }
 
 /* ---- wiring */
@@ -7331,7 +7401,8 @@ $('kidStation').addEventListener('click', kidStation);
 $('kidPanto').addEventListener('click', kidPanto);
 $('kidDir').addEventListener('click', kidTurn);
 $('kidDoors').addEventListener('click', () => kidDoors());
-$('kidCam').addEventListener('click', kidCam);
+$('kidViews').addEventListener('click', e => { const b = e.target.closest('[data-view]'); if (b) kidView(b.dataset.view); });
+$('kidAngles').addEventListener('click', e => { const b = e.target.closest('[data-cam]'); if (b) kidGo(b.dataset.cam); });
 $('kidWx').addEventListener('click', kidWx);
 $('kidXray').addEventListener('click', kidXray);
 {
@@ -7350,20 +7421,23 @@ function kidMute(m){
 }
 $('kidSound').addEventListener('click', e => { const b = e.target.closest('button'); if (b) kidMute(+b.dataset.m === 1); });
 try { if (localStorage.getItem('kid.mute') === '1') kidMute(true); } catch (e) {}
-document.addEventListener('pointerdown', e => { if (!$('kidMenu').hidden && !e.target.closest('#kidMenu,#kidGear')){ $('kidMenu').hidden = true; $('kidGear').setAttribute('aria-expanded', 'false'); } });
+document.addEventListener('pointerdown', e => {   // a tap elsewhere folds the menu and the angles
+  if (!$('kidMenu').hidden && !e.target.closest('#kidMenu,#kidGear')){ $('kidMenu').hidden = true; $('kidGear').setAttribute('aria-expanded', 'false'); }
+  if (!$('kidAngles').hidden && !e.target.closest('#kidAngles,[data-view="out"]')) kidAngles(false);
+});
 
-/* ---- hooks into the engine: both pantographs of the first TGV set follow the switch; the desk buttons in the cab work as the kid buttons, its 📷 as the camera button */
+/* ---- hooks into the engine: both pantographs of the first TGV set follow the switch; the desk buttons in the cab work as the kid buttons; Esc from the cab or the walk goes back outside */
 pantoHook = f => { if (S.mode !== 'tgv') return false; for (const p of tgvSets[0].pantos) posePanto(p, f); posePanto(panto, f); return true; };   // kid mode: the front pantograph rises too, so the ⚡ button shows on the car the child looks at
 frameHook = () => { if (S.mode !== 'diesel' && S.battery && S.lineOn && S.panto && !S.vcb) S.vcb = true; };   // the child only handles the pantograph: the line breaker follows it
-Object.assign(cabActions, { panto:kidPanto, doors:() => kidDoors(true), next:kidStation, dir:d => { if (d !== S.dir) kidTurn(); }, leave:kidCam, lever:kidLever });
+Object.assign(cabActions, { panto:kidPanto, doors:() => kidDoors(true), next:kidStation, dir:d => { if (d !== S.dir) kidTurn(); }, leave:() => kidGo(kidOut), lever:kidLever });
 cabLever.min = 0; cabLever.build();   // the cab's lever is the kid lever stood up: 🐢 at the bottom holds the brake, 🚀 at the top, no brake notches (🐢 stops the train, as the kid lever does)
 document.querySelectorAll('.cl-end').forEach((el, i) => { el.textContent = i ? '🐢' : '🚀'; delete el.dataset.i18n; });
 { const b = document.querySelector('.cab-lever'); b.removeAttribute('title'); delete b.dataset.i18nTitle; delete $('clTrack').dataset.i18nAria; }
 
 /* ---- start: a TGV at Bordeaux, powered up, body opaque, ready to go */
 setMode('tgv'); Object.assign(SIM_MUL, KID_MUL.tgv); setShell(1); kidPower(true); S.brake = 4; syncControls();
-flyPreset(KID_CAMS[0]); orbit.autoRotate = false;
+kidGo('overview'); orbit.autoRotate = false;
 kidLang(); kidTick(); setInterval(kidTick, 100);
 kidToast('hint', 6000);
-Object.assign(window.locoDebug, { kidLever, kidStop, kidStation, kidDoors, kidCam, kidWx, kidXray, kidTrain, kidTick, kidPanto, kidTurn, kidMute });
+Object.assign(window.locoDebug, { kidLever, kidStop, kidStation, kidDoors, kidView, kidGo, kidWhere, kidWx, kidXray, kidTrain, kidTick, kidPanto, kidTurn, kidMute });
 </script>

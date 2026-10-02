@@ -5,7 +5,7 @@ Three static [Three.js](https://threejs.org) pages about trains, in French and E
 | Page | What it is | Live |
 |---|---|---|
 | `locomotive-3d.html` | **Anatomie d'une locomotive**: an interactive explainer of a diesel-electric locomotive, an electric locomotive and a TGV Duplex, driven along the real Toulouse Matabiau to Paris Montparnasse line with its TGV stops (Montauban, Agen, Bordeaux Saint-Jean, Libourne, Angoulême, Poitiers, Futuroscope, Châtellerault, Saint-Pierre-des-Corps, Vendôme and Massy; 829.5 km: the classic lines under 1.5 kV DC through the towns, the LGVs under 25 kV AC between them), with a nine-step guide, energy-flow animations, station autopilot, weather and time scale. Inside the TGV: drive from the cab, walk among the passengers car to car and sit in a free seat, or order at the bar in car 4 with play money | [train.boiret.com/locomotive](https://train.boiret.com/locomotive/) |
-| `locomotive-kid.html` | **Conducteur de train**: the same engine with one screen of big buttons for young children (lever, horn, pantograph, next station autopilot in both directions, cameras, weather, sound) | [train.boiret.com/conducteur](https://train.boiret.com/conducteur/) |
+| `locomotive-kid.html` | **Jouer au train** (Train playground): the same engine as a game for young children, made for a tablet. Big buttons (lever, horn, pantograph, next station autopilot in both directions, weather, sound) and, always in the same corner, the driver's seat, the passenger's (walk through the TGV with two sticks, sit down, buy at the bar) and the views outside | [train.boiret.com/playground](https://train.boiret.com/playground/) (`/conducteur/` redirects) |
 | `aiguillages.html` | **Aiguillages**: a railway switch puzzle game, 10 levels plus a tutorial | [train.boiret.com/aiguillages](https://train.boiret.com/aiguillages/) |
 
 Each page is plain HTML plus one ES module. Three.js 0.170 is loaded from jsDelivr, nothing else is fetched at runtime.
@@ -30,7 +30,7 @@ cd loco && python3 -m http.server 8765
 
 ## Site
 
-https://train.boiret.com serves the three pages plus a landing page. `site/build.sh` gives each built page a real document head and points its links to the other pages at the site paths (`/conducteur/`, `/locomotive/`, `/aiguillages/`); the root `Dockerfile` runs it and serves the result with Caddy (`site/Caddyfile`). Railway builds that image on every push to `main`, and `/version.txt` gives the commit that is live. Local preview: `sh site/build.sh && python3 -m http.server -d site/public 8767`.
+https://train.boiret.com serves the three pages plus a landing page. `site/build.sh` gives each built page a real document head and points its links to the other pages at the site paths (`/playground/`, `/locomotive/`, `/aiguillages/`); the root `Dockerfile` runs it and serves the result with Caddy (`site/Caddyfile`). Railway builds that image on every push to `main`, and `/version.txt` gives the commit that is live. Local preview: `sh site/build.sh && python3 -m http.server -d site/public 8767`.
 
 ### Languages
 

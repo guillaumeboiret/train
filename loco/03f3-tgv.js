@@ -513,6 +513,7 @@ function deckGeo(L, bar = false){   // per body length, x from the car's -x end:
     const x0 = 3.4, w = L - 3.43, xb = seatRows(L).bay;   // the upper floor runs to the front gangway and is open over the vestibule and the stair, but for a bridge from it to the rear gangway
     const br = new THREE.BoxGeometry(x0 - 0.03, 0.06, 0.9).translate(x0 / 2 + 0.015, DECK.up - 0.03, 0);   // the bridge, between parapets
     const par = [1, -1].map(s => new THREE.BoxGeometry(x0 - 0.03, 0.9, 0.03).translate(x0 / 2 + 0.015, DECK.up + 0.45, s * 0.46));
+    par.push(new THREE.BoxGeometry(0.03, 0.9, 0.95).translate(x0 + 0.015, DECK.up + 0.45, 0.935));   // and a rail along the upper floor's edge over the well beside the stair, from the parapet to the wall (z 1.42 at its top)
     const sl = Math.hypot(1.7, DECK.up - DECK.lo), stair = g => g.rotateZ(Math.atan2(DECK.up - DECK.lo, 1.7)).translate(2.7, (DECK.lo + DECK.up) / 2 - 0.03, -0.9);   // stair: vestibule (x 1.85) up to the upper deck (x 3.55)
     const tb = [];   // the bay's tables on both decks and sides, on a pedestal: top 0.7 over the floor, clear of the aisle, the feet and the wall
     if (!bar) for (const y of [DECK.lo, DECK.up]) for (const s of [1, -1]) tb.push(new THREE.BoxGeometry(0.4, 0.04, 1.08).translate(xb, y + 0.68, s * 0.84), new THREE.BoxGeometry(0.06, 0.66, 0.06).translate(xb, y + 0.33, s * 0.72));
@@ -808,7 +809,7 @@ function barFace(){   // the menu open at the counter: the eye turns to it and a
   if (WK.seat >= 0 || WK.stool >= 0 || !c.bar) return;
   orbit.look(c.g, new THREE.Vector3(c.xr + WK.x, WK.ey + WALK_EYE, WK.z), Math.PI / 2, -0.3); orbit.fp.name = 'walk';
 }
-function barNear(){   // standing at the counter, not turned away from it: Enter (or the button) orders
+function barNear(){   // standing at the counter, not turned away from it: E, Enter or the button orders
   if (!WK.on || WK.seat >= 0 || WK.stool >= 0 || WK.y < 1.7 || !tgvSets[0].coaches[WK.i].bar) return false;
   return WK.x > 4.4 && WK.x < 9.8 && -Math.sin(orbit.fp?.yaw ?? 0) < 0.5;
 }
@@ -1540,8 +1541,6 @@ Object.assign(CAMS, {
   coupler:  () => mirrorCam(S.sets === 2 || S.coupling !== 0 ? [[-186, 3.4, 6.0], [-186, 1.4, 0]] : [[-183, 3.4, 5.5], [-191, 1.4, 0]]),   // from the island platform, inside the row of lamp posts and clear of the train on the far face
   station:  () => mirrorCam([[-30, 10, 34], [-45, 1.5, 4]]),
   door:     () => mirrorCam([[-48, 2.3, 5.9], [-35, 1.7, 1.4]]),   // eye height on the island platform, under the canopy, between the two trains
-  seatUp:   () => seatView(1),
-  seatLo:   () => seatView(0),
   driver:   () => driverView(),
   walk:     () => walkView(),
 });
@@ -1555,11 +1554,6 @@ function driverView(){   // first person in the driver's place, the page's contr
   const pitch = -0.09;   // the dashboard's lower edge (about -32°) on the bottom edge of the widest view (55° tall); a taller one shows more roof and desk alike
   return S.mode === 'tgv' ? { obj, eye:new V(8.3, 3.45, 0), yaw:0, pitch } : { obj, eye:new V(8.25, 3.2, 0.55), yaw:0, pitch };
 }
-let seatFace = 1;   // the way the viewer's seat faces: the way the train ran when the view was taken (updateTgv moves the viewer when it turns round)
-function seatView(d){   // first person in the viewer's seat of coach 1 (deck d), facing the way the train runs, head over the seat, looking ahead toward the window beside it
-  const c = tgvSets[0].coaches[0], f = seatFace = S.dir < 0 ? -1 : 1, i = c.view[2 * d + (f > 0 ? 0 : 1)];
-  return { obj:c.g, eye:new THREE.Vector3(c.seat[3 * i] + 0.12 * f, c.seat[3 * i + 1] + 1.16, c.seat[3 * i + 2]), yaw:f > 0 ? -0.75 : 0.75 - Math.PI, pitch:-0.14 };
-}
 /* ---- walking through set 1 in first person (CAMS.walk): up the stair at a car's rear end, over the bridge and through the upper-deck
    gangway into the next car, either way, and into any free seat (occ 4 while taken). The walker stands at x from the rear end of car
    WK.i, on floor y, at z across, inside the boxes of that car's floor plan (walkZones). keepWalker (03h) drives it every frame */
@@ -1572,8 +1566,8 @@ function walkZones(i){   // [x0, x1, z0, z1, floor at x0, floor at x1]: where th
   const L = TGV.TRAILERS[i][1], rows = seatRows(L).rows, e = rows[rows.length - 1][0] + 0.4, lo = DECK.lo, up = DECK.up;
   const Z = tgvSets[0].coaches[i].bar ? [   // the bar car: up the stair to the bar (the lower deck past the stair's foot is the crew's)
     [0.2, 1.85, -0.95, 0.95, lo, lo], [1.85, 3.27, -0.27, 0.95, lo, lo], [1.85, 3.55, -1.05, -0.63, lo, up],
-    [i < TGV.TRAILERS.length - 1 ? -0.6 : 0.21, 3.4, -0.27, 0.27, up, up], [3.4, 3.6, -1.05, 1.05, up, up],
-    [3.4, 4.52, -1.05, 1.05, up, up],                                          // in at the counter's end
+    [i < TGV.TRAILERS.length - 1 ? -0.6 : 0.21, 3.4, -0.27, 0.27, up, up], [3.4, 3.6, -1.05, 0.27, up, up],
+    [3.6, 4.52, -1.05, 1.05, up, up],                                          // in at the counter's end
     [4.52, 9.68, -0.04, 0.47, up, up],                                         // along the counter, clear of its foot rail and of the stools
     [9.68, L - 0.2, -0.47, 0.47, up, up],                                      // the lounge between the stools
   ] : [
@@ -1582,7 +1576,7 @@ function walkZones(i){   // [x0, x1, z0, z1, floor at x0, floor at x1]: where th
     [3.4, L - 0.2, -0.08, 0.08, lo, lo], [e, L - 0.2, -0.95, 0.95, lo, lo],    // the lower aisle; the room past the last row
     [1.85, 3.55, -1.05, -0.63, lo, up],                                        // the stair
     [i < TGV.TRAILERS.length - 1 ? -0.6 : 0.21, 3.4, -0.27, 0.27, up, up],     // the bridge over the vestibule, on into the rear gangway (car 8: its staff door)
-    [3.4, 3.6, -1.05, 1.05, up, up],                                           // the stair head
+    [3.4, 3.6, -1.05, 0.27, up, up],                                           // the stair head, clear of the rail over the well
     [3.4, L - 0.2, -0.08, 0.08, up, up], [e, L - 0.2, -1.05, 1.05, up, up],    // the upper aisle; the room past the last row (car 1: its staff door)
   ];
   if (i > 0) Z.push([L - 0.2, L + 0.6, -0.27, 0.27, up, up]);                 // the front gangway, into the car ahead
@@ -1608,18 +1602,21 @@ function walkCrowded(c, x, z){   // someone walking in car c (to or from a seat)
   if (c.bar && WK.y > 1.7) for (const [px, pz] of c.bar.stand){ const d = Math.hypot(x - px, z - pz); if (d < WALK_R && d < Math.hypot(WK.x - px, WK.z - pz)) return true; }   // the two at the ledge
   return false;
 }
-function walkMove(dt, on){   // on(move): that key or pad button is held. Forward and back walk the way the eye looks, left and right turn, up and down tilt the head
-  const f = orbit.fp, k = m => on(m) ? 1 : 0;
-  if (WK.seat >= 0 || WK.stool >= 0){   // seated: the head turns; forward stands up (pressed anew: the one that walked here may still be held)
-    if (!on('fwd')) WK.hold = false; else if (!WK.hold){ walkStand(); return; }
-    orbit.turn((k('left') - k('right')) * 1.3 * dt, (k('up') - k('down')) * 1.3 * dt); return;
+function walkMove(dt, f, s, v){   // f, s: forward and to the right, -1..1 (the keys, or the left stick); v: full speed, m/s. Both go by the way the eye looks; the look is the mouse's or the right stick's (03h)
+  const fp = orbit.fp;
+  if (WK.seat >= 0 || WK.stool >= 0){   // seated: forward stands up (pushed anew: the push that walked here may still be held); sideways turns the head
+    if (f < 0.5) WK.hold = false; else if (!WK.hold){ walkStand(); return; }
+    orbit.turn(-s * 1.3 * dt, 0); return;
   }
-  orbit.turn((k('left') - k('right')) * 1.8 * dt, (k('up') - k('down')) * 1.3 * dt);
-  const v = (k('fwd') - k('back')) * 1.3 * (on('shift') ? 2 : 1) * dt;
-  if (v){
-    const c = tgvSets[0].coaches[WK.i], Z = walkZones(WK.i), dx = Math.cos(f.yaw) * v, dz = -Math.sin(f.yaw) * v;
-    const zc = WK.z - Math.sign(WK.z) * Math.min(Math.abs(WK.z), Math.abs(v));   // drawn toward the middle, where the aisles, the bridge and the gangways are
-    for (const [x, z] of [[WK.x + dx, WK.z + dz], [WK.x + dx, WK.z], [WK.x, WK.z + dz], [WK.x + dx, zc], [WK.x, zc]]){   // straight on, sliding along what is in the way, or eased into the opening pushed against
+  const n = Math.hypot(f, s);
+  if (n > 1){ f /= n; s /= n; }   // a diagonal is no faster
+  if (n){
+    const c = tgvSets[0].coaches[WK.i], Z = walkZones(WK.i), cy = Math.cos(fp.yaw), sy = Math.sin(fp.yaw), d = v * dt,
+      dx = (cy * f + sy * s) * d, dz = (cy * s - sy * f) * d,
+      zc = WK.z - Math.sign(WK.z) * Math.min(Math.abs(WK.z), Math.hypot(dx, dz));   // drawn toward the middle, where the aisles, the bridge and the gangways are
+    const tries = [[WK.x + dx, WK.z + dz], [WK.x + dx, WK.z], [WK.x, WK.z + dz]];   // straight on, or sliding along what is in the way
+    if (Math.abs(dx) >= Math.abs(dz)) tries.push([WK.x + dx, zc], [WK.x, zc]);   // or eased into the opening pushed against; not when stepping mostly across, where it would fight the step and shake
+    for (const [x, z] of tries){
       if (Math.abs(x - WK.x) + Math.abs(z - WK.z) < 1e-6) continue;
       const y = walkFloor(Z, x, z, WK.y);
       if (isNaN(y) || walkCrowded(c, x, z)) continue;
@@ -1628,7 +1625,7 @@ function walkMove(dt, on){   // on(move): that key or pad button is held. Forwar
     walkCar();
   }
   WK.ey += (WK.y - WK.ey) * Math.min(1, dt * 12);
-  f.eye.set(tgvSets[0].coaches[WK.i].xr + WK.x, WK.ey + WALK_EYE, WK.z);
+  fp.eye.set(tgvSets[0].coaches[WK.i].xr + WK.x, WK.ey + WALK_EYE, WK.z);
 }
 function walkCar(){   // half way through a gangway the next car takes over, in its own frame (on a curve the two turn apart)
   const n = TGV.TRAILERS.length, L = TGV.TRAILERS[WK.i][1], j = WK.x > L + 0.3 && WK.i > 0 ? WK.i - 1 : WK.x < -0.3 && WK.i < n - 1 ? WK.i + 1 : -1;
@@ -1657,7 +1654,7 @@ function walkStand(){   // up into the aisle beside the seat, facing along it th
   c.occ[i] = 0; WK.seat = -1;
   orbit.look(c.g, new THREE.Vector3(c.xr + WK.x, WK.y + WALK_EYE, WK.z), c.face[i] > 0 ? 0 : Math.PI, -0.05); orbit.fp.name = 'walk';
 }
-function walkSitNear(){   // Sit (or Enter): the nearest free seat within reach on this deck, one ahead rather than one behind; seated: stand up. The bar car: at the counter, order; else the nearest free stool
+function walkSitNear(){   // Sit (or E, or Enter): the nearest free seat within reach on this deck, one ahead rather than one behind; seated: stand up. The bar car: at the counter, order; else the nearest free stool
   if (WK.seat >= 0 || WK.stool >= 0){ walkStand(); return; }
   const c = tgvSets[0].coaches[WK.i], d = WK.y > 1.7 ? 1 : 0, fx = Math.cos(orbit.fp.yaw), fz = -Math.sin(orbit.fp.yaw);
   if (c.bar){
@@ -1698,16 +1695,12 @@ function walkFree(){   // out of the walk: the seat (or the stool) is free again
   if (WK.stool >= 0) c.bar.taken[WK.stool] = 0;
   WK.seat = WK.stool = -1; WK.on = false;
 }
-function walkView(){   // standing at coach 1's stair head facing the bridge to coach 2, or in the aisle beside the seat the viewer had; already walking: stay put
+function walkView(){   // the passenger: seated by the window on coach 1's upper deck, facing the way the train runs (a seat no traveller takes); already walking: stay put
   if (S.mode !== 'tgv' || WK.on) return null;
-  const c = tgvSets[0].coaches[0], fp = orbit.fp;
-  let x = 3.5, y = DECK.up, yaw = Math.PI;
-  if (fp?.obj === c.g && (fp.name === 'seatUp' || fp.name === 'seatLo')){
-    const i = c.view[2 * (fp.name === 'seatUp' ? 1 : 0) + (seatFace > 0 ? 0 : 1)], f = c.face[i];
-    x = c.seat[3 * i] - c.xr + 0.42 * f; y = c.seat[3 * i + 1]; yaw = f > 0 ? 0 : Math.PI;
-  }
-  Object.assign(WK, { on:true, i:0, x, y, z:0, ey:y, seat:-1, stool:-1, hold:false });
-  return { obj:c.g, eye:new THREE.Vector3(c.xr + x, y + WALK_EYE, 0), yaw, pitch:-0.05 };
+  const c = tgvSets[0].coaches[0];
+  Object.assign(WK, { on:true, i:0, seat:-1, stool:-1 });
+  walkSit(c.view[2 + (S.dir < 0 ? 1 : 0)]);   // walkSit takes the view there itself: nothing left for flyPreset to do
+  return null;
 }
 
 /* ---- the sun's shadow box: over the train (a long one takes a bigger map), stretched over a station's slab near it so the slab shades the
@@ -1755,7 +1748,5 @@ function updateTgv(dt){
   const fpCab = orbit.fp?.name === 'driver' ? orbit.fp.obj : null;   // in the driver's place the driver is the viewer: not drawn
   tgvDriver.visible = S.dir > 0 && tgvDriver.parent !== fpCab;   // the driver sits in the leading cab
   for (const h of pcHosts) h.driver.visible = S.dir < 0 && h === (wide ? pcHosts[1] : pcHosts[0]) && h.driver.parent !== fpCab;
-  const fp = orbit.fp?.name;
-  if ((fp === 'seatUp' || fp === 'seatLo') && seatFace !== S.dir) flyPreset(fp);   // the train turned round: the viewer moves to the seat facing the new way
   updatePax(dt); updateBar(dt);
 }

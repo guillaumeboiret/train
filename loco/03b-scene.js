@@ -250,7 +250,7 @@ class Orbit {
   }
   down(e){
     if (this.onPress?.(e)) return;
-    this.dom.setPointerCapture(e.pointerId);
+    if (!document.pointerLockElement) this.dom.setPointerCapture(e.pointerId);   // the mouse locked to the view (walking, 03h) takes no capture: it would throw
     this.ptrs.set(e.pointerId, { x:e.clientX, y:e.clientY, b:e.button, shift:e.shiftKey });
     this.moved = 0; this.dom.classList.add('dragging');
     if (this.ptrs.size === 2){ const [a, b] = [...this.ptrs.values()]; this.lastPinch = Math.hypot(a.x - b.x, a.y - b.y); this.lastMid = { x:(a.x + b.x) / 2, y:(a.y + b.y) / 2 }; }

@@ -1,21 +1,25 @@
 
 /* ============================================================ KID MODE (separate build: same module scope, appended after the UI) */
-/* One screen, no panels: pick a train, push the lever, honk, stop at stations, change the camera and the weather. */
+/* One screen, no panels: pick a train, push the lever, honk, stop at stations, change the weather; in the top right corner, always, the
+   three places to be: the driver's seat, the passenger's (on foot through the TGV) and outside, whose angles open beside it. */
 const KID_T = {
-  fr:{ title:"Conducteur de train", diesel:"Diesel", electric:"Électrique", tgv:"TGV", stop:"Stop", horn:"Klaxon", lever:"Manette", station:"Prochaine gare",
-       back:"Retour à Bordeaux", auto:"Pilote auto…", doors:"Portes", cam:"Caméra", wx:"Météo", xray:"Rayons X", hint:"Pousse la manette pour partir !",
+  fr:{ title:"Jouer au train", diesel:"Diesel", electric:"Électrique", tgv:"TGV", stop:"Stop", horn:"Klaxon", lever:"Manette", station:"Prochaine gare",
+       back:"Retour à Bordeaux", auto:"Pilote auto…", doors:"Portes", wx:"Météo", xray:"Rayons X", hint:"Pousse la manette pour partir !",
        hint_doors:"Ferme les portes… et c'est parti !", hint_pax:"Attends, tout le monde descend !", hint_end:"Terminus ! Appuie sur 🔄 pour faire demi-tour.", hint_stopped:"Le train doit être arrêté.",
        terminus:"Terminus", next:"Prochaine gare", full:"Version complète ↗", game:"Jeu des aiguillages ↗", lang:"Langue",
-       panto:"Pantographe", dir_par:"Vers Paris", dir_tls:"Vers Toulouse", turn:"Demi-tour", hint_panto:"Lève le pantographe !", hint_wait:"Le pantographe monte…", sound:"Son" },
-  en:{ title:"Train driver", diesel:"Diesel", electric:"Electric", tgv:"TGV", stop:"Stop", horn:"Horn", lever:"Lever", station:"Next station",
-       back:"Back to Bordeaux", auto:"Autopilot…", doors:"Doors", cam:"Camera", wx:"Weather", xray:"X-ray", hint:"Push the lever to go!",
+       panto:"Pantographe", dir_par:"Vers Paris", dir_tls:"Vers Toulouse", turn:"Demi-tour", hint_panto:"Lève le pantographe !", hint_wait:"Le pantographe monte…", sound:"Son",
+       v_driver:"Conducteur", v_pax:"Passager", v_out:"Dehors", pax_tgv:"Le passager voyage en TGV : choisis le TGV 🚄",
+       o_overview:"Ensemble", o_side:"Profil", o_train:"Tout le train", o_far:"Paysage", o_door:"Portes" },
+  en:{ title:"Train playground", diesel:"Diesel", electric:"Electric", tgv:"TGV", stop:"Stop", horn:"Horn", lever:"Lever", station:"Next station",
+       back:"Back to Bordeaux", auto:"Autopilot…", doors:"Doors", wx:"Weather", xray:"X-ray", hint:"Push the lever to go!",
        hint_doors:"Closing the doors… off we go!", hint_pax:"Wait, everyone is getting off!", hint_end:"End of the line! Press 🔄 to turn around.", hint_stopped:"The train must be stopped first.",
        terminus:"Terminus", next:"Next station", full:"Full version ↗", game:"Switch game ↗", lang:"Language",
-       panto:"Pantograph", dir_par:"To Paris", dir_tls:"To Toulouse", turn:"Turn around", hint_panto:"Raise the pantograph!", hint_wait:"Pantograph rising…", sound:"Sound" },
+       panto:"Pantograph", dir_par:"To Paris", dir_tls:"To Toulouse", turn:"Turn around", hint_panto:"Raise the pantograph!", hint_wait:"Pantograph rising…", sound:"Sound",
+       v_driver:"Driver", v_pax:"Passenger", v_out:"Outside", pax_tgv:"Passengers ride the TGV: pick the TGV 🚄",
+       o_overview:"Overview", o_side:"Side", o_train:"Whole train", o_far:"Landscape", o_door:"Doors" },
 };
 const kt = k => KID_T[S.lang][k] ?? k;
 const KID_WX = [['sun', '☀️'], ['cloud', '☁️'], ['rain', '🌧️'], ['dusk', '🌆']];
-const KID_CAMS = ['overview', 'driver', 'door', 'seatUp', 'seatLo', 'walk', 'side', 'train', 'far'], KID_TGV_CAMS = ['door', 'seatUp', 'seatLo', 'walk'];   // one tap: next view (the door, the two window seats and the walk through the train on the TGV only)
 Object.assign(CAMS, {
   door: () => {   // on the platform just ahead of coach 1's door, over the heads of the queue: the leaf slides toward the camera
     const x = TGV.TRAILERS[0][0] + TR.doorX, V = THREE.Vector3, k = nearestStation().side;
@@ -32,13 +36,14 @@ body.kid .topbar,body.kid .dock,body.kid .infocard,body.kid .gauges,body.kid #hu
 body.in-cab:not(.cab-ui) :is(.kid-top,.kid-menu,.kid-bottom){display:none}
 body.kid.walking :is(.kid-top,.kid-menu,.kid-bottom){display:none}
 body.kid .walk-bar button{border:0;background:rgba(255,255,255,.93);color:#1b2430;box-shadow:0 4px 12px rgba(0,0,0,.25);-webkit-backdrop-filter:none;backdrop-filter:none}
-body.kid .walk-pad{left:10px;bottom:calc(10px + env(safe-area-inset-bottom,0px));grid-template-columns:repeat(3,64px);grid-template-rows:repeat(2,64px);gap:8px}
-body.kid .walk-pad button{font-size:28px;border-radius:18px}
-body.kid .walk-pad button.on{background:#f28c28;color:#1b1206}
+body.kid .walk-stick{--d:150px;left:10px;bottom:calc(10px + env(safe-area-inset-bottom,0px));background:rgba(255,255,255,.3);border:3px solid rgba(255,255,255,.9);box-shadow:0 4px 12px rgba(0,0,0,.25);-webkit-backdrop-filter:none;backdrop-filter:none}
+body.kid .walk-stick.r{left:auto;right:10px}
+body.kid .walk-stick b{background:#fff;border:0;box-shadow:0 4px 10px rgba(0,0,0,.35)}body.kid .walk-stick.on b{background:#f28c28}
 body.kid .walk-sit{right:10px;bottom:calc(10px + env(safe-area-inset-bottom,0px));height:64px;border-radius:32px;padding:0 26px;font:700 18px/1 var(--font-display);letter-spacing:.06em;text-transform:uppercase}
-body.kid .walk-leave{top:10px;right:10px;width:56px;height:56px;font-size:28px}
-body.kid .walk-say{top:12px;max-width:calc(100% - 160px);background:rgba(255,255,255,.93);color:#1b2430;border:0;border-radius:16px;box-shadow:0 6px 18px rgba(0,0,0,.25);-webkit-backdrop-filter:none;backdrop-filter:none;font:600 17px/1.3 var(--font-body)}
-body.kid .bar-menu{background:rgba(255,255,255,.97);color:#1b2430;border:0;border-radius:20px;box-shadow:0 8px 24px rgba(0,0,0,.3);padding:16px}
+body.kid.touch .walk-sit{bottom:calc(174px + env(safe-area-inset-bottom,0px))}   /* over the right stick */
+body.kid .walk-leave,body.kid .cab-bar{display:none}   /* the way out is the corner's views */
+body.kid .walk-say{top:12px;max-width:calc(100% - 2 * (var(--kid-side,110px) + 30px));background:rgba(255,255,255,.93);color:#1b2430;border:0;border-radius:16px;box-shadow:0 6px 18px rgba(0,0,0,.25);-webkit-backdrop-filter:none;backdrop-filter:none;font:600 17px/1.3 var(--font-body)}
+body.kid .bar-menu{right:calc(var(--kid-side,110px) + 20px);background:rgba(255,255,255,.97);color:#1b2430;border:0;border-radius:20px;box-shadow:0 8px 24px rgba(0,0,0,.3);padding:16px}
 body.kid .walk-bar .bar-menu button{border:0;background:#eef2f6;color:#1b2430;box-shadow:none}
 body.kid .walk-bar .bar-menu .bar-item{min-height:64px;border-radius:14px}body.kid .bar-e{font-size:30px}body.kid .bar-n{font-size:15px}body.kid .bar-p{color:#5b6672;font-size:13px}
 body.kid .bar-title{font-size:26px}body.kid .bar-wallet{background:#fff4e6;border-color:#f28c28;color:#1b2430;font-size:15px}body.kid .walk-bar .bar-menu .bar-x{width:44px;height:44px;font-size:20px}
@@ -50,7 +55,7 @@ body.kid .lbl::after{background:#fff;height:18px}
 #kid button,#kid input,#kid a{touch-action:manipulation}
 #kid button{font:inherit;cursor:pointer}
 #kid button:focus-visible,#kid a:focus-visible{outline:3px solid #f28c28;outline-offset:2px}
-.kid-top{position:absolute;top:10px;left:10px;right:10px;display:flex;align-items:flex-start;gap:10px;pointer-events:none}
+.kid-top{position:absolute;top:10px;left:10px;right:calc(var(--kid-side,110px) + 20px);display:flex;align-items:flex-start;gap:10px;pointer-events:none}
 .kid-top>*{pointer-events:auto}
 .kid-panel{background:rgba(255,255,255,.93);border-radius:22px;box-shadow:0 6px 18px rgba(0,0,0,.25)}
 .kid-trains{display:flex;gap:4px;padding:6px}
@@ -62,11 +67,22 @@ body.kid .lbl::after{background:#fff;height:18px}
 .kid-speed .n{font:700 46px/1 var(--font-display);font-variant-numeric:tabular-nums;letter-spacing:.01em}
 .kid-speed .n small{font-size:16px;margin-left:5px;letter-spacing:.06em}
 .kid-next{font:600 13.5px/1.2 var(--font-body);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
-body.kid .compass{top:64px;right:10px;background:rgba(255,255,255,.93);border:0;box-shadow:0 6px 18px rgba(0,0,0,.25);-webkit-backdrop-filter:none;backdrop-filter:none;--ink:#1b2430;--muted:#5d6b78;--panel-solid:#fff;--accent:#f28c28}
+body.kid .compass{background:rgba(255,255,255,.93);border:0;box-shadow:0 6px 18px rgba(0,0,0,.25);-webkit-backdrop-filter:none;backdrop-filter:none;--ink:#1b2430;--muted:#5d6b78;--panel-solid:#fff;--accent:#f28c28}
 .kid-gear{width:46px;height:46px;border-radius:50%;border:0;background:rgba(255,255,255,.85);font-size:22px;line-height:1;box-shadow:0 4px 12px rgba(0,0,0,.25);flex:0 0 auto}
-body.kid .cab-bar{top:10px;right:10px;gap:10px;flex-direction:column}
-body.kid.in-cab :is(.kid-gear,.kid-menu){display:none}body.kid.in-cab .kid-top{right:76px}body.kid.in-cab .compass{top:142px}   /* in the cab its two buttons take the menu's corner */
-body.kid .cab-deck{inset:10px 76px 10px 10px;gap:10px}body.kid .cab-line{align-self:stretch;width:auto;background:rgba(255,255,255,.93);border:0;border-radius:22px;box-shadow:0 6px 18px rgba(0,0,0,.25);padding:12px 22px 2px;-webkit-backdrop-filter:none;backdrop-filter:none}
+/* the corner column: the views, then in the cab its 🎛️, then the compass; what comes and goes sits under the views, which never move */
+.kid-side{position:absolute;top:10px;right:10px;display:flex;flex-direction:column;align-items:center;gap:10px;pointer-events:none}
+.kid-side>*{pointer-events:auto}
+.kid-views{display:flex;flex-direction:column;gap:4px;padding:6px}
+.kid-views .kt.off{opacity:.45}
+.kid-angles{position:absolute;top:0;right:calc(100% + 10px);display:flex;flex-direction:column;gap:4px;padding:6px}
+.kid-angles[hidden]{display:none}
+.kid-angles .kt{flex-direction:row;justify-content:flex-start;gap:10px;min-width:0;padding:8px 16px 8px 10px;white-space:nowrap}
+.kid-angles .kt .ico{font-size:26px}.kid-angles .kt .lab{display:block}
+body.kid .kid-side .compass{position:relative;top:auto;right:auto}
+body.kid #cabUi{width:56px;height:56px;padding:0;border:0;border-radius:50%;background:rgba(255,255,255,.93);color:#1b2430;font-size:28px;line-height:1;box-shadow:0 4px 12px rgba(0,0,0,.25)}
+body.kid #cabUi[aria-pressed="true"]{background:#f28c28}
+body.kid:not(.in-cab) #cabUi{display:none}
+body.kid .cab-deck{inset:10px calc(var(--kid-side,110px) + 20px) 10px 10px;gap:10px}body.kid .cab-line{align-self:stretch;width:auto;background:rgba(255,255,255,.93);border:0;border-radius:22px;box-shadow:0 6px 18px rgba(0,0,0,.25);padding:12px 22px 2px;-webkit-backdrop-filter:none;backdrop-filter:none}
 body.kid .cab-row .seg{border:0;border-radius:14px;background:#e8edf3}body.kid .cab-row button{padding:8px 16px;font:700 17px/1 var(--font-body);color:#1b2430}body.kid .cab-row button[aria-pressed="true"]{background:#2f9e44;color:#fff}
 body.kid .cab-say{background:rgba(255,255,255,.93);color:#1b2430;border:0;border-radius:16px;box-shadow:0 6px 18px rgba(0,0,0,.25);-webkit-backdrop-filter:none;backdrop-filter:none;font:700 19px/1.3 var(--font-body)}body.kid .cab-say.l{left:116px}
 body.kid .cab-lever{margin:auto 0;gap:4px;padding:10px 12px;background:rgba(255,255,255,.93);border:0;border-radius:22px;box-shadow:0 6px 18px rgba(0,0,0,.25);-webkit-backdrop-filter:none;backdrop-filter:none}
@@ -76,8 +92,7 @@ body.kid .cl-track::before{width:24px;top:-10px;bottom:-10px;border-radius:12px;
 body.kid .cl-track i{display:none}
 body.kid #clKnob{left:50%;right:auto;width:52px;height:52px;border-radius:50%;transform:translate(-50%,-50%);background:#fff;border:5px solid #1b2430;box-shadow:0 4px 10px rgba(0,0,0,.35)}
 body.kid #clVal{left:calc(100% + 22px);font:700 16px/1 var(--font-display);letter-spacing:.04em;padding:7px 10px;border-radius:10px;background:#f28c28;color:#1b1206}
-body.kid .cab-bar button{width:56px;height:56px;border:0;background:rgba(255,255,255,.93);color:#1b2430;font-size:28px;box-shadow:0 4px 12px rgba(0,0,0,.25);-webkit-backdrop-filter:none;backdrop-filter:none;touch-action:manipulation}
-.kid-menu{position:absolute;top:64px;right:10px;padding:12px;display:flex;flex-direction:column;gap:8px;min-width:220px;pointer-events:auto}
+.kid-menu{position:absolute;top:64px;right:calc(var(--kid-side,110px) + 20px);padding:12px;display:flex;flex-direction:column;gap:8px;min-width:220px;pointer-events:auto}
 .kid-menu[hidden]{display:none}
 .kid-menu .seg{display:flex;border:2px solid #1b2430;border-radius:10px;overflow:hidden}
 .kid-menu .seg button{flex:1;border:0;background:#fff;padding:8px;font-weight:700;color:#1b2430}
@@ -131,19 +146,20 @@ body.kid #rbTip{font-size:13px;padding:5px 9px;top:-30px;border-radius:8px}
   body.kid .rb-st{width:18px}body.kid .rb-st i{width:12px;height:12px}   /* 13 stops 26 px apart: room to tap between two dots */
 }
 @media (max-height:520px){   /* phone held sideways: one thin row of controls, the view stays visible */
-  .kid-top{top:6px;left:6px;right:6px;gap:6px}
+  .kid-top{top:6px;left:6px;right:calc(var(--kid-side,80px) + 12px);gap:6px}
+  .kid-side{top:6px;right:6px;gap:6px}.kid-views,.kid-angles{padding:4px;gap:2px}.kid-angles{right:calc(100% + 6px)}.kid-angles .kt{padding:5px 12px 5px 8px}.kid-angles .kt .ico{font-size:22px}
+  body.kid #cabUi{width:46px;height:46px;font-size:23px}
   .kt{min-width:46px;padding:3px 6px}.kt .ico{font-size:22px}.kt .lab{display:none}
   .kid-speed{padding:2px 12px 3px;min-width:0}.kid-speed .n{font-size:26px}.kid-speed .n small{font-size:12px}.kid-next{display:block;font-size:11px;margin-top:0}
-  .kid-gear{width:36px;height:36px;font-size:17px}.kid-menu{top:48px;right:6px}
-  body.kid .compass{top:48px;right:6px;width:44px;height:44px}
-  body.kid .cab-deck{inset:6px 58px 6px 6px;gap:6px}body.kid .cab-line{padding:6px 14px 0}body.kid .cab-lever{padding:6px 8px}body.kid .cl-end{font-size:20px}
+  .kid-gear{width:36px;height:36px;font-size:17px}.kid-menu{top:48px;right:calc(var(--kid-side,80px) + 12px)}
+  body.kid .compass{width:44px;height:44px}
+  body.kid .cab-deck{inset:6px calc(var(--kid-side,80px) + 12px) 6px 6px;gap:6px}body.kid .cab-line{padding:6px 14px 0}body.kid .cab-lever{padding:6px 8px}body.kid .cl-end{font-size:20px}
   body.kid .cl-track{width:48px;margin:20px 0}body.kid #clKnob{width:42px;height:42px;border-width:4px}
-  body.kid .cab-bar{top:6px;right:6px;gap:8px}body.kid .cab-bar button{width:46px;height:46px;font-size:23px}body.kid.in-cab .kid-top{right:58px}body.kid.in-cab .compass{top:114px}
   .kid-toast{font-size:17px;padding:10px 16px;top:32%}
-  body.kid .walk-pad{left:6px;bottom:calc(6px + env(safe-area-inset-bottom,0px));grid-template-columns:repeat(3,50px);grid-template-rows:repeat(2,50px);gap:6px}body.kid .walk-pad button{font-size:22px}
-  body.kid .walk-sit{right:6px;bottom:calc(6px + env(safe-area-inset-bottom,0px));height:50px;padding:0 18px;font-size:15px}
-  body.kid .walk-leave{top:6px;right:6px;width:46px;height:46px;font-size:23px}body.kid .walk-say{top:8px;font-size:15px}
-  body.kid .bar-menu{right:6px;bottom:calc(6px + env(safe-area-inset-bottom,0px));max-height:calc(100% - 64px);padding:10px}body.kid .walk-bar .bar-menu .bar-item{min-height:50px}body.kid .bar-e{font-size:24px}body.kid .walk-bar .bar-menu .bar-chip{width:44px;height:44px;font-size:24px}
+  body.kid .walk-stick{--d:110px;left:6px;bottom:calc(6px + env(safe-area-inset-bottom,0px))}body.kid .walk-stick.r{left:auto;right:6px}
+  body.kid .walk-sit{right:6px;bottom:calc(6px + env(safe-area-inset-bottom,0px));height:50px;padding:0 18px;font-size:15px}body.kid.touch .walk-sit{bottom:calc(124px + env(safe-area-inset-bottom,0px))}
+  body.kid .walk-say{top:8px;font-size:15px;max-width:calc(100% - 2 * (var(--kid-side,80px) + 18px))}
+  body.kid .bar-menu{right:calc(var(--kid-side,80px) + 12px);bottom:calc(6px + env(safe-area-inset-bottom,0px));max-height:calc(100% - 64px);padding:10px}body.kid .walk-bar .bar-menu .bar-item{min-height:50px}body.kid .bar-e{font-size:24px}body.kid .walk-bar .bar-menu .bar-chip{width:44px;height:44px;font-size:24px}
   .kid-bottom{left:6px;right:6px;bottom:calc(6px + env(safe-area-inset-bottom,0px));gap:6px}
   .kid-route{padding:4px 12px 0}
   body.kid #routeBar{height:34px}body.kid #routeBar::before{top:7px;height:4px}
@@ -189,14 +205,28 @@ $('c3d').parentElement.insertAdjacentHTML('beforeend', `<div id="kid">
       <button type="button" class="kb green" id="kidStation"><span class="ico">🚉</span><span class="lab" id="kidStationLab"></span></button>
       <button type="button" class="kb" id="kidDir"><span class="ico">🔄</span><span class="lab" id="kidDirLab"></span></button>
       <span class="tgv-only"><button type="button" class="kb blue" id="kidDoors" aria-pressed="false"><span class="ico">🚪</span><span class="lab" data-kid="doors"></span></button></span>
-      <button type="button" class="kb" id="kidCam"><span class="ico">📷</span><span class="lab" data-kid="cam"></span></button>
       <button type="button" class="kb" id="kidWx"><span class="ico" id="kidWxIco">☀️</span><span class="lab" data-kid="wx"></span></button>
       <button type="button" class="kb" id="kidXray" aria-pressed="false"><span class="ico">👀</span><span class="lab" data-kid="xray"></span></button>
     </div>
   </div>
+  <div class="kid-side" id="kidSide">
+    <div class="kid-panel kid-views" id="kidViews" role="group">
+      <button type="button" class="kt" data-view="driver" aria-pressed="false"><span class="ico">🧑‍✈️</span><span class="lab" data-kid="v_driver"></span></button>
+      <button type="button" class="kt" data-view="pax" aria-pressed="false"><span class="ico">💺</span><span class="lab" data-kid="v_pax"></span></button>
+      <button type="button" class="kt" data-view="out" aria-pressed="true" aria-expanded="false" aria-controls="kidAngles"><span class="ico">📷</span><span class="lab" data-kid="v_out"></span></button>
+    </div>
+    <div class="kid-panel kid-angles" id="kidAngles" role="group" hidden>
+      <button type="button" class="kt" data-cam="overview" aria-pressed="true"><span class="ico">🚄</span><span class="lab" data-kid="o_overview"></span></button>
+      <button type="button" class="kt" data-cam="side" aria-pressed="false"><span class="ico">↔️</span><span class="lab" data-kid="o_side"></span></button>
+      <button type="button" class="kt" data-cam="train" aria-pressed="false"><span class="ico">🛤️</span><span class="lab" data-kid="o_train"></span></button>
+      <button type="button" class="kt" data-cam="far" aria-pressed="false"><span class="ico">🏞️</span><span class="lab" data-kid="o_far"></span></button>
+      <span class="tgv-only"><button type="button" class="kt" data-cam="door" aria-pressed="false"><span class="ico">🚪</span><span class="lab" data-kid="o_door"></span></button></span>
+    </div>
+  </div>
 </div>`);
 $('kidRoute').appendChild($('routeBar'));   // the line with its station dots keeps its own click, drag and teleport handlers
-for (const b of [$('cabLeave'), $('walkLeave')]){ b.textContent = '📷'; delete b.dataset.i18nAria; delete b.dataset.i18nTitle; }   // in the cab and walking the way out is the camera button: next view
+$('kidSide').append($('cabUi'), $('compass'));   // under the views: the cab's 🎛️ (shown there only) and the compass
+new ResizeObserver(() => document.body.style.setProperty('--kid-side', $('kidSide').offsetWidth + 'px')).observe($('kidSide'));   // the other panels keep clear of the column
 
 /* ---- helpers */
 function kidPower(full){ ensureBattery(); if (S.mode === 'diesel') ensureRunning(); else if (full) ensureLive(); }   // full: pantograph up and line closed at once (start, train change)
@@ -248,23 +278,32 @@ function kidDoors(stay){   // stay: pressed from the cab desk, the view stays in
   if (S.speed > 0.1){ kidToast('hint_stopped', 2500); return; }
   if (S.doors && paxHolding()){ kidToast('hint_pax', 3000); PX.closeWhenDone = true; return; }
   S.doors = !S.doors; syncControls();
-  if (S.doors && !stay){ camIdx = KID_CAMS.indexOf('door'); flyPreset('door'); }   // opening: land beside the first door to watch it
+  if (S.doors && !stay) kidGo('door');   // opening: land beside the first door to watch it
 }
-let camIdx = 0, wxIdx = 0;
-function kidCam(){
-  do camIdx = (camIdx + 1) % KID_CAMS.length; while (S.mode !== 'tgv' && KID_TGV_CAMS.includes(KID_CAMS[camIdx]));
-  flyPreset(KID_CAMS[camIdx]);
+let kidOut = 'overview', wxIdx = 0;   // kidOut: the angle outside, kept for the way back out
+const kidWhere = () => orbit.fp?.name === 'driver' ? 'driver' : orbit.fp?.name === 'walk' ? 'pax' : 'out';
+function kidAngles(open){ $('kidAngles').hidden = !open; document.querySelector('#kidViews [data-view="out"]').setAttribute('aria-expanded', String(open)); }
+function kidGo(cam){   // outside, from that angle (the door's on the TGV only)
+  if (cam === 'door' && S.mode !== 'tgv') cam = 'overview';
+  kidOut = cam; kidAngles(false); flyPreset(cam);
+}
+function kidView(v){   // one tap from anywhere: the driver's seat, the passenger's (seated upstairs in car 1, then on foot), or back outside; outside already, its angles
+  const open = !$('kidAngles').hidden; kidAngles(false);
+  if (v === 'out'){ if (kidWhere() === 'out') kidAngles(!open); else kidGo(kidOut); return; }
+  if (v === 'pax' && S.mode !== 'tgv'){ kidToast('pax_tgv', 3000); return; }
+  if (shellLevel < 1){ setShell(1); $('kidXray').setAttribute('aria-pressed', 'false'); }   // inside, the train whole: the X-ray button is out of sight there
+  flyPreset(v === 'pax' ? 'walk' : 'driver');
 }
 function kidWx(){ wxIdx = (wxIdx + 1) % KID_WX.length; setWeather(KID_WX[wxIdx][0]); $('kidWxIco').textContent = KID_WX[wxIdx][1]; }
 function kidXray(){ setShell(shellLevel >= 1 ? 0.18 : 1); $('kidXray').setAttribute('aria-pressed', String(shellLevel < 1)); }
 function kidTrain(mode){
-  const d = S.dist, dir = S.dir;
+  const d = S.dist, dir = S.dir, where = kidWhere();
   setMode(mode);                 // resets the sim at Bordeaux and rebuilds the flows
   Object.assign(SIM_MUL, KID_MUL[mode]);
   S.dir = dir; jumpTo(d, true);  // back to where the child was, stopped, same way round
   kidPower(true); S.brake = 4; S.notch = 0; $('kidLever').value = 0; syncControls();
   $('kidTrains').querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.mode === mode)));
-  camIdx = 0; flyPreset(KID_CAMS[0]);
+  if (where === 'driver') flyPreset('driver'); else kidGo(kidOut);   // the driver stays the driver, in the new train's seat
   kidLang();
 }
 function kidLang(){
@@ -272,7 +311,6 @@ function kidLang(){
   document.querySelectorAll('[data-kid]').forEach(el => { el.textContent = kt(el.dataset.kid); });
   $('kidLang').querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.lang === S.lang)));
   $('kidLever').setAttribute('aria-label', kt('lever')); $('clTrack').setAttribute('aria-label', kt('lever'));
-  for (const b of [$('cabLeave'), $('walkLeave')]){ b.setAttribute('aria-label', kt('cam')); b.title = kt('cam'); }
 }
 function kidTick(){
   $('kidSpeed').textContent = Math.round(S.speed * 3.6);
@@ -285,6 +323,10 @@ function kidTick(){
   const lv = $('kidLever'); if (document.activeElement !== lv) lv.value = S.notch; $('kidLeverBox').classList.toggle('auto', S.autoStop);
   $('kidDoors').setAttribute('aria-pressed', String(S.doorsF > 0.5)); $('kidDoors').disabled = S.speed > 0.1 && S.doorsF < 0.02;
   $('kidHorn').classList.toggle('on', horn.active);
+  const where = kidWhere(), tgv = S.mode === 'tgv';
+  $('kidViews').querySelectorAll('[data-view]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.view === where)));
+  const pax = $('kidViews').querySelector('[data-view="pax"]'); pax.classList.toggle('off', !tgv); pax.setAttribute('aria-disabled', String(!tgv));
+  $('kidAngles').querySelectorAll('[data-cam]').forEach(b => b.setAttribute('aria-pressed', String(where === 'out' && b.dataset.cam === kidOut)));
 }
 
 /* ---- wiring */
@@ -295,7 +337,8 @@ $('kidStation').addEventListener('click', kidStation);
 $('kidPanto').addEventListener('click', kidPanto);
 $('kidDir').addEventListener('click', kidTurn);
 $('kidDoors').addEventListener('click', () => kidDoors());
-$('kidCam').addEventListener('click', kidCam);
+$('kidViews').addEventListener('click', e => { const b = e.target.closest('[data-view]'); if (b) kidView(b.dataset.view); });
+$('kidAngles').addEventListener('click', e => { const b = e.target.closest('[data-cam]'); if (b) kidGo(b.dataset.cam); });
 $('kidWx').addEventListener('click', kidWx);
 $('kidXray').addEventListener('click', kidXray);
 {
@@ -314,19 +357,22 @@ function kidMute(m){
 }
 $('kidSound').addEventListener('click', e => { const b = e.target.closest('button'); if (b) kidMute(+b.dataset.m === 1); });
 try { if (localStorage.getItem('kid.mute') === '1') kidMute(true); } catch (e) {}
-document.addEventListener('pointerdown', e => { if (!$('kidMenu').hidden && !e.target.closest('#kidMenu,#kidGear')){ $('kidMenu').hidden = true; $('kidGear').setAttribute('aria-expanded', 'false'); } });
+document.addEventListener('pointerdown', e => {   // a tap elsewhere folds the menu and the angles
+  if (!$('kidMenu').hidden && !e.target.closest('#kidMenu,#kidGear')){ $('kidMenu').hidden = true; $('kidGear').setAttribute('aria-expanded', 'false'); }
+  if (!$('kidAngles').hidden && !e.target.closest('#kidAngles,[data-view="out"]')) kidAngles(false);
+});
 
-/* ---- hooks into the engine: both pantographs of the first TGV set follow the switch; the desk buttons in the cab work as the kid buttons, its 📷 as the camera button */
+/* ---- hooks into the engine: both pantographs of the first TGV set follow the switch; the desk buttons in the cab work as the kid buttons; Esc from the cab or the walk goes back outside */
 pantoHook = f => { if (S.mode !== 'tgv') return false; for (const p of tgvSets[0].pantos) posePanto(p, f); posePanto(panto, f); return true; };   // kid mode: the front pantograph rises too, so the ⚡ button shows on the car the child looks at
 frameHook = () => { if (S.mode !== 'diesel' && S.battery && S.lineOn && S.panto && !S.vcb) S.vcb = true; };   // the child only handles the pantograph: the line breaker follows it
-Object.assign(cabActions, { panto:kidPanto, doors:() => kidDoors(true), next:kidStation, dir:d => { if (d !== S.dir) kidTurn(); }, leave:kidCam, lever:kidLever });
+Object.assign(cabActions, { panto:kidPanto, doors:() => kidDoors(true), next:kidStation, dir:d => { if (d !== S.dir) kidTurn(); }, leave:() => kidGo(kidOut), lever:kidLever });
 cabLever.min = 0; cabLever.build();   // the cab's lever is the kid lever stood up: 🐢 at the bottom holds the brake, 🚀 at the top, no brake notches (🐢 stops the train, as the kid lever does)
 document.querySelectorAll('.cl-end').forEach((el, i) => { el.textContent = i ? '🐢' : '🚀'; delete el.dataset.i18n; });
 { const b = document.querySelector('.cab-lever'); b.removeAttribute('title'); delete b.dataset.i18nTitle; delete $('clTrack').dataset.i18nAria; }
 
 /* ---- start: a TGV at Bordeaux, powered up, body opaque, ready to go */
 setMode('tgv'); Object.assign(SIM_MUL, KID_MUL.tgv); setShell(1); kidPower(true); S.brake = 4; syncControls();
-flyPreset(KID_CAMS[0]); orbit.autoRotate = false;
+kidGo('overview'); orbit.autoRotate = false;
 kidLang(); kidTick(); setInterval(kidTick, 100);
 kidToast('hint', 6000);
-Object.assign(window.locoDebug, { kidLever, kidStop, kidStation, kidDoors, kidCam, kidWx, kidXray, kidTrain, kidTick, kidPanto, kidTurn, kidMute });
+Object.assign(window.locoDebug, { kidLever, kidStop, kidStation, kidDoors, kidView, kidGo, kidWhere, kidWx, kidXray, kidTrain, kidTick, kidPanto, kidTurn, kidMute });
