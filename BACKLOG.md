@@ -5,6 +5,11 @@ Nothing leaves this file: a request is added the moment it is made, and a done i
 
 ## Open, in working order
 
+### 0. Now (asked 2026-10-03)
+- [ ] The camera never goes under the ground or under the rails ("Make sure the camera can go under the soil, under the rails, and it's useless": "can" heard, "can't" meant). An item of 2026-09-27 said the camera stays above the ground (482d499), but nothing stops the outside camera from orbiting below the track.
+- [ ] Heat as a transparent shimmer instead of the orange smoke: the hot air bends and blurs what is behind it, in waves ("Can you change the orange smoke to something that makes the feeling of heat but it's transparent? It just makes waves"). Changes the warm haze of 73a8dd0.
+- [ ] A no GUI button: hides every control so only the trip is on screen ("add a no-GUI mode Button that hides the GUI to only see the the travel").
+
 ### 1. World (asked 2026-10-02)
 - [ ] A real clock to set the time of day.
 - [ ] See the sun.
@@ -17,7 +22,7 @@ Nothing leaves this file: a request is added the moment it is made, and a done i
 
 ### 3. Cinematic camera, for long trips (asked 2026-10-02)
 - [ ] With the endless Next stop (done, 607ef93), a wallpaper for the whole line: the camera turns, goes inside the train, comes back out and follows it ("we could have a wallpaper for the whole line in a very nice way").
-- [ ] A camera mode that changes the point of view by itself: all the points of view, with aesthetic camera moves, "like a cinematic". First asked for streaming on YouTube; clarified the same day: "I don't need you to stream it's just the camera movement for long term travels".
+- [ ] A camera mode that changes the point of view by itself: all the points of view, with aesthetic camera moves, "like a cinematic". First asked for streaming on YouTube; clarified the same day: "I don't need you to stream it's just the camera movement for long term travels". Asked about again on 2026-10-03: "movie-like movements that can switch from the outside to the inside and make elegant movements".
 
 ### 4. Step off the train at a station (asked 2026-10-02)
 - [ ] The passenger can get off onto the platform and walk there, and the train never leaves without them: no departure until they are back aboard ("I want the user to be able to go outside of the train but the train can't go back without the user inside").

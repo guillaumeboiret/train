@@ -239,6 +239,7 @@ class Orbit {
     this.tTarget = this.target.clone(); this.tSph = this.sph.clone();
     this.autoRotate = false; this.moved = 0;
     this.ptrs = new Map(); this.lastPinch = 0; this.lastMid = null;
+    this.fence = null;   // fence(position): may move the eye out of a hill's rock; returns the lowest height it may take there, or null (03f4-route.js)
     this.onClick = null; this.onPress = null; this.onWheel = null;   // onPress(e) returns true when it took the press (a cab button), so the view does not turn; onWheel(e), when it took the wheel (walking: it looks), so it does not zoom
     this.fp = null; this.fpZoom = 1; this.fov = cam.fov;   // first person {obj, eye, yaw, pitch, t, from, fromQ}; fov: the orbit's own lens
     dom.addEventListener('pointerdown', e => this.down(e));
@@ -330,6 +331,12 @@ class Orbit {
       this.sph.theta += (this.tSph.theta - this.sph.theta) * k;
       this.target.lerp(this.tTarget, k);
       cam.position.setFromSpherical(this.sph).add(this.target);
+      const yMin = this.fence?.(cam.position);
+      if (yMin != null && cam.position.y < yMin){   // never under the ground or the rails: lifted by closing the angle from the zenith, so dragging further down has nothing to undo
+        const phi = Math.acos(THREE.MathUtils.clamp((yMin - this.target.y) / this.sph.radius, -1, 1));
+        this.sph.phi = Math.min(this.sph.phi, phi); this.tSph.phi = Math.min(this.tSph.phi, this.sph.phi);
+        cam.position.setFromSpherical(this.sph).add(this.target); cam.position.y = Math.max(cam.position.y, yMin);
+      }
       cam.lookAt(this.target);
     }
     const fov = this.fp ? fpFov(cam.aspect) * this.fpZoom : this.fov;   // a wider lens in first person, as a seat sees through a window
@@ -349,7 +356,7 @@ const CAMS = {
   battery:[[8.5, 1.4, 7], [3.8, 1.0, 0.4]],
   grids:[[6, 8.5, 6.5], [3.4, 4.3, 0]],
   roof:[[6, 11, 8], [0.5, 4.6, 0]],
-  under:[[6, -2.6, 8.5], [0, 1.0, 0]],
+  under:[[6, 0.3, 8.5], [0, 1.0, 0]],   // from the rails' height: never under the ground (Orbit.fence)
 };
 function flyPreset(name){   // a preset is [eye, target] to orbit, or {obj, eye, yaw, pitch} to ride in first person; a station can have its own (stationCam)
   let c = stationCam(name) || CAMS[name]; if (typeof c === 'function') c = c(); if (!c) return;

@@ -1079,6 +1079,7 @@ class Orbit {
     this.tTarget = this.target.clone(); this.tSph = this.sph.clone();
     this.autoRotate = false; this.moved = 0;
     this.ptrs = new Map(); this.lastPinch = 0; this.lastMid = null;
+    this.fence = null;   // fence(position): may move the eye out of a hill's rock; returns the lowest height it may take there, or null (03f4-route.js)
     this.onClick = null; this.onPress = null; this.onWheel = null;   // onPress(e) returns true when it took the press (a cab button), so the view does not turn; onWheel(e), when it took the wheel (walking: it looks), so it does not zoom
     this.fp = null; this.fpZoom = 1; this.fov = cam.fov;   // first person {obj, eye, yaw, pitch, t, from, fromQ}; fov: the orbit's own lens
     dom.addEventListener('pointerdown', e => this.down(e));
@@ -1170,6 +1171,12 @@ class Orbit {
       this.sph.theta += (this.tSph.theta - this.sph.theta) * k;
       this.target.lerp(this.tTarget, k);
       cam.position.setFromSpherical(this.sph).add(this.target);
+      const yMin = this.fence?.(cam.position);
+      if (yMin != null && cam.position.y < yMin){   // never under the ground or the rails: lifted by closing the angle from the zenith, so dragging further down has nothing to undo
+        const phi = Math.acos(THREE.MathUtils.clamp((yMin - this.target.y) / this.sph.radius, -1, 1));
+        this.sph.phi = Math.min(this.sph.phi, phi); this.tSph.phi = Math.min(this.tSph.phi, this.sph.phi);
+        cam.position.setFromSpherical(this.sph).add(this.target); cam.position.y = Math.max(cam.position.y, yMin);
+      }
       cam.lookAt(this.target);
     }
     const fov = this.fp ? fpFov(cam.aspect) * this.fpZoom : this.fov;   // a wider lens in first person, as a seat sees through a window
@@ -1189,7 +1196,7 @@ const CAMS = {
   battery:[[8.5, 1.4, 7], [3.8, 1.0, 0.4]],
   grids:[[6, 8.5, 6.5], [3.4, 4.3, 0]],
   roof:[[6, 11, 8], [0.5, 4.6, 0]],
-  under:[[6, -2.6, 8.5], [0, 1.0, 0]],
+  under:[[6, 0.3, 8.5], [0, 1.0, 0]],   // from the rails' height: never under the ground (Orbit.fence)
 };
 function flyPreset(name){   // a preset is [eye, target] to orbit, or {obj, eye, yaw, pitch} to ride in first person; a station can have its own (stationCam)
   let c = stationCam(name) || CAMS[name]; if (typeof c === 'function') c = c(); if (!c) return;
@@ -4840,7 +4847,7 @@ function buildChunk(ci){
       for (let c = NTD - 1; c >= 0; c--) v.push(vert(a - dOf(c), dOf(c)));
       v.push(vert((wMin[i] + wMax[i]) / 2, 0));
       for (let c = 0; c < NTD; c++) v.push(vert(b + dOf(c), dOf(c)));
-      return { f, s:f.s, v, hole:false };
+      return { f, s:f.s, v, hole:false, kind, i };
     };
     for (let i = 0; i < n; i += ROW){ const f = SM[i]; if (portals.some(pp => Math.abs(pp[0] - f.s) < 0.5)) continue; rows.push(mkRow(f, i, f.kind)); }
     for (const [sp, dirIn] of portals){       // the mouth: a row just outside (open profile, quads over the tube skipped) and one just inside (cover)
@@ -4852,6 +4859,13 @@ function buildChunk(ci){
       }
     }
     rows.sort((p, q) => p.s - q.s);
+    { const NR = rows.length, NCv = rows[0].v.length, G = { n:NR, nc:NCv, s:new Float64Array(NR), kind:new Uint8Array(NR), rail:new Float64Array(NR),
+        a:new Float32Array(NR), b:new Float32Array(NR), wc:new Float32Array(NR), rr:new Float32Array(NR), w:new Float32Array(NR * NCv), y:new Float32Array(NR * NCv) };
+      rows.forEach((r, k) => {   // kept for the camera's fence (camFence): the ground's profile row by row, the bed and the tube of each
+        G.s[k] = r.s; G.kind[k] = r.kind; G.rail[k] = r.f.yAbs; G.a[k] = wMin[r.i] - 3.4; G.b[k] = wMax[r.i] + 3.4; G.wc[k] = (wMin[r.i] + wMax[r.i]) / 2; G.rr[k] = tubeR(r.i);
+        r.v.forEach((q, c) => { G.w[k * NCv + c] = q[3]; G.y[k * NCv + c] = q[1] + O.y; });
+      });
+      ch.ground = G; }
     const pos = [], col = [], trees = [], houses = [], blocks = [], NC = rows[0].v.length, cityKey = cityKeyAt(s0);
     for (let r = 0; r < rows.length - 1; r++){
       const A = rows[r], B = rows[r + 1];
@@ -4995,6 +5009,40 @@ function ensureChunks(s){
 const F0 = mkFrame(), Fc = mkFrame(), P_loco = new THREE.Vector3(), qInv = new THREE.Quaternion(), Q_FLIP = new THREE.Quaternion().setFromAxisAngle(Y_UP, Math.PI);
 const _pv = new THREE.Vector3(), _pb = new THREE.Box3();
 const cars = [];                                  // {xc, pv, tag}: tag 0 wagons, 1 TGV set 1, 2 TGV set 2
+/* ---- the outside camera's fence (Orbit.fence, 03b-scene.js): never under the ground or the rails, nor inside a hill. A camera in a tunnel's
+   rock is drawn into the tube; anywhere else the lowest height it may take is returned, 0.6 m over the ground, the bed or a bridge deck */
+const _fx = new THREE.Vector3(), _ff = mkFrame();
+function groundRow(G, k, w){   // the ground's height (absolute) at w across row k
+  const o = k * G.nc; let c = 0;
+  while (c < G.nc - 2 && G.w[o + c + 1] < w) c++;
+  const w0 = G.w[o + c], u = Math.max(0, Math.min(1, (w - w0) / ((G.w[o + c + 1] - w0) || 1)));
+  const y = G.y[o + c] + (G.y[o + c + 1] - G.y[o + c]) * u;
+  return (G.kind[k] === 1 || G.kind[k] === 4) && w > G.a[k] - 0.2 && w < G.b[k] + 0.2 ? Math.max(y, G.rail[k] - 0.42) : y;   // a bridge: its deck, not the valley under it
+}
+function camFence(p){   // p: the camera in scene coordinates
+  _fx.copy(p).applyQuaternion(F0.q).add(P_loco);   // route coordinates
+  let s = S.dist;
+  for (let it = 0; it < 2; it++){ ROUTE.frameAt(Math.max(0, Math.min(ROUTE.L, s)), _ff); s += (_fx.x - _ff.p.x) * _ff.t.x + (_fx.z - _ff.p.z) * _ff.t.z; }   // along the curve, twice
+  if (s < 0 || s > ROUTE.L) return null;
+  ROUTE.frameAt(s, _ff);
+  const w = (_fx.x - _ff.p.x) * _ff.r.x + (_fx.z - _ff.p.z) * _ff.r.z, G = chunks.get(Math.floor(s / CH))?.ground;
+  if (!G || s < G.s[0] || s > G.s[G.n - 1]) return null;
+  let lo = 0, hi = G.n - 1; while (hi - lo > 1){ const m = (lo + hi) >> 1; if (G.s[m] <= s) lo = m; else hi = m; }
+  const t = (s - G.s[lo]) / ((G.s[hi] - G.s[lo]) || 1), lerp = (A, B) => A + (B - A) * t;
+  const yG = lerp(groundRow(G, lo, w), groundRow(G, hi, w));
+  if (ROUTE.kindAt(s) === 2 && _fx.y < yG){   // under the hill: inside the tube, or drawn into it
+    const k = t < 0.5 ? lo : hi, u = w - G.wc[k], R = G.rr[k] - 0.7, yc = lerp(G.rail[lo], G.rail[hi]) + 0.3;   // the arch's centre, 0.3 m over the rails
+    let v = Math.max(_fx.y - yc, -0.1), du = u;   // no lower than 0.2 m over the rails
+    const d = Math.hypot(u, Math.max(v, 0));
+    if (d > R){ du = u * R / d; if (v > 0) v *= R / d; }
+    _fx.copy(_ff.p).addScaledVector(_ff.r, G.wc[k] + du); _fx.y = yc + v;
+    p.copy(_fx).sub(P_loco).applyQuaternion(qInv);
+    return null;
+  }
+  _fx.y = yG + 0.6;
+  return _fx.sub(P_loco).applyQuaternion(qInv).y;
+}
+orbit.fence = camFence;
 const trk = { from:0, to:0, s0:-1e9 };            // track change: an S-curve over 400 m starting just ahead of where it was requested
 const trackFAt = s => trk.from + (trk.to - trk.from) * ROUTE.sstep((s - trk.s0) / 400);
 const laneMix = (s, u) => { const a = ROUTE.laneW(0, s, u), f = trackFAt(s); return f <= 0 ? a : a + (ROUTE.laneW(1, s, u) - a) * f; };
