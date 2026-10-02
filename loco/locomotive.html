@@ -42,6 +42,10 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline
 .seg button+button{border-left:1px solid var(--line)}
 .seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);font-weight:600}
 .seg button:focus-visible{outline-offset:-2px}
+#btnStation,#cabNext,#kidStation{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;touch-action:manipulation}   /* Next stop, held down: the whole line */
+#cabNext,#kidStation{touch-action:none}   /* a finger drifting a little must not turn into a pan that cancels the hold (nothing scrolls around them) */
+#btnStation.holding,#cabNext.holding,#kidStation.holding{background-image:linear-gradient(rgba(255,255,255,.45),rgba(255,255,255,.45));background-repeat:no-repeat;background-size:0 100%;animation:holdFill .6s linear forwards}
+@keyframes holdFill{to{background-size:100% 100%}}
 .spacer{flex:1}
 .stage{position:relative;flex:1;min-height:0;overflow:hidden;background:var(--canvas)}
 #c3d{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;cursor:grab}
@@ -283,5 +287,6 @@ body.ui-idle :is(.dock,.infocard,.gauges,.hud,.compass,#labels,.cab-bar,.cab-dec
 }
 @media (prefers-reduced-motion: reduce){
   .switch input,.switch input::after,.dot,.g .bar i,#clKnob{transition:none}
+  :is(#btnStation,#cabNext,#kidStation).holding{animation:none;background-size:100% 100%}
 }
 </style>

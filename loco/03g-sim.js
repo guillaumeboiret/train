@@ -24,7 +24,7 @@ const S = {
   current:0, effort:0, speed:0, dist:0,
   temp:0.2, fans:0, fanOn:false, gridHeat:0, gridFan:0,
   flowsOn:true, labelsOn:false, explode:0, autoShutdown:false, shutdownT:0, time:0,
-  sets:1, coupling:0, set2Off:-40, hatchF:0, doors:false, doorsF:0, autoStop:false, atStation:false, autoDoors:false, stationT:0,
+  sets:1, coupling:0, set2Off:-40, hatchF:0, doors:false, doorsF:0, autoStop:false, atStation:false, autoDoors:false, stationT:0, service:false,
 };
 function startEngine(){ if (S.mode !== 'diesel' || !S.battery || S.engine !== 'off') return; S.engine = 'cranking'; S.crankT = 0; }
 function stopEngine(){ if (S.engine === 'running') S.engine = 'stopping'; else if (S.engine === 'cranking') S.engine = 'off'; }

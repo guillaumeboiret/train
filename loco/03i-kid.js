@@ -3,16 +3,16 @@
 /* One screen, no panels: pick a train, push the lever, honk, stop at stations, change the weather; in the top right corner, always, the
    three places to be: the driver's seat, the passenger's (on foot through the TGV) and outside, whose angles open beside it. */
 const KID_T = {
-  fr:{ title:"Jouer au train", diesel:"Diesel", electric:"Électrique", tgv:"TGV", stop:"Stop", horn:"Klaxon", lever:"Manette", station:"Prochaine gare",
+  fr:{ title:"Jouer au train", diesel:"Diesel", electric:"Électrique", tgv:"TGV", stop:"Stop", horn:"Klaxon", lever:"Manette", station:"Prochaine gare", service:"Toute la ligne",
        back:"Retour à Bordeaux", auto:"Pilote auto…", doors:"Portes", wx:"Météo", xray:"Rayons X", hint:"Pousse la manette pour partir !",
-       hint_doors:"Ferme les portes… et c'est parti !", hint_pax:"Attends, tout le monde descend !", hint_end:"Terminus ! Appuie sur 🔄 pour faire demi-tour.", hint_stopped:"Le train doit être arrêté.",
+       hint_doors:"Ferme les portes… et c'est parti !", hint_pax:"Attends, tout le monde descend !", hint_end:"Terminus ! Appuie sur 🔄 pour faire demi-tour.", hint_stopped:"Le train doit être arrêté.", service_on:"🔁 Toute la ligne, en boucle", service_off:"Boucle arrêtée", service_last:"Boucle arrêtée : la prochaine gare est la dernière",
        terminus:"Terminus", next:"Prochaine gare", full:"Version complète ↗", game:"Jeu des aiguillages ↗", lang:"Langue",
        panto:"Pantographe", dir_par:"Vers Paris", dir_tls:"Vers Toulouse", turn:"Demi-tour", hint_panto:"Lève le pantographe !", hint_wait:"Le pantographe monte…", sound:"Son",
        v_driver:"Conducteur", v_pax:"Passager", v_out:"Dehors", pax_tgv:"Le passager voyage en TGV : choisis le TGV 🚄",
        o_overview:"Ensemble", o_side:"Profil", o_train:"Tout le train", o_far:"Paysage", o_door:"Portes" },
-  en:{ title:"Train playground", diesel:"Diesel", electric:"Electric", tgv:"TGV", stop:"Stop", horn:"Horn", lever:"Lever", station:"Next station",
+  en:{ title:"Train playground", diesel:"Diesel", electric:"Electric", tgv:"TGV", stop:"Stop", horn:"Horn", lever:"Lever", station:"Next station", service:"Whole line",
        back:"Back to Bordeaux", auto:"Autopilot…", doors:"Doors", wx:"Weather", xray:"X-ray", hint:"Push the lever to go!",
-       hint_doors:"Closing the doors… off we go!", hint_pax:"Wait, everyone is getting off!", hint_end:"End of the line! Press 🔄 to turn around.", hint_stopped:"The train must be stopped first.",
+       hint_doors:"Closing the doors… off we go!", hint_pax:"Wait, everyone is getting off!", hint_end:"End of the line! Press 🔄 to turn around.", hint_stopped:"The train must be stopped first.", service_on:"🔁 The whole line, again and again", service_off:"Loop stopped", service_last:"Loop stopped: the next station is the last",
        terminus:"Terminus", next:"Next station", full:"Full version ↗", game:"Switch game ↗", lang:"Language",
        panto:"Pantograph", dir_par:"To Paris", dir_tls:"To Toulouse", turn:"Turn around", hint_panto:"Raise the pantograph!", hint_wait:"Pantograph rising…", sound:"Sound",
        v_driver:"Driver", v_pax:"Passenger", v_out:"Outside", pax_tgv:"Passengers ride the TGV: pick the TGV 🚄",
@@ -203,7 +203,7 @@ $('c3d').parentElement.insertAdjacentHTML('beforeend', `<div id="kid">
       <div class="kid-lever" id="kidLeverBox"><input type="range" id="kidLever" min="0" max="8" step="1" value="0" aria-label="Manette"><div class="kid-lever-lab"><span>🐢</span><b data-kid="lever"></b><span>🚀</span></div></div>
       <button type="button" class="kb yellow" id="kidHorn"><span class="ico">📣</span><span class="lab" data-kid="horn"></span></button>
       <span class="elec-only"><button type="button" class="kb" id="kidPanto" aria-pressed="true"><span class="ico">⚡</span><span class="lab" data-kid="panto"></span></button></span>
-      <button type="button" class="kb green" id="kidStation"><span class="ico">🚉</span><span class="lab" id="kidStationLab"></span></button>
+      <button type="button" class="kb green" id="kidStation"><span class="ico" id="kidStationIco">🚉</span><span class="lab" id="kidStationLab"></span></button>
       <button type="button" class="kb" id="kidDir"><span class="ico">🔄</span><span class="lab" id="kidDirLab"></span></button>
       <span class="tgv-only"><button type="button" class="kb blue" id="kidDoors" aria-pressed="false"><span class="ico">🚪</span><span class="lab" data-kid="doors"></span></button></span>
       <button type="button" class="kb" id="kidWx"><span class="ico" id="kidWxIco">☀️</span><span class="lab" data-kid="wx"></span></button>
@@ -265,15 +265,16 @@ function kidTurn(){                                  // stopped train: face the 
   manual(); S.dir = -S.dir; S.notch = 0; S.brake = 4; $('kidLever').value = 0; syncControls();   // in the driver's place the frame loop moves the view to the other cab
   kidToast(S.dir > 0 ? 'dir_par' : 'dir_tls', 2500);
 }
-function kidStation(){
-  const st = nextStation(0);
+function kidStation(){   // a tap: on to the next station at the train's own pace, no jump (that is the line bar's job); on the whole line, it ends it
+  if (S.service){ kidToast(S.autoStop ? 'service_last' : 'service_off', 3000); serviceOff(); return; }
+  if (S.autoStop){ const to = cabTarget(); if (to) kidToast(`🚉 ${to.name}`, 2500); return; }   // already on its way: where to
+  const st = nextStation() || nextStation(0);         // the last platform too close to stop at this speed: braked for all the same
   if (!st){ kidTurn(); return; }                     // terminus: turn around
-  manual(); kidPower(true);
-  if (paxHolding()){ kidToast('hint_pax', 3000); PX.closeWhenDone = true; } else S.doors = false;
-  const mark = st.s - TGV.PLAT_FRONT;
-  if ((mark - S.dist) * S.dir > 5500) jumpTo(mark - 5000 * S.dir);   // skip the long straight bits, keep the speed
-  S.stopS = mark; S.autoStop = true; S.autoDoors = S.mode === 'tgv'; syncControls();
+  kidPower(true);
+  if (paxHolding()) kidToast('hint_pax', 3000);      // terminus: the doors close by themselves once everyone is through
+  goNextStation(st);
 }
+function kidService(){ kidPower(true); serviceOn(); kidToast('service_on', 3000); }   // held down: the whole line, again and again
 function kidDoors(stay){   // stay: pressed from the cab desk, the view stays in the cab
   if (S.mode !== 'tgv') return;
   if (S.speed > 0.1){ kidToast('hint_stopped', 2500); return; }
@@ -317,8 +318,8 @@ function kidTick(){
   $('kidSpeed').textContent = Math.round(S.speed * 3.6);
   const st = nextStation(0), d = st ? (st.s - TGV.PLAT_FRONT - S.dist) * S.dir : 0;
   $('kidNext').textContent = st ? `🚉 ${st.name} · ${d < 950 ? `${Math.round(d)} m` : `${(d / 1000).toFixed(d < 10000 ? 1 : 0)} km`}` : `🏁 ${kt('terminus')}`;
-  const sb = $('kidStation'); sb.classList.toggle('auto', S.autoStop); sb.disabled = S.autoStop;
-  $('kidStationLab').textContent = kt(S.autoStop ? 'auto' : st ? 'station' : 'turn');
+  const sb = $('kidStation'); sb.classList.toggle('auto', S.autoStop); sb.setAttribute('aria-pressed', String(S.service));
+  $('kidStationIco').textContent = S.service ? '🔁' : '🚉'; $('kidStationLab').textContent = kt(S.service ? 'service' : S.autoStop ? 'auto' : st ? 'station' : 'turn');
   $('kidDirLab').textContent = kt(S.dir > 0 ? 'dir_par' : 'dir_tls');
   $('kidPanto').setAttribute('aria-pressed', String(S.panto));
   const lv = $('kidLever'); if (document.activeElement !== lv) lv.value = S.notch; $('kidLeverBox').classList.toggle('auto', S.autoStop);
@@ -334,7 +335,7 @@ function kidTick(){
 $('kidTrains').addEventListener('click', e => { const b = e.target.closest('button'); if (b && b.dataset.mode !== S.mode) kidTrain(b.dataset.mode); });
 $('kidLever').addEventListener('input', e => kidLever(+e.target.value));
 $('kidStop').addEventListener('click', kidStop);
-$('kidStation').addEventListener('click', kidStation);
+holdable($('kidStation'), kidStation, kidService);   // held down: the whole line
 $('kidPanto').addEventListener('click', kidPanto);
 $('kidDir').addEventListener('click', kidTurn);
 $('kidDoors').addEventListener('click', () => kidDoors());
@@ -366,7 +367,7 @@ document.addEventListener('pointerdown', e => {   // a tap elsewhere folds the m
 /* ---- hooks into the engine: both pantographs of the first TGV set follow the switch; the desk buttons in the cab work as the kid buttons; Esc from the cab or the walk goes back outside */
 pantoHook = f => { if (S.mode !== 'tgv') return false; for (const p of tgvSets[0].pantos) posePanto(p, f); posePanto(panto, f); return true; };   // kid mode: the front pantograph rises too, so the ⚡ button shows on the car the child looks at
 frameHook = () => { if (S.mode !== 'diesel' && S.battery && S.lineOn && S.panto && !S.vcb) S.vcb = true; };   // the child only handles the pantograph: the line breaker follows it
-Object.assign(cabActions, { panto:kidPanto, doors:() => kidDoors(true), next:kidStation, dir:d => { if (d !== S.dir) kidTurn(); }, leave:() => kidGo(kidOut), lever:kidLever });
+Object.assign(cabActions, { panto:kidPanto, doors:() => kidDoors(true), next:kidStation, service:kidService, dir:d => { if (d !== S.dir) kidTurn(); }, leave:() => kidGo(kidOut), lever:kidLever });
 cabLever.min = 0; cabLever.build();   // the cab's lever is the kid lever stood up: 🐢 at the bottom holds the brake, 🚀 at the top, no brake notches (🐢 stops the train, as the kid lever does)
 document.querySelectorAll('.cl-end').forEach((el, i) => { el.textContent = i ? '🐢' : '🚀'; delete el.dataset.i18n; });
 { const b = document.querySelector('.cab-lever'); b.removeAttribute('title'); delete b.dataset.i18nTitle; delete $('clTrack').dataset.i18nAria; }
@@ -376,4 +377,4 @@ setMode('tgv'); Object.assign(SIM_MUL, KID_MUL.tgv); setShell(1); kidPower(true)
 kidGo('overview'); orbit.autoRotate = false;
 kidLang(); kidTick(); setInterval(kidTick, 100);
 kidToast('hint', 6000);
-Object.assign(window.locoDebug, { kidLever, kidStop, kidStation, kidDoors, kidView, kidGo, kidWhere, kidWx, kidXray, kidTrain, kidTick, kidPanto, kidTurn, kidMute });
+Object.assign(window.locoDebug, { kidLever, kidStop, kidStation, kidService, kidDoors, kidView, kidGo, kidWhere, kidWx, kidXray, kidTrain, kidTick, kidPanto, kidTurn, kidMute });

@@ -35,7 +35,7 @@ function resetSim(){   // home is Bordeaux Saint-Jean, where the tour starts, ev
   const home = (ROUTE.stations.find(x => x.id === 'bdx') || ROUTE.stations[0]).s - TGV.PLAT_FRONT;
   Object.assign(S, { battery:false, engine:'off', crankT:0, rpm:0, rpmN:0, fuel:0, notch:0, brake:0, throttleN:0, brakeN:0, panto:false, pantoF:0, lineOn:false, vcb:false,
     dcV:0, dcN:0, excitation:0, powerN:0, tractionN:0, regenN:0, current:0, effort:0, speed:0, temp:0.2, fans:0, fanOn:false, gridHeat:0, gridFan:0, autoShutdown:false, shutdownT:0,
-    sets:1, coupling:0, set2Off:-40, hatchF:0, doors:false, doorsF:0, autoStop:false, atStation:true, autoDoors:false, stationT:0,
+    sets:1, coupling:0, set2Off:-40, hatchF:0, doors:false, doorsF:0, autoStop:false, atStation:true, autoDoors:false, stationT:0, service:false,
     dist:home, stopS:home, dir:1, timeScale:1, holdN:0, track:0, trackF:0 });
   trk.from = trk.to = 0; trk.s0 = -1e9;
   voltSnap(); S.vMaxEff = Math.min(specNow().vMax, ROUTE.lineLimit(S.dist) / 3.6);
@@ -169,7 +169,7 @@ function ensureRunning(){ ensureBattery(); if (S.engine !== 'running'){ S.engine
 function ensureLine(){ ensureBattery(); S.panto = true; if (S.pantoF < 0.97){ S.pantoF = 1; setPanto(1); } S.lineOn = true; }
 function ensureLive(){ ensureLine(); S.vcb = true; S.dcV = Math.max(S.dcV, dcNominal()); S.dcN = 1; }
 function applyStepState(id){
-  S.autoShutdown = false;
+  S.autoShutdown = false; S.service = false;
   switch (id){
     case 'd0': case 'e0': resetSim(); break;
     case 'd1': case 'e1': if (S.mode === 'diesel' ? S.engine !== 'off' : S.pantoF > 0.02) resetSim(); ensureBattery(); break;
@@ -248,7 +248,7 @@ function syncControls(){
   $('timeSeg').querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(+b.dataset.time === S.timeScale)));
   $('rgBrake').value = S.brake; $('brakeVal').textContent = S.brake; cabLever.sync();
   document.querySelectorAll('#dirSeg button, #cabDir button').forEach(b => b.setAttribute('aria-pressed', String(+b.dataset.dir === S.dir)));
-  $('cabNext').setAttribute('aria-pressed', String(S.autoStop));
+  $('cabNext').setAttribute('aria-pressed', String(S.autoStop || S.service)); $('cabNextIco').textContent = S.service ? '🔁' : '🚉';   // held down it stays pressed: the whole line
   $('btnStart').disabled = !(S.battery && S.engine === 'off');
   $('btnStop').disabled = !(S.engine === 'running' || S.engine === 'cranking');
   syncTgvControls();
@@ -259,10 +259,10 @@ function syncTgvControls(){
   $('setsHint').textContent = t(S.coupling > 0 ? 'coupling' : S.coupling < 0 ? 'uncoupling' : 'sets_hint');
   $('swDoors').checked = S.doors; $('swDoors').disabled = S.speed > 0.1;
   $('doorsVal').textContent = t(paxHolding() ? 'doors_pax' : S.doorsF > 0.5 ? 'doors_open' : 'doors_closed');
-  $('stationVal').textContent = S.autoStop ? t('station_running') : S.atStation ? t('station_at') : '';
-  $('btnStation').disabled = S.autoStop;
+  $('stationVal').textContent = S.service ? t('station_service') : S.autoStop ? t('station_running') : S.atStation ? t('station_at') : '';
+  $('btnStation').setAttribute('aria-pressed', String(S.service));
 }
-function manual(){ stopAuto(); S.autoShutdown = false; S.autoStop = false; }
+function manual(){ stopAuto(); S.autoShutdown = false; S.autoStop = false; S.service = false; }
 $('setsSeg').addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b || b.disabled) return;
   if (!(S.speed < 0.05 && S.coupling === 0)) return;
@@ -276,14 +276,47 @@ $('swDoors').addEventListener('change', e => {
   if (!e.target.checked && paxHolding()){ PX.closeWhenDone = true; e.target.checked = true; syncControls(); return; }   // terminus: they close once the last passenger is through
   S.doors = e.target.checked; syncControls();
 });
-function goNextStation(){   // the station autopilot (Go to platform, the cab desk's Next stop): to the next platform it can still stop at; null at a terminus
-  const st = nextStation(); if (!st){ syncControls(); return null; }
+function goNextStation(st = nextStation()){   // the station autopilot (Go to platform, the cab desk's Next stop): to the next platform it can still stop at, at the train's own pace; null at a terminus
+  if (!st){ syncControls(); return null; }
   manual(); if (S.mode === 'diesel') ensureRunning(); else ensureLive();
   if (S.doors){ if (paxHolding()) PX.closeWhenDone = true; else S.doors = false; }   // the last passengers through first, as the doors switch does
   S.stopS = st.s - TGV.PLAT_FRONT; S.autoStop = true; S.autoDoors = S.mode === 'tgv'; syncControls();
   return st;
 }
-$('btnStation').addEventListener('click', () => goNextStation());
+/* ---- Next stop held down: the train serves the whole line by itself, again and again. On to the next station, the doors open, people get
+   off and on, the doors close, on to the next; at either end it turns round. A tap on Next stop ends it, as any other control taken does
+   (manual); a jump along the line keeps it */
+const SERVICE_DWELL = 25, SERVICE_MAX = 120;   // s at a platform with the doors open, at least; s of people getting off and on (on their own clock, PX.t), at most
+function serviceTick(now = false){   // now: just held down, so no dwell first, only the people still getting off and on
+  if (!S.service || S.autoStop || S.coupling) return;
+  if (S.speed < 0.05 && S.atStation && (!now && S.stationT < (S.doors ? SERVICE_DWELL : 8) || PX.phase === 'exchange' && PX.t < SERVICE_MAX)) return;
+  let st = nextStation() || nextStation(0);   // the last platform too close to stop at this speed: braked for all the same
+  if (!st){   // the end of the line: stop, then turn round
+    if (S.speed >= 0.05){ S.notch = 0; S.brake = 8; return; }
+    S.dir = -S.dir; st = nextStation();
+  }
+  S.service = !!goNextStation(st); syncControls();
+}
+function serviceOn(){ S.service = true; serviceTick(true); syncControls(); }
+function serviceOff(){ S.service = false; syncControls(); }
+const HOLD_MS = 600;   // a press held this long is a long press
+function holdable(el, tap, hold){   // a button with a long press: let go at once it taps, held it holds, and the click its release brings is swallowed; Enter taps
+  let tm = 0, held = false;
+  const end = () => { clearTimeout(tm); el.classList.remove('holding'); };
+  el.addEventListener('pointerdown', e => { if (e.button) return; held = false; el.classList.add('holding'); tm = setTimeout(() => { end(); held = true; hold(); }, HOLD_MS); });
+  for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) el.addEventListener(ev, end);
+  el.addEventListener('keydown', () => { held = false; });
+  el.addEventListener('click', () => { if (held) held = false; else tap(); });
+  el.addEventListener('contextmenu', e => e.preventDefault());   // a long press on a touch screen: no menu
+}
+function holdPress(tap, hold){   // the same for the cab desk's 3D button, from the press orbit hands over
+  let done = false;
+  const tm = setTimeout(() => { done = true; hold(); }, HOLD_MS);
+  const off = () => { clearTimeout(tm); removeEventListener('pointerup', up); removeEventListener('pointercancel', off); };
+  const up = () => { off(); if (!done) tap(); };
+  addEventListener('pointerup', up); addEventListener('pointercancel', off);
+}
+holdable($('btnStation'), () => { if (S.service) serviceOff(); else if (!S.autoStop) goNextStation(); }, serviceOn);
 $('swBattery').addEventListener('change', e => { manual(); S.battery = e.target.checked; syncControls(); });
 $('btnStart').addEventListener('click', () => { manual(); startEngine(); syncControls(); });
 $('btnStop').addEventListener('click', () => { manual(); stopEngine(); syncControls(); });
@@ -406,10 +439,12 @@ const cabActions = {   // what each desk button does, and the way out of the cab
   },
   panto(){ $('swPanto').click(); },
   doors(){ $('swDoors').click(); },
-  next(){   // the station autopilot, lit until the train stands at the platform; pressed again it says where it is going
+  next(){   // the station autopilot, lit until the train stands at the platform; pressed again it says where it is going, or ends the whole line
+    if (S.service){ cabSay(t(S.autoStop ? 'service_last' : 'service_off')); serviceOff(); return; }
     if (!S.autoStop && !goNextStation()){ cabSay(t('cab_end')); return; }
     cabSay(`${t('hud_next')}\n${stationText(cabTarget())}`);
   },
+  service(){ serviceOn(); cabSay(`${t('service_on')}\n${stationText(cabTarget())}`); },   // Next stop held down: the whole line, again and again
   dir(d){   // the deck's Toulouse / Paris: at rest the train turns round, and the view moves to the other cab
     if (d === S.dir) return;
     if (S.speed > 0.3){ cabSay(t('cab_stopped')); return; }
@@ -434,7 +469,9 @@ orbit.onPress = e => {   // in the driver's place a press on a desk button works
   for (const h of ray.intersectObjects(CAB.btns, true)){
     let b = h.object; while (!b.userData.cabBtn) b = b.parent;
     if (!shown(b)) continue;
-    cabActions[b.userData.cabBtn](); return true;
+    const id = b.userData.cabBtn;
+    if (id === 'next') holdPress(() => cabActions.next(), () => cabActions.service()); else cabActions[id]();
+    return true;
   }
   return false;
 };
@@ -483,7 +520,7 @@ function showCabUi(on){
 $('cabUi').addEventListener('click', () => showCabUi(!document.body.classList.contains('cab-ui')));
 $('cabLeave').addEventListener('click', () => cabActions.leave());
 $('cabDir').addEventListener('click', e => { const b = e.target.closest('button'); if (b) cabActions.dir(+b.dataset.dir); });
-$('cabNext').addEventListener('click', () => cabActions.next());   // the desk's Next stop, within reach where the desk is out of view (a phone held upright)
+holdable($('cabNext'), () => cabActions.next(), () => cabActions.service());   // the desk's Next stop, within reach where the desk is out of view (a phone held upright)
 /* ---- walking through the train (CAMS.walk, 03f3), as in a game: the page's controls step aside for Sit and ✕; WASD or the arrows walk and
    a click on the view hands the mouse to the head (pointer lock, Esc frees it); on a touch screen the left stick walks and the right one
    looks. A tap on a free seat, or a click with the crosshair on it, sits there */
@@ -633,7 +670,7 @@ cabLever.build();
 let cabT = 1;   // seconds since the screens were last drawn
 const _cabP = new THREE.Vector3();
 function updateCab(dt){
-  const hot = { horn:horn.active, panto:S.panto, doors:S.doorsF > 0.02, next:S.autoStop };   // a lit or pushed-in button: its function is on
+  const hot = { horn:horn.active, panto:S.panto, doors:S.doorsF > 0.02, next:S.autoStop || S.service };   // a lit or pushed-in button: its function is on
   for (const b of CAB.btns){ const id = b.userData.cabBtn; b.visible = id !== 'panto' || S.mode !== 'diesel'; b.position.x = hot[id] ? 0.008 : 0; }
   for (const id in CAB.mats){ const M = CAB.mats[id], k = !S.battery ? 0.06 : hot[id] ? 1 : 0.3; M.body.color.copy(M.base).multiplyScalar(k); M.cap.color.setScalar(k); }
   cabT += dt; if (cabT < 0.25) return;
@@ -772,15 +809,15 @@ function stationText(st){ return st ? `${st.name} · ${distText((st.s - TGV.PLAT
 function tailLen(){ return S.mode === 'tgv' ? (S.sets === 2 || S.coupling !== 0 ? 382.5 - Math.min(0, S.set2Off) : 185.4) : 82; }
 /* teleport along the line; the train keeps its speed unless asked to stop */
 function jumpTo(s, stop = false){
-  manual(); S.autoStop = false; S.autoDoors = false; S.coupling = 0;
+  const svc = S.service; manual(); S.service = svc; S.autoStop = false; S.autoDoors = false; S.coupling = 0;   // a jump keeps the whole line going
   S.dist = clamp(s, 8 + tailLen(), ROUTE.L - 15.5);
   if (stop){ S.speed = 0; S.notch = 0; S.brake = 0; S.throttleN = 0; }   // no effort left over to nudge it off the mark
   S.stopS = S.dist; trk.from = trk.to; trk.s0 = -1e9; paxResolve(); voltSnap();
-  S.atStation = S.speed < 0.05 && Math.abs(stationOffset()) < 2; if (!S.atStation) S.doors = false;
+  S.atStation = S.speed < 0.05 && Math.abs(stationOffset()) < 2; S.stationT = 0; if (!S.atStation) S.doors = false;
   for (const o of opp){ o.active = false; o.group.visible = false; }
   syncControls(); updateHud();
 }
-function jumpToStation(st){ trk.from = trk.to = 0; trk.s0 = -1e9; jumpTo(st.s - TGV.PLAT_FRONT, true); S.doors = false; S.atStation = true; syncControls(); }
+function jumpToStation(st){ trk.from = trk.to = 0; trk.s0 = -1e9; jumpTo(st.s - TGV.PLAT_FRONT, true); S.doors = S.service && S.mode === 'tgv'; S.atStation = true; syncControls(); }   // on the whole line, the doors open for the people waiting
 {
   // SHORT order is the order labels win a place when they would overlap, after the two ends
   const rb = $('routeBar'), bar = document.createElement('div'), SHORT = { bdx:'Bordeaux', par:'Paris', tls:'Toulouse', pts:'Poitiers', spc:'St-Pierre-des-Corps', ang:'Angoulême', agn:'Agen', mtb:'Montauban', vdm:'Vendôme', msy:'Massy', lbn:'Libourne', chl:'Châtellerault', fut:'Futuroscope' };
@@ -967,7 +1004,7 @@ function updateIdle(dt){
 }
 let frameHook = null;   // the kid build hangs its own rules here
 function frame(dt){
-  simulate(dt); animate(Math.min(dt * S.timeScale, 0.25)); updateFlows(dt); updateWeather(dt); panKeys(dt); if (frameHook) frameHook(dt);
+  simulate(dt); serviceTick(); animate(Math.min(dt * S.timeScale, 0.25)); updateFlows(dt); updateWeather(dt); panKeys(dt); if (frameHook) frameHook(dt);
   keepDriver(); keepWalker(dt); updateIdle(dt);
   orbit.update(dt); stepAim(dt); updateCab(dt); updateCompass(); updateSound(dt);
 }
@@ -978,4 +1015,4 @@ resize();
 setShell(0.18); setCut('none'); setExplode(0);
 setMode('diesel');
 requestAnimationFrame(loop);
-window.locoDebug = { BAR, BAR_MENU, barOpen, barClose, barBuy, barEat, barNear, barIsOpen, walkSitStool, updateBar, CAB, driverSeat, cabActions, cabLever, S, simulate, animate, updateFlows, updateGauges, orbit, renderer, scene, camera, goStep, setMode, setCut, setExplode, setShell, select, parts, TGV, tgvSets, station, updateTgv, syncControls, tick:window.tick, ROUTE, horn, chunks, requestTrack, trk, opp, parked, cars, curveLocal, updateHud, jumpToStation, jumpTo, setWeather, pcHosts, pcShells, flowObjs, landmarks, flyPreset, SND, PX, pool, paxResolve, paxHolding, allCoaches, world, keys, WK, walkMove, walkSitNear, walkPick, walkStand, walkZones, STICK, walkView };
+window.locoDebug = { BAR, BAR_MENU, barOpen, barClose, barBuy, barEat, barNear, barIsOpen, walkSitStool, updateBar, CAB, driverSeat, cabActions, cabLever, S, simulate, animate, updateFlows, updateGauges, orbit, renderer, scene, camera, goStep, setMode, setCut, setExplode, setShell, select, parts, TGV, tgvSets, station, updateTgv, syncControls, tick:window.tick, ROUTE, horn, chunks, requestTrack, trk, opp, parked, cars, curveLocal, updateHud, jumpToStation, jumpTo, setWeather, pcHosts, pcShells, flowObjs, landmarks, flyPreset, SND, PX, pool, paxResolve, paxHolding, allCoaches, world, keys, WK, walkMove, walkSitNear, walkPick, walkStand, walkZones, STICK, walkView, nextStation, goNextStation, serviceOn, serviceOff };

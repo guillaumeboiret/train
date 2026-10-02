@@ -84,7 +84,7 @@
             <div class="hint" style="margin:6px 0 14px" data-i18n="doors_hint">Déverrouillées à l'arrêt seulement. Traction interdite portes ouvertes.</div>
             <div class="field">
               <span class="lab"><span data-i18n="ctl_station">Arrêt en gare (pilote auto)</span><span class="val" id="stationVal"></span></span>
-              <div class="row"><button type="button" class="btn primary" id="btnStation" data-i18n="station_go">Aller au quai</button></div>
+              <div class="row"><button type="button" class="btn primary" id="btnStation" data-i18n="station_go" data-i18n-title="next_hold">Aller au quai</button></div>
               <div class="hint" data-i18n="station_hint">Freine et arrête la rame au repère du quai.</div>
             </div>
           </div>
@@ -225,7 +225,7 @@
             <button type="button" data-dir="-1" aria-pressed="false" aria-label="Vers Toulouse" data-i18n-aria="dir_tls">◀ Toulouse</button>
             <button type="button" data-dir="1" aria-pressed="true" aria-label="Vers Paris" data-i18n-aria="dir_par">Paris ▶</button>
           </div>
-          <div class="seg"><button type="button" id="cabNext" aria-pressed="false">🚉 <span data-i18n="btn_next">Prochain arrêt</span></button></div>
+          <div class="seg"><button type="button" id="cabNext" aria-pressed="false" data-i18n-title="next_hold"><span id="cabNextIco">🚉</span> <span data-i18n="btn_next">Prochain arrêt</span></button></div>
         </div>
       </div>
       <div class="cab-lever" title="Vers le haut, la traction et la vitesse visée. Vers le bas, le frein. Touches ↑ et ↓." data-i18n-title="cab_lever_tip">
