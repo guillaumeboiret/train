@@ -6,8 +6,8 @@ Nothing leaves this file: a request is added the moment it is made, and a done i
 ## Open, in working order
 
 ### 0. Now (asked 2026-10-03)
-- [ ] The TV and the iPad: the trip on the TV with no GUI (the cab, a passenger or outside, any view), the driver's controls on a new touch page on the iPad, paired to that session, every press showing live on the TV ("connect my iPad to this current session so I have the driver's controls on a new web page that I will display on the iPad").
 - [ ] Heat as a transparent shimmer instead of the orange smoke: the hot air bends and blurs what is behind it, in waves ("Can you change the orange smoke to something that makes the feeling of heat but it's transparent? It just makes waves"). Changes the warm haze of 73a8dd0.
+- [ ] The remote's delay: 163 ms from the iPad to the TV on the live site, because the app runs far from Railway's Paris edge (cdg1, 200 ms to the first byte). Moving the service to EU West (europe-west4-drams3a, with multiRegionConfig in railway.json) should bring it near 20 ms. Waiting for a yes (2026-10-03).
 
 ### 1. World (asked 2026-10-02)
 - [ ] A real clock to set the time of day.
@@ -40,10 +40,12 @@ Nothing leaves this file: a request is added the moment it is made, and a done i
 - The Angoulême tunnel ends about 100 m early.
 - The HUD's track count includes the far face of island platforms, one too many.
 - The driver's 3D lever sits below the default driver's view on every screen: look down to grab it. Raising it into view would cover the line screen.
+- After the TV's page reloads, its sound waits for one click on the TV: browsers play no sound before a gesture on the page. The iPad shows a hint when that happens.
 
 ## Done
 
 ### 2026-10-03
+- [x] The TV and the iPad ("connect my iPad to this current session so I have the driver's controls on a new web page that I will display on the iPad"). On the TV, the playground's ⚙️ then 📱 shows a 4 letter code and a QR code; the iPad scans it, or opens train.boiret.com/remote/ and types the code. The TV hides its GUI and the iPad drives: lever, stop, horn, next station, direction, pantograph, doors, weather, X-ray, the views and camera angles, the train, the line. Live both ways, up to 8 iPads per TV. Tested headless on the live site, not yet on the real iPad and TV: 964d84b
 - [x] The driver's 3D lever works: drag it up for power, down to brake ("Make the lever work because right now, I don't have a GUI, and it doesn't work"). A tap on it says how: cc6848b
 - [x] The station timeline on the driver's desk screen can be tapped, like the line bar ("When I click on the next station in the timeline to work, I should also be able to click on it"): cc6848b
 - [x] In no GUI the driver's desk keeps working: its buttons, the lever and the screen's timeline. Changes the no GUI of 319e082, where a tap pressed nothing: cc6848b
