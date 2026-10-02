@@ -11,8 +11,8 @@ Nothing leaves this file: a request is added the moment it is made, and a done i
 - [ ] Lights on the train at night and in tunnels.
 - [ ] A weather system, set by hand or on a schedule.
 
-### 2. Cinematic camera, for streaming (asked 2026-10-02)
-- [ ] A camera mode that changes the point of view by itself, so the content can be streamed on YouTube: all the points of view, with aesthetic camera moves, "like a cinematic".
+### 2. Cinematic camera, for long trips (asked 2026-10-02)
+- [ ] A camera mode that changes the point of view by itself: all the points of view, with aesthetic camera moves, "like a cinematic". First asked for streaming on YouTube; clarified the same day: "I don't need you to stream it's just the camera movement for long term travels".
 
 ### 3. Other open requests
 - [ ] A "super hero futuriste" button that runs the whole line in 5 minutes (2026-10-02).
