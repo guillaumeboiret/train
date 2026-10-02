@@ -7005,9 +7005,10 @@ function jumpTo(s, stop = false){
   syncControls(); updateHud();
 }
 function jumpToStation(st){ trk.from = trk.to = 0; trk.s0 = -1e9; jumpTo(st.s - TGV.PLAT_FRONT, true); S.doors = S.service && S.mode === 'tgv'; S.atStation = true; syncControls(); }   // on the whole line, the doors open for the people waiting
+// the line bar's short names; their order is the order labels win a place when they would overlap, after the two ends (the TV remote's bar follows it too)
+const ST_SHORT = { bdx:'Bordeaux', par:'Paris', tls:'Toulouse', pts:'Poitiers', spc:'St-Pierre-des-Corps', ang:'Angoulême', agn:'Agen', mtb:'Montauban', vdm:'Vendôme', msy:'Massy', lbn:'Libourne', chl:'Châtellerault', fut:'Futuroscope' };
 {
-  // SHORT order is the order labels win a place when they would overlap, after the two ends
-  const rb = $('routeBar'), bar = document.createElement('div'), SHORT = { bdx:'Bordeaux', par:'Paris', tls:'Toulouse', pts:'Poitiers', spc:'St-Pierre-des-Corps', ang:'Angoulême', agn:'Agen', mtb:'Montauban', vdm:'Vendôme', msy:'Massy', lbn:'Libourne', chl:'Châtellerault', fut:'Futuroscope' };
+  const rb = $('routeBar'), bar = document.createElement('div'), SHORT = ST_SHORT;
   const pct = s => `${(RB.f(s) * 100).toFixed(2)}%`, last = ROUTE.stations.length - 1;
   bar.className = 'rb-in'; rb.appendChild(bar);
   // a tap on a dot stops the train at that platform; any other press, a label included, or a press that slides off a dot

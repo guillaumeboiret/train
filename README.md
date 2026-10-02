@@ -5,7 +5,7 @@ Three static [Three.js](https://threejs.org) pages about trains, in French and E
 | Page | What it is | Live |
 |---|---|---|
 | `locomotive-3d.html` | **Anatomie d'une locomotive**: an interactive explainer of a diesel-electric locomotive, an electric locomotive and a TGV Duplex, driven along the real Toulouse Matabiau to Paris Montparnasse line with its TGV stops (Montauban, Agen, Bordeaux Saint-Jean, Libourne, Angoulême, Poitiers, Futuroscope, Châtellerault, Saint-Pierre-des-Corps, Vendôme and Massy; 829.5 km: the classic lines under 1.5 kV DC through the towns, the LGVs under 25 kV AC between them), with a nine-step guide, energy-flow animations, station autopilot, weather and time scale. Inside the TGV: drive from the cab, walk among the passengers car to car and sit in a free seat, or order at the bar in car 4 with play money | [train.boiret.com/locomotive](https://train.boiret.com/locomotive/) |
-| `locomotive-kid.html` | **Jouer au train** (Train playground): the same engine as a game for young children, made for a tablet. Big buttons (lever, horn, pantograph, next station autopilot in both directions, weather, sound) and, always in the same corner, the driver's seat, the passenger's (walk through the TGV with two sticks, sit down, buy at the bar) and the views outside | [train.boiret.com/playground](https://train.boiret.com/playground/) (`/conducteur/` redirects) |
+| `locomotive-kid.html` | **Jouer au train** (Train playground): the same engine as a game for young children, made for a tablet. Big buttons (lever, horn, pantograph, next station autopilot in both directions, weather, sound) and, always in the same corner, the driver's seat, the passenger's (walk through the TGV with two sticks, sit down, buy at the bar) and the views outside. On a TV, ⚙️ then 📱 pairs an iPad as its remote: the iPad drives, the TV shows only the trip | [train.boiret.com/playground](https://train.boiret.com/playground/) (`/conducteur/` redirects) |
 | `aiguillages.html` | **Aiguillages**: a railway switch puzzle game, 10 levels plus a tutorial | [train.boiret.com/aiguillages](https://train.boiret.com/aiguillages/) |
 
 Each page is plain HTML plus one ES module. Three.js 0.170 is loaded from jsDelivr, nothing else is fetched at runtime.
@@ -30,13 +30,13 @@ cd loco && python3 -m http.server 8765
 
 ## Site
 
-https://train.boiret.com serves the three pages plus a landing page. `site/build.sh` gives each built page a real document head and points its links to the other pages at the site paths (`/playground/`, `/locomotive/`, `/aiguillages/`); the root `Dockerfile` runs it and serves the result with Caddy (`site/Caddyfile`). Railway builds that image on every push to `main`, and `/version.txt` gives the commit that is live. Local preview: `sh site/build.sh && python3 -m http.server -d site/public 8767`.
+https://train.boiret.com serves the three pages plus a landing page. `site/build.sh` gives each built page a real document head and points its links to the other pages at the site paths (`/playground/`, `/locomotive/`, `/aiguillages/`); the root `Dockerfile` runs it and serves the result with `site/server.mjs` (Node, no dependencies): the files from memory, compressed once at start, and `/relay`, the WebSocket rooms that join a TV's playground to its remote (`/remote/`, from `site/remote.html`). Railway builds that image on every push to `main` (`railway.json`: the new one takes the traffic once `/version.txt` answers), and `/version.txt` gives the commit that is live. Local preview: `sh site/build.sh && PORT=8767 node site/server.mjs site/public`.
 
 ### Languages
 
 The whole site speaks one language at a time, French or English. `site/lang.js`, inlined first in every page's head by `site/build.sh`, picks it before anything renders: a `?lang=fr` or `?lang=en` link wins and is remembered, then the visitor's last pick, then the browser's languages, then English. Every page's switcher saves the pick under the `lang` key of `localStorage`, so the next page opens in the same language. Each page starts in `<html lang>`; while its dictionary is not applied yet, its `[data-i18n]` markup text is hidden rather than shown in the wrong language, at most until `DOMContentLoaded`, so a page whose script fails (no WebGL) still shows its text.
 
-Adding a language: its code in `OK` in `site/lang.js`, a button in each switcher (`site/index.html`, `loco/02-markup.html`, `loco/03i-kid.js`, `game/g1-markup.html`), and its strings wherever `fr` has some: the landing dictionary in `site/index.html`, `T`, `PARTS` and `STEPS` in `loco/03a-data.js`, `KID_T` in `loco/03i-kid.js`, `I18N` in `game/g5-game.js` and the level texts in `game/g3-levels.js`.
+Adding a language: its code in `OK` in `site/lang.js`, a button in each switcher (`site/index.html`, `loco/02-markup.html`, `loco/03i-kid.js`, `game/g1-markup.html`), and its strings wherever `fr` has some: the landing dictionary in `site/index.html`, `T`, `PARTS` and `STEPS` in `loco/03a-data.js`, `KID_T` in `loco/03i-kid.js` and `loco/03j-remote.js`, `T` in `site/remote.html`, `I18N` in `game/g5-game.js` and the level texts in `game/g3-levels.js`.
 
 ## Source layout
 
@@ -51,6 +51,7 @@ Adding a language: its code in `OK` in `site/lang.js`, a button in each switcher
 - `03f5-sound.js`: Web Audio ambience (rolling noise, inverter whine, diesel, birds, rain, oncoming TGVs with Doppler shift and horn)
 - `03g-sim.js`, `03h-ui.js`: physics and autopilot, UI, HUD, main loop
 - `03i-kid.js`: the kid layer, appended only to `locomotive-kid.html`
+- `03j-remote.js`: the TV side of the remote (pairing card and QR code, the relay link, the iPad's commands), after the kid layer
 - `04-end.html`: closing tags
 
 `game/` follows the same pattern (`g0-style.html` to `g5-game.js`). `node check-levels.mjs`, run from inside `game/`, checks that every level is solvable.

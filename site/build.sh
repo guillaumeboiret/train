@@ -31,6 +31,9 @@ printf '%s\n' '<!doctype html><html><head><meta charset="utf-8"><title>Train pla
 page locomotive-3d.html locomotive
 page aiguillages.html aiguillages
 { sed '/<meta charset="utf-8">/q' "$SRC/site/index.html"; langjs; notice; sed '1,/<meta charset="utf-8">/d' "$SRC/site/index.html"; } > "$OUT/index.html"
+# the playground's remote, for the iPad (site/server.mjs relays it to the TV)
+mkdir -p "$OUT/remote"
+{ sed '/<meta charset="utf-8">/q' "$SRC/site/remote.html"; langjs; notice; sed '1,/<meta charset="utf-8">/d' "$SRC/site/remote.html"; } > "$OUT/remote/index.html"
 cp "$SRC/site/favicon.svg" "$OUT/"
 cp "$SRC/LICENSE" "$OUT/LICENSE.txt"
 cp -R "$SRC/site/audio" "$OUT/"   # the recorded TGV sounds (site/audio/CREDITS.txt), fetched by the pages as ../audio/

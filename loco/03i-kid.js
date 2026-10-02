@@ -237,10 +237,11 @@ new ResizeObserver(() => document.body.style.setProperty('--kid-side', $('kidSid
 /* ---- helpers */
 function kidPower(full){ ensureBattery(); if (S.mode === 'diesel') ensureRunning(); else if (full) ensureLive(); }   // full: pantograph up and line closed at once (start, train change)
 const kidAtEnd = () => S.dir > 0 ? S.dist >= ROUTE.L - 15.6 : S.dist <= 8 + tailLen() + 0.2;
-let toastTimer = 0;
+let toastTimer = 0, kidToastHook = null;   // the hook: the TV remote's (03j), which shows each message on the iPad too
 function kidToast(key, ms = 3500){
   const el = $('kidToast'); el.textContent = kt(key); el.classList.add('show');
   clearTimeout(toastTimer); if (ms) toastTimer = setTimeout(() => el.classList.remove('show'), ms);
+  kidToastHook?.(el.textContent, ms);
 }
 function kidLever(v){
   manual(); kidPower();
@@ -301,7 +302,8 @@ function kidView(v){   // one tap from anywhere: the driver's seat, the passenge
   if (shellLevel < 1){ setShell(1); $('kidXray').setAttribute('aria-pressed', 'false'); }   // inside, the train whole: the X-ray button is out of sight there
   flyPreset(v === 'pax' ? 'walk' : 'driver');
 }
-function kidWx(){ wxIdx = (wxIdx + 1) % KID_WX.length; setWeather(KID_WX[wxIdx][0]); $('kidWxIco').textContent = KID_WX[wxIdx][1]; }
+function kidWxSet(i){ wxIdx = i; setWeather(KID_WX[i][0]); $('kidWxIco').textContent = KID_WX[i][1]; }
+function kidWx(){ kidWxSet((wxIdx + 1) % KID_WX.length); }
 function kidXray(){ setShell(shellLevel >= 1 ? 0.18 : 1); $('kidXray').setAttribute('aria-pressed', String(shellLevel < 1)); }
 function kidTrain(mode){
   const d = S.dist, dir = S.dir, where = kidWhere();

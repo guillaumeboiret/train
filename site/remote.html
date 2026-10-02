@@ -1,0 +1,493 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Télécommande · Jouer au train</title>
+<meta name="description" content="La télécommande de Jouer au train : le train sur la télé, ses commandes sur l'iPad.">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0f151b">
+<link rel="icon" href="/favicon.svg">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* The playground's remote (site/build.sh serves it at /remote/): the train runs on the TV (the playground, loco/03j-remote.js),
+   its controls are here, both joined through the site's relay (site/server.mjs). The buttons are the playground's own. */
+:root{
+  color-scheme:dark;
+  --bg:#0f151b; --panel:#1a2430; --line:#2a3644; --fg:#eef2f6; --mute:#93a1b0; --accent:#f28c28; --ink:#1b2430;
+  --font-display:"Barlow Condensed","Arial Narrow",Arial,sans-serif; --font-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font:16px/1.4 var(--font-body);-webkit-text-size-adjust:100%}
+body{overflow:hidden;overscroll-behavior:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}
+button{font:inherit;color:inherit;cursor:pointer;touch-action:manipulation}
+button:focus-visible,input:focus-visible,[tabindex]:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+[hidden]{display:none!important}
+.lab{font:700 13px/1 var(--font-display);letter-spacing:.06em;text-transform:uppercase}
+.seg{display:flex;border:1px solid var(--line);border-radius:999px;overflow:hidden}
+.seg button{font:500 14px/1 var(--font-body);color:var(--mute);background:none;border:0;min-width:52px;min-height:40px;padding:0 14px}
+.seg button[aria-pressed="true"]{background:var(--panel);color:var(--fg)}
+
+/* ---- the code screen */
+#pair{position:fixed;inset:0;overflow:auto;display:flex;justify-content:center;padding:max(16px,env(safe-area-inset-top)) 16px max(24px,env(safe-area-inset-bottom))}
+.pair-box{width:min(540px,100%);display:flex;flex-direction:column;align-items:center;gap:16px;text-align:center}
+.pair-box .seg{align-self:flex-end}
+.pair-ico{font-size:60px;line-height:1;margin-top:min(5vh,48px)}
+h1{font:700 56px/1 var(--font-display);margin:0;letter-spacing:.01em}
+.how{color:var(--mute);margin:0;max-width:460px}
+.how b{color:var(--fg);font-weight:600;white-space:nowrap}
+#pairForm{display:flex;flex-wrap:wrap;justify-content:center;gap:12px;width:100%}
+#codeIn{width:min(290px,100%);font:700 60px/1 var(--font-display);letter-spacing:.3em;text-align:center;text-transform:uppercase;padding:12px 0 12px .3em;border-radius:20px;border:2px solid var(--line);background:var(--panel);color:var(--fg);-webkit-user-select:text;user-select:text}
+#codeIn:focus{outline:none;border-color:var(--accent)}
+#codeIn::placeholder{color:#3a4858}
+.go{min-width:140px;border:0;border-radius:20px;background:var(--accent);color:#1b1206;font:700 26px/1 var(--font-display);letter-spacing:.06em;text-transform:uppercase;padding:0 26px;min-height:84px}
+.msg{min-height:1.5em;margin:0;font-weight:600}
+.msg.bad{color:#ff9b9b}
+
+/* ---- the controls */
+#ctl{position:fixed;inset:0;display:flex;flex-direction:column;gap:10px;touch-action:none;
+  padding:max(10px,env(safe-area-inset-top)) max(10px,env(safe-area-inset-right)) max(10px,env(safe-area-inset-bottom)) max(10px,env(safe-area-inset-left))}
+.panel{background:var(--panel);border-radius:22px}
+header{position:relative;display:flex;align-items:stretch;gap:10px;min-width:0}
+.trains{display:flex;gap:4px;padding:6px}
+.kt{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;min-width:84px;padding:6px 10px;border:0;border-radius:16px;background:transparent;color:var(--fg)}
+.kt .ico{font-size:32px;line-height:1.1}
+.kt[aria-pressed="true"]{background:var(--accent);color:#1b1206}
+.speed{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:6px 16px}
+.speed .n{font:700 54px/1 var(--font-display);font-variant-numeric:tabular-nums}
+.speed small{font-size:18px;margin-left:6px;letter-spacing:.06em}
+.next{font:600 15px/1.25 var(--font-body);color:var(--mute);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.chip{display:flex;align-items:center;gap:10px;padding:0 18px;border:0;border-radius:22px;background:var(--panel);font:700 22px/1 var(--font-display);letter-spacing:.12em;white-space:nowrap}
+.dot{width:12px;height:12px;border-radius:50%;flex:none;background:#9aa5b1}
+.dot.on{background:#2fbf5b}.dot.wait{background:#ffb02e}.dot.bad{background:#e5484d}
+.hint{padding:10px 16px;border-radius:16px;background:#3a2a10;color:#ffd9a8;font-weight:600;text-align:center}
+main{position:relative;flex:1;display:grid;grid-template-columns:clamp(112px,13vw,160px) minmax(0,1fr);gap:10px;min-height:0}
+/* the lever: 🚀 at the top, 🐢 at the bottom, as the cab's; the whole column takes the finger */
+.lever{display:flex;flex-direction:column;align-items:center;padding:12px 0;min-height:0;touch-action:none;cursor:pointer}
+.lever .end{font-size:36px;line-height:1}
+.lv-track{position:relative;flex:1;width:40px;margin:46px 0 46px;border-radius:20px;background:linear-gradient(#e5484d,#ffcf33 45%,#3ccf6f);box-shadow:inset 0 2px 5px rgba(0,0,0,.35)}
+.lv-track i{position:absolute;left:-16px;right:-16px;height:3px;margin-top:-1.5px;border-radius:2px;background:linear-gradient(90deg,#55667a 12px,transparent 12px calc(100% - 12px),#55667a calc(100% - 12px))}
+.lv-knob{position:absolute;left:50%;top:100%;width:84px;height:84px;border-radius:50%;transform:translate(-50%,-50%);background:#fff;border:6px solid var(--ink);box-shadow:0 5px 12px rgba(0,0,0,.45);transition:top .15s}
+.lever.drag .lv-knob{transition:none}
+.lever.auto .lv-knob{border-color:var(--accent)}
+.pad{display:grid;grid-template-rows:minmax(0,1.3fr) minmax(0,1fr);gap:10px;min-height:0}
+.btns{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));grid-template-rows:repeat(2,minmax(0,1fr));gap:12px;padding:12px}
+.kb{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;min-width:0;min-height:0;padding:6px;border:0;border-radius:22px;background:#f1f4f7;color:var(--ink);box-shadow:0 6px 0 rgba(0,0,0,.45);transition:transform .05s,box-shadow .05s}
+.kb .ico{font-size:clamp(30px,5.4vmin,56px);line-height:1}
+.kb .lab{font-size:clamp(12px,1.7vmin,17px);text-align:center}
+.kb:active,.kb.on{transform:translateY(4px);box-shadow:0 2px 0 rgba(0,0,0,.45)}
+.kb[aria-pressed="true"]{box-shadow:inset 0 0 0 5px var(--accent),0 6px 0 rgba(0,0,0,.45)}
+.kb:disabled{opacity:.35;cursor:default;transform:none}
+.kb.red{background:#e5484d;color:#fff}.kb.yellow{background:#ffcf33}.kb.green{background:#3ccf6f;color:#0b2e17}.kb.blue{background:#4c8dff;color:#fff}
+.kb.auto .ico{animation:pulse 1s infinite}
+.kb.holding{box-shadow:inset 0 0 0 5px rgba(0,0,0,.25),0 2px 0 rgba(0,0,0,.45);transform:translateY(4px)}
+@keyframes pulse{50%{transform:scale(1.22)}}
+.cam{display:grid;grid-template-rows:repeat(2,minmax(0,1fr));gap:8px;padding:10px}
+.views,.angles{display:grid;gap:8px;min-height:0}
+.views{grid-template-columns:repeat(3,minmax(0,1fr))}.angles{grid-template-columns:repeat(5,minmax(0,1fr))}
+.cam .kt{min-width:0;min-height:0;background:rgba(255,255,255,.06)}
+.cam .kt[aria-pressed="true"]{background:var(--accent);color:#1b1206}
+.cam .kt .ico{font-size:clamp(24px,3.8vmin,38px)}
+.cam .kt .lab{text-align:center}
+.cam .kt[aria-disabled="true"],.cam .kt:disabled{opacity:.35}
+.off-msg{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:2;max-width:min(460px,90%);padding:18px 24px;border-radius:20px;background:#0b1015;border:1px solid var(--line);box-shadow:0 12px 30px rgba(0,0,0,.5);font:600 19px/1.35 var(--font-body);text-align:center}
+body.off :is(main>.lever,main>.pad,.line,.trains){opacity:.3;pointer-events:none}
+/* the line, as on the TV: evenly spaced stops, a tap on a dot stops the train there, anywhere else takes it there */
+.line{padding:10px 28px 4px;touch-action:none}
+.rb{position:relative;height:60px;cursor:pointer}
+.rb::before{content:'';position:absolute;left:0;right:0;top:12px;height:6px;border-radius:3px;background:#3a4858}
+.rb-in{position:absolute;inset:0}
+.rb-st{position:absolute;top:0;width:34px;height:30px;padding:0;margin:0;border:0;background:none;transform:translateX(-50%);display:grid;place-items:center}
+.rb-st i{width:20px;height:20px;border-radius:50%;border:3px solid #eef2f6;background:var(--panel)}
+.rb-lb{position:absolute;top:33px;transform:translateX(-50%);white-space:nowrap;font:700 14px/1 var(--font-display);letter-spacing:.04em;color:var(--fg);pointer-events:none}
+.rb-lb.r{transform:translateX(-10px)}.rb-lb.l{transform:translateX(calc(10px - 100%))}
+#rbTrain{position:absolute;top:5px;width:26px;height:20px;margin-left:-13px;border-radius:6px;background:var(--accent);box-shadow:0 0 0 3px var(--bg),0 2px 6px rgba(0,0,0,.4);transition:left .3s;pointer-events:none}
+#rbTip{position:absolute;top:-34px;transform:translateX(-50%);padding:6px 10px;border-radius:9px;background:#fff;color:var(--ink);font:600 14px/1 var(--font-body);white-space:nowrap;pointer-events:none}
+.menu{position:absolute;top:calc(100% + 8px);right:0;z-index:5;width:min(360px,calc(100vw - 20px));padding:14px;display:flex;flex-direction:column;gap:10px;border:1px solid var(--line);box-shadow:0 14px 34px rgba(0,0,0,.55)}
+.menu .lab{color:var(--mute)}
+.mi{display:flex;align-items:center;gap:12px;width:100%;min-height:56px;padding:0 14px;border:0;border-radius:14px;background:rgba(255,255,255,.06);font:600 16px/1.2 var(--font-body);text-align:left}
+.mi .e{font-size:24px}
+.mi .sw{margin-left:auto;width:46px;height:28px;border-radius:14px;background:#3a4858;position:relative;flex:none}
+.mi .sw::after{content:'';position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;transition:left .15s}
+.mi[aria-pressed="true"] .sw{background:#2fbf5b}.mi[aria-pressed="true"] .sw::after{left:21px}
+.toast{position:fixed;left:50%;top:24%;transform:translate(-50%,-50%);z-index:9;max-width:min(90%,560px);padding:16px 24px;border-radius:20px;background:var(--accent);color:#1b1206;font:700 24px/1.2 var(--font-display);text-align:center;box-shadow:0 10px 28px rgba(0,0,0,.45);opacity:0;transition:opacity .3s;pointer-events:none}
+.toast.show{opacity:1}
+@media (orientation:portrait){
+  .pad{grid-template-rows:minmax(0,1.4fr) minmax(0,1fr)}
+  .btns{grid-template-columns:repeat(4,minmax(0,1fr))}
+}
+@media (max-width:700px){   /* a phone: smaller, the labels of the trains away */
+  header{flex-wrap:wrap}.speed{order:3;flex-basis:100%}.chip{margin-left:auto;padding:0 14px}
+  .kt{min-width:56px}.trains .kt .lab{display:none}.speed .n{font-size:40px}
+  main{grid-template-columns:96px minmax(0,1fr)}.lv-knob{width:66px;height:66px;border-width:5px}.lv-track{margin:36px 0}
+  .btns{grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:repeat(4,minmax(0,1fr));gap:8px;padding:8px}.kb{gap:4px;border-radius:16px}.cam{padding:8px;gap:6px}.views,.angles{gap:6px}.cam .kt .lab{display:none}
+  .line{padding:8px 18px 2px}.rb-lb{font-size:11px}
+}
+@media (max-height:620px) and (orientation:landscape){   /* a phone held sideways */
+  #ctl{gap:6px}.speed .n{font-size:34px}.kt .ico{font-size:24px}.trains .kt .lab{display:none}.kt{min-width:52px}
+  .kb .lab,.cam .kt .lab{display:none}.btns{gap:8px;padding:8px}.lv-knob{width:56px;height:56px;border-width:4px}.lever .end{font-size:26px}.lv-track{margin:30px 0}
+  .rb{height:44px}.rb-lb{top:30px;font-size:11px}
+}
+</style>
+</head>
+<body>
+<section id="pair">
+  <div class="pair-box">
+    <div class="seg langSeg" role="group" aria-label="Langue" data-i18n-aria="lang"><button type="button" data-lang="fr" aria-pressed="true">FR</button><button type="button" data-lang="en" aria-pressed="false">EN</button></div>
+    <div class="pair-ico" aria-hidden="true">📺 🚄 📱</div>
+    <h1 data-i18n="h1">Télécommande</h1>
+    <p class="how"><span data-i18n="how_a">Sur la télé, ouvre</span> <b id="tvUrl"></b><span data-i18n="how_b">, puis ⚙️ et 📱 Télécommande. Scanne son QR code avec l'appareil photo, ou tape ici ses 4 lettres :</span></p>
+    <form id="pairForm" autocomplete="off">
+      <input id="codeIn" type="text" inputmode="text" maxlength="4" autocapitalize="characters" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="go" placeholder="····" aria-label="Code de la télé" data-i18n-aria="code">
+      <button type="submit" class="go" data-i18n="go">Relier</button>
+    </form>
+    <p class="msg" id="pairMsg" role="status" aria-live="polite"></p>
+  </div>
+</section>
+<section id="ctl" hidden>
+  <header>
+    <div class="panel trains" id="trains" role="group">
+      <button type="button" class="kt" data-mode="diesel" aria-pressed="false"><span class="ico">🚂</span><span class="lab" data-i18n="diesel">Diesel</span></button>
+      <button type="button" class="kt" data-mode="electric" aria-pressed="false"><span class="ico">🚆</span><span class="lab" data-i18n="electric">Électrique</span></button>
+      <button type="button" class="kt" data-mode="tgv" aria-pressed="false"><span class="ico">🚄</span><span class="lab" data-i18n="tgv">TGV</span></button>
+    </div>
+    <div class="panel speed"><div class="n"><span id="kmh">0</span><small>km/h</small></div><div class="next" id="next"></div></div>
+    <button type="button" class="chip" id="chip" aria-expanded="false" aria-controls="menu"><i class="dot" id="dot"></i><span aria-hidden="true">📺</span><span id="tvCode"></span><span aria-hidden="true">⚙️</span></button>
+    <div class="panel menu" id="menu" hidden>
+      <span class="lab" data-i18n="lang">Langue</span>
+      <div class="seg langSeg" role="group"><button type="button" data-lang="fr" aria-pressed="true">Français</button><button type="button" data-lang="en" aria-pressed="false">English</button></div>
+      <button type="button" class="mi" id="mGui" aria-pressed="false"><span class="e">🖥️</span><span data-i18n="gui">Commandes sur la télé</span><b class="sw"></b></button>
+      <button type="button" class="mi" id="mSnd" aria-pressed="true"><span class="e" id="mSndIco">🔊</span><span data-i18n="sound">Son de la télé</span><b class="sw"></b></button>
+      <button type="button" class="mi" id="mOther"><span class="e">📺</span><span data-i18n="other">Changer de télé</span></button>
+    </div>
+  </header>
+  <div class="hint" id="sndHint" data-i18n="snd" hidden>🔈 Pour le son, clique une fois sur l'écran de la télé.</div>
+  <main>
+    <div class="panel lever" id="lever" role="slider" tabindex="0" aria-valuemin="0" aria-valuemax="8" aria-valuenow="0" aria-orientation="vertical" aria-label="Manette" data-i18n-aria="lever">
+      <span class="end" aria-hidden="true">🚀</span>
+      <div class="lv-track" id="lvTrack"><div class="lv-knob" id="lvKnob"></div></div>
+      <span class="end" aria-hidden="true">🐢</span>
+    </div>
+    <div class="pad">
+      <div class="panel btns">
+        <button type="button" class="kb red" id="bStop"><span class="ico">🛑</span><span class="lab" data-i18n="stop">Stop</span></button>
+        <button type="button" class="kb yellow" id="bHorn"><span class="ico">📣</span><span class="lab" data-i18n="horn">Klaxon</span></button>
+        <button type="button" class="kb green" id="bStation" aria-pressed="false"><span class="ico" id="bStationIco">🚉</span><span class="lab" id="bStationLab"></span></button>
+        <button type="button" class="kb" id="bDir"><span class="ico">🔄</span><span class="lab" id="bDirLab"></span></button>
+        <button type="button" class="kb" id="bPanto" aria-pressed="false"><span class="ico">⚡</span><span class="lab" data-i18n="panto">Pantographe</span></button>
+        <button type="button" class="kb blue" id="bDoors" aria-pressed="false"><span class="ico">🚪</span><span class="lab" data-i18n="doors">Portes</span></button>
+        <button type="button" class="kb" id="bWx"><span class="ico" id="bWxIco">☀️</span><span class="lab" data-i18n="wx">Météo</span></button>
+        <button type="button" class="kb" id="bXray" aria-pressed="false"><span class="ico">👀</span><span class="lab" data-i18n="xray">Rayons X</span></button>
+      </div>
+      <div class="panel cam">
+        <div class="views" id="views" role="group">
+          <button type="button" class="kt" data-view="driver" aria-pressed="false"><span class="ico">🧑‍✈️</span><span class="lab" data-i18n="v_driver">Conducteur</span></button>
+          <button type="button" class="kt" data-view="pax" aria-pressed="false"><span class="ico">💺</span><span class="lab" data-i18n="v_pax">Passager</span></button>
+          <button type="button" class="kt" data-view="out" aria-pressed="false"><span class="ico">📷</span><span class="lab" data-i18n="v_out">Dehors</span></button>
+        </div>
+        <div class="angles" id="angles" role="group">
+          <button type="button" class="kt" data-cam="overview" aria-pressed="false"><span class="ico">🚄</span><span class="lab" data-i18n="o_overview">Ensemble</span></button>
+          <button type="button" class="kt" data-cam="side" aria-pressed="false"><span class="ico">↔️</span><span class="lab" data-i18n="o_side">Profil</span></button>
+          <button type="button" class="kt" data-cam="train" aria-pressed="false"><span class="ico">🛤️</span><span class="lab" data-i18n="o_train">Tout le train</span></button>
+          <button type="button" class="kt" data-cam="far" aria-pressed="false"><span class="ico">🏞️</span><span class="lab" data-i18n="o_far">Paysage</span></button>
+          <button type="button" class="kt" data-cam="door" aria-pressed="false"><span class="ico">🚪</span><span class="lab" data-i18n="o_door">Portes</span></button>
+        </div>
+      </div>
+    </div>
+    <div class="off-msg" id="offMsg" role="status" hidden></div>
+  </main>
+  <div class="panel line"><div class="rb" id="rb"><div class="rb-in" id="rbIn"><i id="rbTrain"></i><span id="rbTip" hidden></span></div></div></div>
+</section>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<script>
+(() => {
+  const T = {
+    fr:{ title:"Télécommande · Jouer au train", h1:"Télécommande", lang:"Langue", code:"Code de la télé", go:"Relier",
+         how_a:"Sur la télé, ouvre", how_b:", puis ⚙️ et 📱 Télécommande. Scanne son QR code avec l'appareil photo, ou tape ici ses 4 lettres :",
+         connecting:"Connexion…", looking:"Je cherche la télé…", nope:"Aucune télé avec ce code. Vérifie les 4 lettres sur la télé.", full:"Cette télé a déjà 8 télécommandes.",
+         slow:"Trop d'essais : attends quelques minutes.", four:"Le code a 4 lettres.", offline:"Connexion perdue, nouvel essai…", tv_off:"📺 La télé ne répond plus… Est-elle allumée ?",
+         snd:"🔈 Pour le son, clique une fois sur l'écran de la télé.",
+         diesel:"Diesel", electric:"Électrique", tgv:"TGV", stop:"Stop", horn:"Klaxon", station:"Prochaine gare", service:"Toute la ligne", auto:"Pilote auto…", turn:"Demi-tour",
+         dir_par:"Vers Paris", dir_tls:"Vers Toulouse", panto:"Pantographe", doors:"Portes", wx:"Météo", xray:"Rayons X", lever:"Manette", terminus:"Terminus",
+         v_driver:"Conducteur", v_pax:"Passager", v_out:"Dehors", o_overview:"Ensemble", o_side:"Profil", o_train:"Tout le train", o_far:"Paysage", o_door:"Portes",
+         gui:"Commandes sur la télé", sound:"Son de la télé", other:"Changer de télé" },
+    en:{ title:"Remote · Train playground", h1:"Remote", lang:"Language", code:"The TV's code", go:"Connect",
+         how_a:"On the TV, open", how_b:", then ⚙️ and 📱 Remote. Scan its QR code with the camera, or type its 4 letters here:",
+         connecting:"Connecting…", looking:"Looking for the TV…", nope:"No TV with this code. Check the 4 letters on the TV.", full:"This TV already has 8 remotes.",
+         slow:"Too many tries: wait a few minutes.", four:"The code has 4 letters.", offline:"Connection lost, trying again…", tv_off:"📺 The TV is not answering… Is it on?",
+         snd:"🔈 For sound, click the TV's screen once.",
+         diesel:"Diesel", electric:"Electric", tgv:"TGV", stop:"Stop", horn:"Horn", station:"Next station", service:"Whole line", auto:"Autopilot…", turn:"Turn around",
+         dir_par:"To Paris", dir_tls:"To Toulouse", panto:"Pantograph", doors:"Doors", wx:"Weather", xray:"X-ray", lever:"Lever", terminus:"Terminus",
+         v_driver:"Driver", v_pax:"Passenger", v_out:"Outside", o_overview:"Overview", o_side:"Side", o_train:"Whole train", o_far:"Landscape", o_door:"Doors",
+         gui:"Controls on the TV", sound:"TV sound", other:"Another TV" },
+  };
+  const $ = id => document.getElementById(id), root = document.documentElement, body = document.body;
+  const CODE = /^[A-Z]{4}$/, WX = { sun:'☀️', cloud:'☁️', rain:'🌧️', dusk:'🌆' }, WX_ORDER = Object.keys(WX);
+  const clamp01 = v => Math.min(1, Math.max(0, v));
+  let L = T[root.lang] ? root.lang : 'en';
+  const t = k => T[L][k] ?? k;
+
+  /* ---- the link: one room on the relay, found by the TV's code; back by itself after a sleep, a lost network or a redeploy */
+  const R = { ws:null, hi:false, code:'', typed:false, joined:false, tries:0, timer:0, last:0, look:0, lookT0:0, tv:false, st:null, line:null, labels:[], msg:'', msgBad:false };
+  function connect(){
+    clearTimeout(R.timer);
+    if (R.ws || !CODE.test(R.code)) return;
+    let ws;
+    try { ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/relay?role=remote&code=${R.code}`); }
+    catch (e) { lost(1006); return; }
+    R.ws = ws; R.hi = false; R.last = performance.now();
+    ws.onmessage = e => { R.last = performance.now(); let m; try { m = JSON.parse(e.data); } catch (err) { return; } if (m && typeof m === 'object') onMsg(m); };
+    ws.onclose = e => { if (R.ws === ws) lost(e.code); };
+    if (!R.joined) pairMsg(R.lookT0 ? 'looking' : 'connecting');
+    render();
+  }
+  function drop(){ clearTimeout(R.timer); const ws = R.ws; R.ws = null; R.hi = false; if (ws){ ws.onclose = ws.onmessage = null; try { ws.close(1000); } catch (e) {} } hornUp(); }
+  function lost(code){
+    drop();
+    if (code === 4004 || (code === 4029 && !R.typed)){   // no such TV: a typed code is wrong; one that worked, or came from the TV's QR, is looked for (the TV reloading, the server restarting)
+      if (R.typed && !R.joined){ pairMsg('nope', true); show('pair'); return; }
+      look(code === 4029 ? 'slow' : 'looking'); return;
+    }
+    if (code === 4008){ R.joined = false; pairMsg('full', true); show('pair'); return; }
+    if (code === 4029){ pairMsg('slow', true); show('pair'); return; }
+    R.timer = setTimeout(connect, Math.min(15e3, 1000 * 2 ** R.tries++));   // the network, a restart (1012): again, soon
+    if (!R.joined) pairMsg('connecting');
+    render();
+  }
+  function look(msg){   // 2, 4, 8, 16 s, then every minute; after 10 minutes, the code screen with the code still in
+    const now = Date.now();
+    if (!R.lookT0) R.lookT0 = now;
+    if (now - R.lookT0 > 10 * 60e3){ R.lookT0 = 0; R.look = 0; R.joined = false; pairMsg('nope', true); show('pair'); return; }
+    R.timer = setTimeout(connect, R.look < 4 ? 2000 * 2 ** R.look : 60e3); R.look++;
+    if (!R.joined){ pairMsg(msg, msg === 'slow'); show('pair'); }
+    render();
+  }
+  function go(code, typed){   // a new code: typed here, or from the TV's QR (the address's #)
+    drop(); Object.assign(R, { code, typed, joined:false, tries:0, look:0, lookT0:0, st:null, line:null });
+    $('codeIn').value = code; connect();
+  }
+  function onMsg(m){
+    switch (m.t){
+      case 'hi':
+        Object.assign(R, { hi:true, joined:true, typed:false, tries:0, look:0, lookT0:0, tv:!!m.tv });
+        try { localStorage.setItem('remote.code', R.code); } catch (e) {}
+        $('codeIn').blur(); pairMsg(''); show('ctl'); break;
+      case 'line': if (Array.isArray(m.st)) buildLine(m.st); break;
+      case 'state': R.st = m; break;
+      case 'tv': R.tv = !!m.on; break;
+      case 'toast': toast(String(m.text ?? ''), +m.ms || 0); return;
+      default: return;   // pong, nope (its close follows)
+    }
+    render();
+  }
+  setInterval(() => {   // the line's own check: a ping every 10 s; nothing heard for 25 s, it is dead (an iPad back from sleep)
+    if (R.ws?.readyState !== 1) return;
+    if (performance.now() - R.last > 25e3){ lost(1006); return; }
+    R.ws.send('{"t":"ping"}');
+  }, 10e3);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState !== 'visible') return;
+    wake();
+    if (!R.ws && R.code && (R.joined || R.lookT0)){ R.tries = 0; connect(); }
+  });
+  const send = (c, v) => { if (R.ws?.readyState === 1 && R.hi) R.ws.send(JSON.stringify(v === undefined ? { t:'cmd', c } : { t:'cmd', c, v })); };
+
+  /* ---- screens and messages */
+  function show(s){ $('pair').hidden = s !== 'pair'; $('ctl').hidden = s !== 'ctl'; if (s === 'ctl') requestAnimationFrame(fitLabels); }
+  function pairMsg(k, bad = false){ R.msg = k; R.msgBad = bad; const el = $('pairMsg'); el.textContent = k ? t(k) : ''; el.classList.toggle('bad', bad); }
+  let toastT = 0;
+  function toast(text, ms){ const el = $('toast'); el.textContent = text; el.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove('show'), ms > 0 ? ms : 6000); }
+
+  /* ---- the train's state on the buttons */
+  const lv = { box:$('lever'), track:$('lvTrack'), knob:$('lvKnob'), n:0, drag:null, hold:0 };
+  const lvShow = n => { lv.knob.style.top = `${(1 - n / 8) * 100}%`; lv.box.setAttribute('aria-valuenow', String(n)); };
+  for (let n = 0; n <= 8; n++){ const i = document.createElement('i'); i.style.top = `${(1 - n / 8) * 100}%`; lv.track.insertBefore(i, lv.knob); }   // its 9 notches
+  function render(){
+    const up = R.ws?.readyState === 1 && R.hi, k = up ? (R.tv ? '' : 'tv_off') : R.lookT0 ? 'looking' : 'offline';
+    body.classList.toggle('off', !!k); $('offMsg').hidden = !k; $('offMsg').textContent = k ? t(k) : '';
+    $('tvCode').textContent = R.code; $('dot').className = 'dot ' + (!k ? 'on' : k === 'offline' ? 'bad' : 'wait');
+    const s = R.st; if (!s) return;
+    const tgv = s.mode === 'tgv';
+    $('trains').querySelectorAll('[data-mode]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.mode === s.mode)));
+    $('kmh').textContent = s.kmh | 0;
+    $('next').textContent = s.next ? `🚉 ${s.next} · ${s.dist}` : `🏁 ${t('terminus')}`;
+    if (lv.drag === null && performance.now() > lv.hold){ lv.n = s.notch | 0; lvShow(lv.n); }
+    lv.box.classList.toggle('auto', !!s.auto);
+    const sb = $('bStation'); sb.classList.toggle('auto', !!s.auto); sb.setAttribute('aria-pressed', String(!!s.svc));
+    $('bStationIco').textContent = s.svc ? '🔁' : '🚉'; $('bStationLab').textContent = t(s.svc ? 'service' : s.auto ? 'auto' : s.next ? 'station' : 'turn');
+    $('bDirLab').textContent = t(s.dir > 0 ? 'dir_par' : 'dir_tls');
+    $('bPanto').disabled = s.mode === 'diesel'; $('bPanto').setAttribute('aria-pressed', String(!!s.panto && s.mode !== 'diesel'));
+    $('bDoors').disabled = !tgv || !s.doorsOk; $('bDoors').setAttribute('aria-pressed', String(!!s.doors && tgv));
+    $('bHorn').classList.toggle('on', !!hornIv || !!s.horn);
+    $('bWxIco').textContent = WX[s.wx] || '☀️';
+    $('bXray').setAttribute('aria-pressed', String(!!s.xray));
+    $('views').querySelectorAll('[data-view]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.view === s.view)));
+    $('views').querySelector('[data-view="pax"]').setAttribute('aria-disabled', String(!tgv));
+    $('angles').querySelectorAll('[data-cam]').forEach(b => b.setAttribute('aria-pressed', String(s.view === 'out' && b.dataset.cam === s.cam)));
+    $('angles').querySelector('[data-cam="door"]').disabled = !tgv;
+    $('mGui').setAttribute('aria-pressed', String(!s.nogui));
+    $('mSnd').setAttribute('aria-pressed', String(!s.mute)); $('mSndIco').textContent = s.mute ? '🔇' : '🔊';
+    $('sndHint').hidden = !(up && R.tv && s.snd === false && !s.mute);
+    $('rbTrain').style.left = `${clamp01(+s.f || 0) * 100}%`;
+  }
+
+  /* ---- the line */
+  function buildLine(st){
+    R.line = st; const inn = $('rbIn');
+    inn.querySelectorAll('.rb-st,.rb-lb').forEach(el => el.remove());
+    R.labels = st.map((x, i) => {
+      const left = `${clamp01(+x.f || 0) * 100}%`;
+      const b = document.createElement('button'); b.type = 'button'; b.className = 'rb-st'; b.style.left = left; b.dataset.i = i;
+      b.setAttribute('aria-label', String(x.name)); b.appendChild(document.createElement('i'));
+      const l = document.createElement('span'); l.className = 'rb-lb'; l.style.left = left; l.textContent = String(x.short || x.name);
+      inn.insertBefore(b, $('rbTrain')); inn.insertBefore(l, $('rbTrain'));
+      return l;
+    });
+    fitLabels();
+  }
+  function fitLabels(){   // most important first (the ends, then the TV's order); a label that does not fit centred may start or end at its dot, or hide
+    if (!R.line) return;
+    const last = R.line.length - 1, kept = [];
+    const order = R.labels.map((l, i) => i).sort((a, b) => (+R.line[a].rank || 0) - (+R.line[b].rank || 0));
+    for (const i of order){
+      const l = R.labels[i];
+      l.hidden = true;
+      for (const al of i === 0 ? ['r'] : i === last ? ['l'] : ['', 'r', 'l']){
+        l.className = 'rb-lb' + (al && ' ' + al); l.hidden = false;
+        const r = l.getBoundingClientRect();
+        if (!kept.some(k => r.left < k.right + 6 && r.right > k.left - 6)){ kept.push(r); break; }
+        l.hidden = true;
+      }
+    }
+  }
+  new ResizeObserver(fitLabels).observe($('rb'));
+  {
+    const rb = $('rb'), tip = $('rbTip');
+    const fAt = e => { const r = $('rbIn').getBoundingClientRect(); return clamp01((e.clientX - r.left) / Math.max(1, r.width)); };
+    let d = null;   // the press: where it began, the stop of the dot it began on, whether it has slid
+    const showTip = e => {
+      const st = d && !d.moved && d.i >= 0 ? R.line[d.i] : null;
+      tip.hidden = false; tip.style.left = `${(st ? clamp01(+st.f) : fAt(e)) * 100}%`; tip.textContent = st ? String(st.name) : '🚄';
+    };
+    rb.addEventListener('pointerdown', e => {
+      if (!R.line || e.button) return;
+      const b = e.target.closest('.rb-st'); d = { x:e.clientX, i:b ? +b.dataset.i : -1, moved:false };
+      try { rb.setPointerCapture(e.pointerId); } catch (err) {}
+      showTip(e);
+    });
+    rb.addEventListener('pointermove', e => { if (!d) return; if (Math.abs(e.clientX - d.x) > 8) d.moved = true; showTip(e); });
+    rb.addEventListener('pointerup', e => {
+      if (!d) return; const p = d; d = null; tip.hidden = true;
+      if (p.i >= 0 && !p.moved) send('station', String(R.line[p.i].id)); else send('at', +fAt(e).toFixed(4));
+    });
+    rb.addEventListener('pointercancel', () => { d = null; tip.hidden = true; });
+  }
+
+  /* ---- the controls */
+  {
+    const at = e => { const r = lv.track.getBoundingClientRect(); return Math.round(clamp01(1 - (e.clientY - r.top) / Math.max(1, r.height)) * 8); };
+    const set = n => { if (n === lv.n) return; lv.n = n; lvShow(n); send('lever', n); };
+    lv.box.addEventListener('pointerdown', e => { if (e.button) return; e.preventDefault(); try { lv.box.setPointerCapture(e.pointerId); } catch (err) {} lv.drag = e.pointerId; lv.box.classList.add('drag'); set(at(e)); });
+    lv.box.addEventListener('pointermove', e => { if (lv.drag === e.pointerId) set(at(e)); });
+    const end = e => { if (lv.drag !== e.pointerId) return; lv.drag = null; lv.box.classList.remove('drag'); lv.hold = performance.now() + 600; };   // the TV's answer may still be on its way: the knob stays
+    for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture']) lv.box.addEventListener(ev, end);
+    lv.box.addEventListener('keydown', e => {
+      const k = { ArrowUp:1, ArrowRight:1, PageUp:8, ArrowDown:-1, ArrowLeft:-1, PageDown:-8, Home:-8, End:8 }[e.key];
+      if (!k) return; e.preventDefault(); lv.hold = performance.now() + 600; set(Math.max(0, Math.min(8, lv.n + k)));
+    });
+  }
+  let hornIv = 0;
+  function hornDown(){ if (hornIv) return; $('bHorn').classList.add('on'); send('horn', 1); hornIv = setInterval(() => send('horn', 1), 500); }   // held: said again every 0.5 s, so a lost release ends by itself on the TV
+  function hornUp(){ if (!hornIv) return; clearInterval(hornIv); hornIv = 0; $('bHorn').classList.remove('on'); send('horn', 0); }
+  {
+    const hb = $('bHorn');
+    hb.addEventListener('pointerdown', e => { if (e.button) return; e.preventDefault(); try { hb.setPointerCapture(e.pointerId); } catch (err) {} hornDown(); });
+    for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture']) hb.addEventListener(ev, hornUp);
+    hb.addEventListener('keydown', e => { if (e.key === ' ' || e.key === 'Enter'){ e.preventDefault(); hornDown(); } });
+    hb.addEventListener('keyup', e => { if (e.key === ' ' || e.key === 'Enter') hornUp(); });
+    hb.addEventListener('contextmenu', e => e.preventDefault());
+  }
+  {   // 🚉: a tap, on to the next station; held 0.6 s, the whole line (as on the TV)
+    const sb = $('bStation'); let tm = 0, held = false;
+    const end = () => { clearTimeout(tm); sb.classList.remove('holding'); };
+    sb.addEventListener('pointerdown', e => { if (e.button) return; held = false; sb.classList.add('holding'); tm = setTimeout(() => { end(); held = true; send('service'); }, 600); });
+    for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) sb.addEventListener(ev, end);
+    sb.addEventListener('click', () => { if (held) held = false; else send('next'); });
+    sb.addEventListener('contextmenu', e => e.preventDefault());
+  }
+  $('bStop').addEventListener('click', () => { lv.n = 0; lvShow(0); lv.hold = performance.now() + 600; send('stop'); });
+  $('bDir').addEventListener('click', () => send('turn'));
+  $('bPanto').addEventListener('click', () => send('panto'));
+  $('bDoors').addEventListener('click', () => send('doors'));
+  $('bXray').addEventListener('click', () => send('xray'));
+  $('bWx').addEventListener('click', () => { const i = WX_ORDER.indexOf(R.st?.wx); send('wx', WX_ORDER[(i + 1) % WX_ORDER.length]); });
+  $('trains').addEventListener('click', e => { const b = e.target.closest('[data-mode]'); if (b && b.dataset.mode !== R.st?.mode) send('train', b.dataset.mode); });
+  $('views').addEventListener('click', e => { const b = e.target.closest('[data-view]'); if (b) send('view', b.dataset.view); });
+  $('angles').addEventListener('click', e => { const b = e.target.closest('[data-cam]'); if (b && !b.disabled) send('cam', b.dataset.cam); });
+  const menu = open => { $('menu').hidden = !open; $('chip').setAttribute('aria-expanded', String(open)); };
+  $('chip').addEventListener('click', () => menu($('menu').hidden));
+  document.addEventListener('pointerdown', e => { if (!$('menu').hidden && !e.target.closest('#menu,#chip')) menu(false); });
+  $('mGui').addEventListener('click', () => send('nogui', R.st?.nogui ? 0 : 1));
+  $('mSnd').addEventListener('click', () => send('mute', R.st?.mute ? 0 : 1));
+  $('mOther').addEventListener('click', () => {
+    menu(false); drop(); Object.assign(R, { code:'', joined:false, typed:false, look:0, lookT0:0, st:null, line:null });
+    try { localStorage.removeItem('remote.code'); } catch (e) {}
+    $('codeIn').value = ''; pairMsg(''); show('pair'); $('codeIn').focus();
+  });
+
+  /* ---- the code screen */
+  $('codeIn').addEventListener('input', () => {
+    const el = $('codeIn'), v = el.value.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4);
+    if (el.value !== v) el.value = v;
+    if (v === R.code) return;
+    if (v.length === 4) go(v, true);
+    else { drop(); Object.assign(R, { code:'', look:0, lookT0:0 }); pairMsg(''); }   // another code on its way: the old one is no longer looked for
+  });
+  $('pairForm').addEventListener('submit', e => {
+    e.preventDefault();
+    const v = $('codeIn').value.toUpperCase().replace(/[^A-Z]/g, '');
+    if (CODE.test(v)) go(v, true); else pairMsg('four', true);
+  });
+
+  /* ---- the iPad: awake while it drives, no zoom, no page sliding under the finger */
+  let lock = null, locking = false;
+  async function wake(){
+    if (lock || locking || !navigator.wakeLock || document.visibilityState !== 'visible') return;
+    locking = true;
+    try { lock = await navigator.wakeLock.request('screen'); lock.addEventListener('release', () => { lock = null; }); } catch (e) {}
+    locking = false;
+  }
+  document.addEventListener('pointerdown', wake, { passive:true });
+  for (const ev of ['gesturestart', 'gesturechange', 'dblclick']) document.addEventListener(ev, e => e.preventDefault());
+
+  /* ---- language, as every page of the site (site/lang.js picked it in the head) */
+  function apply(l){
+    L = l; root.lang = l; document.title = t('title');
+    document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = t(el.dataset.i18n); });
+    document.querySelectorAll('[data-i18n-aria]').forEach(el => el.setAttribute('aria-label', t(el.dataset.i18nAria)));
+    document.querySelectorAll('.langSeg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.lang === l)));
+    root.removeAttribute('data-i18n-wait');
+    pairMsg(R.msg, R.msgBad); render(); requestAnimationFrame(fitLabels);
+  }
+  document.querySelectorAll('.langSeg').forEach(seg => seg.addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b || b.dataset.lang === L) return;
+    try { localStorage.setItem('lang', b.dataset.lang); } catch (err) {}
+    apply(b.dataset.lang);
+  }));
+  $('tvUrl').textContent = `${location.host}/playground`;
+  apply(L);
+
+  /* ---- start: the code in the address (the TV's QR), else the last TV, else the code screen */
+  const h = location.hash.slice(1).toUpperCase();
+  let saved = ''; try { saved = localStorage.getItem('remote.code') || ''; } catch (e) {}
+  if (CODE.test(h)){ history.replaceState(history.state, '', location.pathname + location.search); try { localStorage.setItem('remote.code', h); } catch (e) {} }
+  const first = CODE.test(h) ? h : CODE.test(saved) ? saved : '';
+  if (first) go(first, false); else show('pair');
+  window.remoteDebug = { R, send, render, go };
+})();
+</script>
+</body>
+</html>
