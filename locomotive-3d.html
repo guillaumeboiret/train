@@ -5571,6 +5571,32 @@ function tillDing(){   // the till's bell as the bar sells something: bell parti
   }
   puff(ctx, out, 'bandpass', 3000, 1.2, 0.5, 0.002, 0.01, 0.015);
 }
+function eatSound(st){   // the walker eating or drinking off the bar's tray, at the ear: a hot drink slurped then swallowed, a cold one in three gulps, food chewed then swallowed
+  const ctx = SND.ctx; if (!ctx || !SND.v) return;
+  const out = ctx.createGain(); out.gain.value = 0.5; out.connect(SND.master);
+  if (st === 'hot'){ slurp(ctx, out); gulp(ctx, out, 0.75); }
+  else if (st === 'cold') for (let i = 0; i < 3; i++) gulp(ctx, out, 0.05 + 0.42 * i);
+  else { for (let i = 0; i < 6; i++) chew(ctx, out, 0.05 + 0.27 * i + 0.04 * Math.random(), 1 - 0.12 * i); gulp(ctx, out, 1.9); }
+}
+function gulp(ctx, out, at){   // a swallow: a low bubble whose pitch jumps up as it closes, on a dull thump
+  const t = ctx.currentTime + at, o = ctx.createOscillator(), g = ctx.createGain();
+  o.frequency.setValueAtTime(160, t); o.frequency.exponentialRampToValueAtTime(400, t + 0.08);
+  g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.3, t + 0.008); g.gain.setTargetAtTime(0, t + 0.03, 0.03);
+  o.connect(g); g.connect(out); o.start(t); o.stop(t + 0.3);
+  puff(ctx, out, 'lowpass', 350, 0.7, 0.8, 0.005, 0.02, 0.04, at);
+}
+function slurp(ctx, out){   // air drawn in over a hot drink: a hiss rising in pitch, bubbling
+  const t = ctx.currentTime, s = ctx.createBufferSource(), f = ctx.createBiquadFilter(), fl = ctx.createGain(), g = ctx.createGain(), lfo = ctx.createOscillator(), d = ctx.createGain();
+  s.buffer = SND.v.pinkB; s.loop = true; f.type = 'bandpass'; f.Q.value = 2;
+  f.frequency.setValueAtTime(800, t); f.frequency.exponentialRampToValueAtTime(2400, t + 0.5);
+  lfo.frequency.value = 22; d.gain.value = 0.4; fl.gain.value = 0.6; lfo.connect(d); d.connect(fl.gain);   // the bubbling: the level wobbles between 0.2 and 1
+  g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(1.5, t + 0.1); g.gain.setTargetAtTime(0, t + 0.45, 0.06);
+  s.connect(f); f.connect(fl); fl.connect(g); g.connect(out); s.start(t, Math.random() * 3); lfo.start(t); s.stop(t + 1); lfo.stop(t + 1);
+}
+function chew(ctx, out, at, lvl){   // one bite: a few bright crackles over the jaw's dull thud
+  for (let k = 0; k < 3; k++) puff(ctx, out, 'bandpass', 1500 + 2500 * Math.random(), 1, lvl * (0.6 + 0.8 * Math.random()), 0.002, 0, 0.01 + 0.01 * Math.random(), at + 0.04 * Math.random());
+  puff(ctx, out, 'lowpass', 300, 0.7, 0.9 * lvl, 0.01, 0.03, 0.05, at);
+}
 function doorsClose(ctx){   // the doors' warning beeps, then the lock: recorded, else square beeps; cut short if the doors reopen
   const v = SND.v, t0 = ctx.currentTime, g = ctx.createGain(), out = v.closing = ctx.createGain();
   g.connect(out); out.connect(v.door.g);
@@ -5579,8 +5605,8 @@ function doorsClose(ctx){   // the doors' warning beeps, then the lock: recorded
   for (let i = 0; i < 21; i++){ const t = t0 + i * 0.143; g.gain.setValueAtTime(0.05, t); g.gain.setValueAtTime(0, t + 0.07); }
   o.connect(g); o.start(t0); o.stop(t0 + 3.1);
 }
-function puff(ctx, dest, type, freq, q, lvl, rise, hold, tau){   // a burst of filtered noise: up in rise s, held, then dying away with time constant tau
-  const t0 = ctx.currentTime, s = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+function puff(ctx, dest, type, freq, q, lvl, rise, hold, tau, at = 0){   // a burst of filtered noise, at s from now: up in rise s, held, then dying away with time constant tau
+  const t0 = ctx.currentTime + at, s = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
   s.buffer = SND.v.pinkB; s.loop = true; f.type = type; f.frequency.value = freq; f.Q.value = q;
   g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime(lvl, t0 + rise); g.gain.setTargetAtTime(0, t0 + rise + hold, tau);
   s.connect(f); f.connect(g); g.connect(dest); s.start(t0, Math.random() * 3); s.stop(t0 + rise + hold + 7 * tau);
@@ -6443,7 +6469,7 @@ function barBuy(id){   // paid from the purse onto the tray; the till rings and 
 }
 function barEat(k){   // off the tray: eaten or drunk
   const id = BAR.tray[k]; if (!id) return;
-  BAR.tray.splice(k, 1); walkSay(barItem(id).st === 'food' ? 'bar_yum' : 'bar_gulp'); barRender();
+  const st = barItem(id).st; BAR.tray.splice(k, 1); eatSound(st); walkSay(st === 'food' ? 'bar_yum' : 'bar_gulp'); barRender();
   const ch = $('barTray').children; (ch[Math.min(k, ch.length - 1)] ?? $('barItems').firstElementChild).focus({ preventScroll:true });
 }
 $('barPocket').addEventListener('click', () => { BAR.wallet += 1000; walkSay('bar_pocket_say'); barRender(); if ($('barPocket').hidden) $('barItems').firstElementChild.focus({ preventScroll:true }); });

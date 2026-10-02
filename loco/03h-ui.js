@@ -512,7 +512,7 @@ function barBuy(id){   // paid from the purse onto the tray; the till rings and 
 }
 function barEat(k){   // off the tray: eaten or drunk
   const id = BAR.tray[k]; if (!id) return;
-  BAR.tray.splice(k, 1); walkSay(barItem(id).st === 'food' ? 'bar_yum' : 'bar_gulp'); barRender();
+  const st = barItem(id).st; BAR.tray.splice(k, 1); eatSound(st); walkSay(st === 'food' ? 'bar_yum' : 'bar_gulp'); barRender();
   const ch = $('barTray').children; (ch[Math.min(k, ch.length - 1)] ?? $('barItems').firstElementChild).focus({ preventScroll:true });
 }
 $('barPocket').addEventListener('click', () => { BAR.wallet += 1000; walkSay('bar_pocket_say'); barRender(); if ($('barPocket').hidden) $('barItems').firstElementChild.focus({ preventScroll:true }); });
