@@ -145,7 +145,7 @@ function refreshInfo(){
     $('infoLegend').innerHTML = legendFor(st.focus ? [st.focus] : CHAIN[S.mode]);
     $('infoMini').textContent = st[L].t;
   }
-  $('infocard').classList.toggle('collapsed', infoCollapsed);
+  $('infocard').classList.toggle('collapsed', infoCollapsed); $('infocard').classList.toggle('is-part', !!selected);   // the parts tab shows a part's text only
   $('infoClose').textContent = infoCollapsed ? '+' : '×';
   $('infoClose').setAttribute('aria-label', t(infoCollapsed ? 'info_show' : 'info_hide'));
   $('infoClose').setAttribute('aria-expanded', String(!infoCollapsed));
@@ -361,11 +361,13 @@ $('camRow').addEventListener('click', e => {
 $('swRotate').addEventListener('change', e => { orbit.autoRotate = e.target.checked; });
 
 /* ---- tabs, top bar, sheet */
-document.querySelectorAll('.tabs [role="tab"]').forEach(tab => tab.addEventListener('click', () => {
-  document.querySelectorAll('.tabs [role="tab"]').forEach(x => x.setAttribute('aria-selected', String(x === tab)));
-  document.querySelectorAll('.tabpanel').forEach(p => { p.hidden = p.dataset.tab !== tab.dataset.tab; });
-  $('dock').classList.remove('collapsed');
-}));
+function showTab(name){   // one panel at a time, the dock unfolded; the step's or the part's text shows with the guide and the parts only (the dock's data-tab, in the CSS)
+  document.querySelectorAll('.tabs [role="tab"]').forEach(x => x.setAttribute('aria-selected', String(x.dataset.tab === name)));
+  document.querySelectorAll('.tabpanel').forEach(p => { p.hidden = p.dataset.tab !== name; });
+  $('dock').dataset.tab = name; $('dock').classList.remove('collapsed');
+  if (name === 'guide' && selected) select(null);   // back to the steps: the step's text and its part lit again
+}
+document.querySelectorAll('.tabs [role="tab"]').forEach(tab => tab.addEventListener('click', () => showTab(tab.dataset.tab)));
 $('sheetToggle').addEventListener('click', () => $('dock').classList.toggle('collapsed'));
 $('modeSeg').addEventListener('click', e => { const b = e.target.closest('button'); if (b && b.dataset.mode !== S.mode) setMode(b.dataset.mode); });
 $('langSeg').addEventListener('click', e => { const b = e.target.closest('button'); if (b && b.dataset.lang !== S.lang) setLang(b.dataset.lang); });
@@ -386,7 +388,7 @@ orbit.onClick = e => {
     if (!id || !parts[id] || !parts[id].group.visible) continue;
     if ((id === 'shell' || id === 'tgvShell') && shellLevel < 1) continue;
     if (cutPlane && clipMats.includes(h.object.material) && cutPlane.distanceToPoint(h.point) < 0) continue;
-    select(id);
+    showTab('parts'); select(id); $('partList').querySelector(`[data-part="${id}"]`)?.scrollIntoView({ block:'nearest' });   // a part picked on the model: its text, and its row in the list
     return;
   }
   select(null);
@@ -856,6 +858,28 @@ function resize(){
   camera.aspect = w / h; camera.updateProjectionMatrix();
 }
 new ResizeObserver(resize).observe(canvas.parentElement);
+/* the view's centre: the middle of what the panels leave of the stage (the dock down the left or along the bottom, the line bar, a phone's row of gauges), so the model is not drawn under them; first person looks straight ahead */
+const aim = { x:0, y:0, tx:0, ty:0, set:false, dirty:false }, aimEls = [$('dock'), $('hud'), $('gauges')];
+function aimView(){
+  const st = canvas.getBoundingClientRect(); let l = st.left, t = st.top, b = st.bottom;
+  if (!st.width || !st.height) return;
+  for (const el of aimEls){   // hidden (the cab, walking, the kid page): a 0×0 box, left out
+    const r = el.getBoundingClientRect();
+    if (r.height > st.height * 0.6) l = Math.max(l, r.right);   // a column down the left
+    else if (r.width > st.width * 0.6){ if (r.top > st.top + st.height / 3) b = Math.min(b, r.top); else t = Math.max(t, r.bottom); }   // a band across, below or above
+  }
+  aim.tx = (st.left - l) / 2; aim.ty = (st.top + st.bottom - t - b) / 2; aim.dirty = true;
+  if (!aim.set){ aim.set = true; aim.x = aim.tx; aim.y = aim.ty; }   // the page opens with the model already there
+}
+function stepAim(dt){   // glides to it as a panel folds or opens; in a seat with the panels shown the windshield moves clear of them too
+  const tx = aim.tx, ty = aim.ty, k = Math.min(1, dt * 5);
+  if (aim.x === tx && aim.y === ty && !aim.dirty) return;
+  aim.x += (tx - aim.x) * k; aim.y += (ty - aim.y) * k; aim.dirty = false;
+  if (Math.abs(tx - aim.x) + Math.abs(ty - aim.y) < 0.5){ aim.x = tx; aim.y = ty; }
+  const w = canvas.clientWidth, h = canvas.clientHeight;
+  if (aim.x || aim.y) camera.setViewOffset(w, h, aim.x, aim.y, w, h); else camera.clearViewOffset();
+}
+const aimRo = new ResizeObserver(aimView); [canvas.parentElement, ...aimEls].forEach(el => aimRo.observe(el));
 darkMq.addEventListener('change', () => setTimeout(recolorFlows, 0));
 new MutationObserver(() => recolorFlows()).observe(document.documentElement, { attributes:true, attributeFilter:['data-theme'] });
 
@@ -906,7 +930,7 @@ let frameHook = null;   // the kid build hangs its own rules here
 function frame(dt){
   simulate(dt); animate(Math.min(dt * S.timeScale, 0.25)); updateFlows(dt); updateWeather(dt); panKeys(dt); if (frameHook) frameHook(dt);
   keepDriver(); keepWalker(dt); updateIdle(dt);
-  orbit.update(dt); updateCab(dt); updateCompass(); updateSound(dt);
+  orbit.update(dt); stepAim(dt); updateCab(dt); updateCompass(); updateSound(dt);
 }
 window.tick = (sec, dt = 0.05) => { for (let t = 0; t < sec - 1e-9; t += dt) frame(dt); renderer.render(scene, camera); updateLabels(); updateGauges(); updateHud(); };
 

@@ -34,7 +34,7 @@ body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 var(--font-bo
 button,input{font:inherit;color:inherit}
 button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 #app{height:100%;display:flex;flex-direction:column}
-.topbar{display:flex;align-items:center;gap:14px;padding:8px 16px;border-bottom:1px solid var(--line);background:var(--panel-solid);flex:0 0 auto;min-height:54px}
+.topbar{display:flex;align-items:center;gap:14px;padding:6px 16px;border-bottom:1px solid var(--line);background:var(--panel-solid);flex:0 0 auto;min-height:48px}
 .brand{font-family:var(--font-display);font-weight:600;font-size:22px;letter-spacing:.02em;text-transform:uppercase;line-height:1;white-space:nowrap}
 .brand small{display:block;font:500 11px/1.2 var(--font-body);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-top:4px}
 .seg{display:inline-flex;border:1px solid var(--line);border-radius:6px;overflow:hidden;background:var(--panel-2)}
@@ -54,7 +54,10 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline
 .tabs button{background:transparent;border:0;padding:11px 4px 9px;cursor:pointer;color:var(--muted);font-family:var(--font-display);font-size:16px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;border-bottom:2px solid transparent}
 .tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
 .tabs button:focus-visible{outline-offset:-3px}
-#sheetToggle{display:none;padding:0 12px;font-size:18px;font-family:var(--font-body)}
+#sheetToggle{padding:0 12px;font-size:18px;font-family:var(--font-body)}
+.dock.collapsed{bottom:auto}
+.dock.collapsed .panels{display:none}
+.dock.collapsed #sheetToggle{transform:rotate(180deg)}
 .panels{flex:1;min-height:0;overflow:auto;padding:14px 16px 18px;scrollbar-width:thin}
 .tabpanel[hidden]{display:none}
 .field{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}
@@ -96,17 +99,18 @@ input[type=range]{width:100%;accent-color:var(--accent);margin:2px 0}
 .step:hover{background:var(--panel-2)}
 .step[aria-current="step"]{border-color:var(--accent);background:var(--panel-2)}
 .step.done .n{color:var(--ok)}
-.infocard{position:absolute;left:372px;bottom:12px;width:min(560px,calc(100% - 384px));background:var(--panel);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid var(--line);border-radius:10px;padding:14px 16px 14px;display:grid;grid-template-columns:1fr auto;gap:2px 12px}
+.infocard{flex:0 1 auto;min-height:0;max-height:45%;overflow:auto;scrollbar-width:thin;margin:10px 10px 0;padding:12px 14px;background:var(--panel-2);border:1px solid var(--line);border-radius:8px;display:grid;grid-template-columns:1fr auto;gap:2px 12px}
+.dock:is([data-tab="controls"],[data-tab="views"]) .infocard,.dock[data-tab="parts"] .infocard:not(.is-part),.dock.collapsed .infocard{display:none}   /* the guide's step or the picked part: with the guide and the parts only */
 .infocard .eyebrow{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);font-weight:600}
-.infocard h2{margin:0;font-family:var(--font-display);font-weight:600;font-size:26px;line-height:1.05;letter-spacing:.01em;text-wrap:balance}
-.infocard p{margin:8px 0 0;grid-column:1/-1;max-width:64ch;font-size:13.5px}
-.infocard .legend{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:10px;font-size:12px;color:var(--muted)}
+.infocard h2{margin:0;font-family:var(--font-display);font-weight:600;font-size:22px;line-height:1.05;letter-spacing:.01em;text-wrap:balance}
+.infocard p{margin:6px 0 0;grid-column:1/-1;font-size:13px}
+.infocard .legend{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:8px;font-size:12px;color:var(--muted)}
 .infocard .legend:empty{display:none}
 .legend span{display:inline-flex;align-items:center;gap:6px}
 .legend i{width:16px;height:3px;border-radius:2px;display:inline-block}
-.infocard .close{grid-column:2;grid-row:1/3;align-self:start;background:transparent;border:1px solid var(--line);color:var(--muted);border-radius:6px;width:28px;height:28px;cursor:pointer;font-size:16px;line-height:1}
-.gauges{position:absolute;top:12px;right:12px;display:grid;grid-auto-flow:column;gap:8px}
-.compass{position:absolute;top:84px;right:324px;width:56px;height:56px;box-sizing:border-box;border-radius:50%;background:var(--panel);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid var(--line);pointer-events:none}
+.infocard .close{grid-column:2;grid-row:1/3;align-self:start;background:transparent;border:1px solid var(--line);color:var(--muted);border-radius:6px;width:26px;height:26px;cursor:pointer;font-size:15px;line-height:1}
+.gauges{position:absolute;top:12px;right:76px;display:grid;grid-auto-flow:column;gap:8px}   /* the compass keeps the corner */
+.compass{position:absolute;top:19px;right:12px;width:56px;height:56px;box-sizing:border-box;border-radius:50%;background:var(--panel);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid var(--line);pointer-events:none}
 .compass svg{display:block;width:100%;height:100%}
 .cp-tick{fill:none;stroke:var(--muted);stroke-width:1.6;stroke-linecap:round}
 .cp-n{fill:#e5484d}.cp-s{fill:var(--muted)}.cp-hub{fill:var(--panel-solid)}.cp-mark{fill:var(--accent)}
@@ -124,12 +128,15 @@ body[data-mode="diesel"] .electric-only{display:none}
 body:not([data-mode="tgv"]) .tgv-only{display:none}
 .hint{font-size:12px;color:var(--muted);line-height:1.35}
 .infocard .mini{display:none}
-.infocard.collapsed{padding:8px 10px 8px 14px;width:auto;max-width:min(560px,calc(100% - 384px));cursor:pointer;grid-template-columns:1fr auto;align-items:center;gap:0 10px}
+.infocard.collapsed{padding:7px 8px 7px 12px;cursor:pointer;align-items:center;gap:0 10px}
 .infocard.collapsed h2,.infocard.collapsed p,.infocard.collapsed .legend{display:none}
 .infocard.collapsed .eyebrow{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .infocard.collapsed .mini{display:inline;color:var(--ink);text-transform:none;letter-spacing:0;font-weight:600;font-size:13px;margin-left:8px}
 .infocard.collapsed .close{grid-row:1;width:24px;height:24px;font-size:12px}
-.hud{position:absolute;top:84px;right:12px;width:300px;background:var(--panel);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid var(--line);border-radius:8px;padding:8px 10px 8px;font-size:12px;display:grid;gap:3px}
+.hud{position:absolute;left:368px;right:12px;bottom:12px;display:flex;align-items:center;gap:4px 18px;background:var(--panel);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid var(--line);border-radius:10px;padding:8px 14px;font-size:12px}
+.dock.collapsed~.hud{left:12px}
+.hud-info{flex:0 1 auto;min-width:0;display:grid;gap:3px}
+.hud #routeBar{flex:1 1 300px;min-width:0;margin-top:0}
 .hud-row{display:flex;flex-wrap:wrap;gap:2px 8px;align-items:baseline}
 .hud .hk{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
 .hud .hv{font-family:var(--font-mono);font-variant-numeric:tabular-nums;color:var(--ink);margin-right:4px;white-space:nowrap}
@@ -137,9 +144,8 @@ body:not([data-mode="tgv"]) .tgv-only{display:none}
 .hud .hud-kind{color:var(--accent);font-weight:600;margin-left:auto}
 #routeBar{position:relative;height:32px;margin-top:6px;cursor:pointer;touch-action:none}
 #rbTip{position:absolute;top:-22px;transform:translateX(-50%);background:var(--accent);color:var(--accent-ink);font:600 10px/1 var(--font-mono);padding:3px 6px;border-radius:3px;pointer-events:none;white-space:nowrap;display:none}
-.hud-tp{align-items:center;gap:6px}
-.hud-tp input{width:72px;background:var(--panel-2);border:1px solid var(--line);border-radius:5px;padding:3px 6px;font-family:var(--font-mono);font-size:12px;color:var(--ink)}
-.hud-tp .go{background:var(--accent);color:var(--accent-ink);border:0;border-radius:5px;padding:4px 9px;font-weight:600;font-size:11.5px;cursor:pointer}
+.pk-row{align-items:center}
+#pkIn{width:110px;background:var(--panel-2);border:1px solid var(--line);border-radius:6px;padding:7px 9px;font-family:var(--font-mono);font-size:13px;color:var(--ink)}
 #routeBar::before{content:"";position:absolute;left:7px;right:7px;top:7px;height:2px;background:var(--line)}
 .rb-in{position:absolute;inset:0 7px}
 .rb-st{position:absolute;top:0;width:16px;height:16px;transform:translateX(-50%);background:transparent;border:0;cursor:pointer;padding:0;display:grid;place-items:center}
@@ -154,7 +160,7 @@ body:not([data-mode="tgv"]) .tgv-only{display:none}
 #cabUi[aria-pressed="true"]{background:var(--accent);border-color:var(--accent)}
 body.in-cab:not(.cab-ui) :is(.dock,.infocard,.gauges,.hud,.compass,#labels){display:none}
 body.in-cab .cab-bar{display:flex}
-@media (min-width:841px){ body.in-cab .gauges{top:68px} body.in-cab :is(.hud,.compass){top:140px} }   /* the cab's two buttons keep the top right corner */
+body.in-cab .gauges{top:68px}body.in-cab .compass{top:75px}   /* the cab's two buttons keep the top right corner */
 /* the cab's own controls while the page's are put away: the line bar over the windshield, the power/brake lever at the driver's left hand */
 .cab-deck{display:none;position:absolute;inset:12px;flex-direction:column;align-items:flex-start;gap:8px;pointer-events:none}   /* a column: the line on top, the lever in the room left under it, however tall the line grows */
 body.in-cab:not(.cab-ui) .cab-deck{display:flex}
@@ -222,32 +228,57 @@ body.bar-open :is(#walkPad,#walkSit,#walkLeave){display:none}
 body.ui-idle :is(.dock,.infocard,.gauges,.hud,.compass,#labels,.cab-bar,.cab-deck,.walk-bar){opacity:0;visibility:hidden;pointer-events:none;transition:opacity .8s,visibility 0s .8s}
 .btn.horn{width:100%;font-weight:600}
 .btn.horn.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+@media (max-width:1100px){ .g{min-width:84px} }
 @media (max-width:840px){
-  .hud{display:none}
   .brand{font-size:19px}.brand small{display:none}
-  .dock{left:0;right:0;top:auto;bottom:0;width:auto;height:44%;border-radius:12px 12px 0 0;border-bottom:0;padding-bottom:env(safe-area-inset-bottom,0px)}
-  .dock.collapsed{height:auto}
-  .dock.collapsed .panels{display:none}
-  #sheetToggle{display:block}
-  .infocard{left:16px;right:72px;width:auto;top:12px;bottom:auto;max-height:30%;overflow:auto;padding:10px 12px}
-  .infocard.collapsed{right:auto;max-width:calc(100% - 88px);padding:6px 8px 6px 12px}
-  .compass{top:12px;right:12px;width:48px;height:48px}
   .cab-bar{flex-direction:column}body.in-cab .compass{display:none}
   .cab-deck{right:68px}.cab-line{align-self:stretch;width:auto}
   .cab-lever{margin:0}.cl-track{min-height:72px}   /* the line bar spans the width here: the lever starts under it, its track giving way on a short screen */
+}
+/* a phone held upright: the dock is a sheet along the bottom with the line bar riding on it, the gauges a row along the top */
+@media (max-width:840px) and (min-height:501px){
+  .dock{left:0;right:0;top:auto;bottom:0;width:auto;height:52%;border-radius:12px 12px 0 0;border-bottom:0;padding-bottom:env(safe-area-inset-bottom,0px)}
+  .dock.collapsed{bottom:0;height:auto}   /* folded: the tab row stays at the foot of the screen */
+  .infocard{max-height:42%;margin:8px 8px 0;padding:10px 12px}
   .infocard h2{font-size:19px}
-  .infocard p{font-size:13px;margin-top:6px}
-  .gauges{top:auto;bottom:calc(44% + 8px);left:8px;right:8px;grid-auto-flow:row;grid-template-columns:repeat(5,1fr);gap:4px}
-  .dock.collapsed~.gauges{bottom:56px}
-  .g{min-width:0;padding:6px 7px}
-  .g .k{font-size:9px}
-  .g .v{font-size:14px}
-  .g .u{display:none}
+  .gauges{top:8px;left:8px;right:60px;grid-auto-flow:row;grid-template-columns:repeat(5,1fr);gap:4px}
+  .compass{top:8px;right:8px;width:48px;height:48px}
+  body.in-cab .gauges{top:8px}   /* the cab's buttons stand in a column at the right here, clear of the row */
+  .hud{left:8px;right:8px;bottom:calc(52% + 8px);flex-direction:column;align-items:stretch;gap:2px;padding:6px 10px 4px}
+  .dock.collapsed~.hud{bottom:calc(56px + env(safe-area-inset-bottom,0px))}
+  .hud-more{display:none}
+  .hud #routeBar{flex:0 0 auto}
+}
+/* a short screen (a phone held sideways): the dock a narrow column, the line bar along the bottom, the gauges compact */
+@media (max-height:500px){
+  .topbar{min-height:0;padding:4px 12px;gap:10px}
+  .brand{font-size:17px}.brand small{display:none}
+  .dock{top:8px;left:8px;bottom:8px;width:300px}
+  .tabs button{padding:8px 4px 6px;font-size:14px}
+  .panels{padding:10px 12px 12px}
+  .infocard{max-height:50%;margin:8px 8px 0;padding:8px 10px}
+  .infocard h2{font-size:17px}
+  .infocard p{font-size:12.5px}
+  .gauges{top:8px;right:60px;gap:4px}
+  body:not(.kid) .compass{top:8px;right:8px;width:44px;height:44px}
+  .hud{left:316px;right:8px;bottom:8px;padding:4px 10px;gap:4px 12px}
+  .dock.collapsed~.hud{left:8px}
+  .hud-more{display:none}
+  body.in-cab .gauges{top:60px}body.in-cab:not(.kid) .compass{display:none}
+}
+/* compact gauges (phone, short screen): the unit names the value */
+@media (max-width:840px) and (min-height:501px), (max-height:500px){
+  .g{min-width:0;padding:7px 7px 8px}
+  .g .k{display:none}
+  .g .v{font-size:15px}
+  .g .u{font-size:10px}
   .g .bar{margin-top:4px}
 }
 @media (max-width:560px){
-  .topbar{flex-wrap:wrap;gap:6px 10px;padding:6px 12px;min-height:0}
-  .brand{flex:1 1 100%;font-size:16px}
+  .topbar{flex-wrap:wrap;gap:6px;padding:6px 10px;min-height:0}   /* one row whenever it fits */
+  .brand{display:none}
+  .topbar .btn.link{font-size:0;padding:5px 7px}   /* the switch game: its icon only, its name kept for screen readers */
+  .topbar .btn.link::before{content:"🎮";content:"🎮" / "";font-size:16px;line-height:1}
   .seg button{padding:5px 8px;font-size:12px}
 }
 @media (prefers-reduced-motion: reduce){
@@ -279,14 +310,7 @@ body.ui-idle :is(.dock,.infocard,.gauges,.hud,.compass,#labels,.cab-bar,.cab-dec
         <text class="cp-l cp-ln" id="cpN" x="0" y="-20">N</text><text class="cp-l" id="cpE" x="20" y="0">E</text><text class="cp-l" id="cpS" x="0" y="20">S</text><text class="cp-l" id="cpW" x="-20" y="0" data-i18n="cmp_w">O</text>
       </svg>
     </div>
-    <div id="hud" class="hud">
-      <div class="hud-row"><span class="hk" data-i18n="hud_pk">PK</span><span class="hv"><b id="hudPk">0.9</b> km</span><span class="hk" data-i18n="hud_alt">Alt.</span><span class="hv"><b id="hudAlt">0</b> m</span><span class="hk" data-i18n="hud_grade">Pente</span><span class="hv"><b id="hudGrade">0</b> ‰</span></div>
-      <div class="hud-row"><span class="hk" data-i18n="hud_tracks">Voies</span><span class="hv"><b id="hudTracks">2</b></span><span class="hk" data-i18n="hud_limit">Limite</span><span class="hv"><b id="hudLimit">160</b> km/h</span><span class="hud-kind" id="hudKind"></span></div>
-      <div class="hud-row"><span class="hk" data-i18n="hud_next">Prochaine gare</span><span class="hv" id="hudNext"></span></div>
-      <div class="hud-row hud-tp"><label class="hk" for="pkIn" data-i18n="hud_tp">Aller au PK</label><input id="pkIn" type="number" min="0" max="829.5" step="0.1" inputmode="decimal" placeholder="123.4"><button type="button" id="pkGo" class="go" data-i18n="hud_go">Go</button></div>
-      <div id="routeBar" role="group" aria-label="Ligne" data-i18n-aria="aria_line"></div>
-    </div>
-    <aside class="dock" id="dock">
+    <aside class="dock" id="dock" data-tab="guide">
       <nav class="tabs" role="tablist">
         <button type="button" role="tab" aria-selected="true" data-tab="guide" data-i18n="tab_guide">Guide</button>
         <button type="button" role="tab" aria-selected="false" data-tab="controls" data-i18n="tab_controls">Commandes</button>
@@ -294,6 +318,13 @@ body.ui-idle :is(.dock,.infocard,.gauges,.hud,.compass,#labels,.cab-bar,.cab-dec
         <button type="button" role="tab" aria-selected="false" data-tab="views" data-i18n="tab_views">Vues</button>
         <button type="button" id="sheetToggle" aria-label="Replier" data-i18n-aria="aria_fold">▾</button>
       </nav>
+      <div class="infocard" id="infocard">
+        <div class="eyebrow"><span id="infoEyebrow"></span><span class="mini" id="infoMini"></span></div>
+        <button type="button" class="close" id="infoClose" aria-label="Masquer" title="Masquer / afficher" data-i18n-aria="aria_hide" data-i18n-title="tip_hide">×</button>
+        <h2 id="infoTitle"></h2>
+        <p id="infoText"></p>
+        <div class="legend" id="infoLegend"></div>
+      </div>
       <div class="panels">
         <section class="tabpanel" data-tab="guide" role="tabpanel">
           <div class="row" style="margin-bottom:12px">
@@ -370,6 +401,10 @@ body.ui-idle :is(.dock,.infocard,.gauges,.hud,.compass,#labels,.cab-bar,.cab-dec
             <div class="hint" id="trackHint" data-i18n="track_hint">Changement par une communication 400 m devant la rame.</div>
           </div>
           <div class="field">
+            <label class="lab" for="pkIn" data-i18n="hud_tp">Aller au PK</label>
+            <div class="row pk-row"><input id="pkIn" type="number" min="0" max="829.5" step="0.1" inputmode="decimal" placeholder="123.4"><button type="button" id="pkGo" class="btn primary" data-i18n="hud_go">Go</button></div>
+          </div>
+          <div class="field">
             <span class="lab" data-i18n="ctl_time">Vitesse du temps</span>
             <div class="seg" id="timeSeg">
               <button type="button" data-time="1" aria-pressed="true">×1</button>
@@ -391,40 +426,12 @@ body.ui-idle :is(.dock,.infocard,.gauges,.hud,.compass,#labels,.cab-bar,.cab-dec
             <button type="button" class="btn horn" id="btnHorn" data-i18n="horn">Klaxon (H)</button>
           </div>
           <div class="hint" data-i18n="route_src">Ligne Toulouse Matabiau à Paris Montparnasse par Bordeaux Saint-Jean.</div>
-          <label class="switch"><span data-i18n="ctl_flows">Flux d'énergie</span><input type="checkbox" id="swFlows" checked></label>
-          <label class="switch"><span data-i18n="ctl_labels">Étiquettes</span><input type="checkbox" id="swLabels"></label>
         </section>
         <section class="tabpanel parts" data-tab="parts" role="tabpanel" hidden>
           <p class="mode-note" data-i18n="parts_hint">Cliquez une pièce dans la liste ou directement sur le modèle. L'œil masque une pièce.</p>
           <div id="partList"></div>
         </section>
         <section class="tabpanel" data-tab="views" role="tabpanel" hidden>
-          <div class="field">
-            <span class="lab" data-i18n="v_shell">Carrosserie</span>
-            <div class="seg" id="shellSeg">
-              <button type="button" data-shell="1" aria-pressed="true" data-i18n="shell_opaque">Opaque</button>
-              <button type="button" data-shell="0.18" aria-pressed="false" data-i18n="shell_ghost">Transparente</button>
-              <button type="button" data-shell="0" aria-pressed="false" data-i18n="shell_hidden">Masquée</button>
-            </div>
-          </div>
-          <div class="field">
-            <span class="lab" data-i18n="v_cut">Plan de coupe</span>
-            <div class="seg" id="cutSeg">
-              <button type="button" data-cut="none" aria-pressed="true" data-i18n="cut_none">Aucun</button>
-              <button type="button" data-cut="z" aria-pressed="false" data-i18n="cut_long">Long.</button>
-              <button type="button" data-cut="x" aria-pressed="false" data-i18n="cut_trans">Transv.</button>
-              <button type="button" data-cut="y" aria-pressed="false" data-i18n="cut_horiz">Horiz.</button>
-            </div>
-          </div>
-          <div class="field">
-            <label for="rgCut"><span data-i18n="v_cutpos">Position de la coupe</span><span class="val" id="cutVal">0.0 m</span></label>
-            <input type="range" id="rgCut" min="-1" max="1" step="0.005" value="0">
-          </div>
-          <label class="switch"><span data-i18n="v_cutflip">Inverser le côté conservé</span><input type="checkbox" id="swCutFlip"></label>
-          <div class="field" style="margin-top:14px">
-            <label for="rgExplode"><span data-i18n="v_explode">Vue éclatée</span><span class="val" id="explodeVal">0 %</span></label>
-            <input type="range" id="rgExplode" min="0" max="1" step="0.01" value="0">
-          </div>
           <div class="field">
             <span class="lab" data-i18n="v_cam">Caméra</span>
             <div class="row" id="camRow">
@@ -451,15 +458,43 @@ body.ui-idle :is(.dock,.infocard,.gauges,.hud,.compass,#labels,.cab-bar,.cab-dec
             <div class="hint" data-i18n="cam_hint">Clavier: W A S D déplacent le point de visée le long de la rame, R/F (ou E/Q) montent et descendent, Maj accélère. H ou Espace: klaxon.</div>
           </div>
           <label class="switch"><span data-i18n="v_rotate">Rotation automatique</span><input type="checkbox" id="swRotate"></label>
+          <label class="switch"><span data-i18n="ctl_flows">Flux d'énergie</span><input type="checkbox" id="swFlows" checked></label>
+          <label class="switch"><span data-i18n="ctl_labels">Étiquettes</span><input type="checkbox" id="swLabels"></label>
+          <div class="field" style="margin-top:14px">
+            <span class="lab" data-i18n="v_shell">Carrosserie</span>
+            <div class="seg" id="shellSeg">
+              <button type="button" data-shell="1" aria-pressed="true" data-i18n="shell_opaque">Opaque</button>
+              <button type="button" data-shell="0.18" aria-pressed="false" data-i18n="shell_ghost">Transparente</button>
+              <button type="button" data-shell="0" aria-pressed="false" data-i18n="shell_hidden">Masquée</button>
+            </div>
+          </div>
+          <div class="field">
+            <span class="lab" data-i18n="v_cut">Plan de coupe</span>
+            <div class="seg" id="cutSeg">
+              <button type="button" data-cut="none" aria-pressed="true" data-i18n="cut_none">Aucun</button>
+              <button type="button" data-cut="z" aria-pressed="false" data-i18n="cut_long">Long.</button>
+              <button type="button" data-cut="x" aria-pressed="false" data-i18n="cut_trans">Transv.</button>
+              <button type="button" data-cut="y" aria-pressed="false" data-i18n="cut_horiz">Horiz.</button>
+            </div>
+          </div>
+          <div class="field">
+            <label for="rgCut"><span data-i18n="v_cutpos">Position de la coupe</span><span class="val" id="cutVal">0.0 m</span></label>
+            <input type="range" id="rgCut" min="-1" max="1" step="0.005" value="0">
+          </div>
+          <label class="switch"><span data-i18n="v_cutflip">Inverser le côté conservé</span><input type="checkbox" id="swCutFlip"></label>
+          <div class="field" style="margin-top:14px">
+            <label for="rgExplode"><span data-i18n="v_explode">Vue éclatée</span><span class="val" id="explodeVal">0 %</span></label>
+            <input type="range" id="rgExplode" min="0" max="1" step="0.01" value="0">
+          </div>
         </section>
       </div>
     </aside>
-    <div class="infocard" id="infocard">
-      <div class="eyebrow"><span id="infoEyebrow"></span><span class="mini" id="infoMini"></span></div>
-      <button type="button" class="close" id="infoClose" aria-label="Masquer" title="Masquer / afficher" data-i18n-aria="aria_hide" data-i18n-title="tip_hide">×</button>
-      <h2 id="infoTitle"></h2>
-      <p id="infoText"></p>
-      <div class="legend" id="infoLegend"></div>
+    <div id="hud" class="hud">
+      <div class="hud-info">
+        <div class="hud-row"><span class="hk" data-i18n="hud_next">Prochaine gare</span><span class="hv" id="hudNext"></span><span class="hud-kind" id="hudKind"></span></div>
+        <div class="hud-row hud-more"><span class="hk" data-i18n="hud_pk">PK</span><span class="hv"><b id="hudPk">0.9</b> km</span><span class="hk" data-i18n="hud_limit">Limite</span><span class="hv"><b id="hudLimit">160</b> km/h</span><span class="hk" data-i18n="hud_alt">Alt.</span><span class="hv"><b id="hudAlt">0</b> m</span><span class="hk" data-i18n="hud_grade">Pente</span><span class="hv"><b id="hudGrade">0</b> ‰</span><span class="hk" data-i18n="hud_tracks">Voies</span><span class="hv"><b id="hudTracks">2</b></span></div>
+      </div>
+      <div id="routeBar" role="group" aria-label="Ligne" data-i18n-aria="aria_line"></div>
     </div>
     <div class="gauges" id="gauges" aria-live="off">
       <div class="g"><div class="k" id="gAk">Régime</div><div class="v"><span id="gAv">0</span><span class="u" id="gAu">tr/min</span></div><div class="bar"><i id="gAb"></i></div></div>
@@ -6204,7 +6239,7 @@ function refreshInfo(){
     $('infoLegend').innerHTML = legendFor(st.focus ? [st.focus] : CHAIN[S.mode]);
     $('infoMini').textContent = st[L].t;
   }
-  $('infocard').classList.toggle('collapsed', infoCollapsed);
+  $('infocard').classList.toggle('collapsed', infoCollapsed); $('infocard').classList.toggle('is-part', !!selected);   // the parts tab shows a part's text only
   $('infoClose').textContent = infoCollapsed ? '+' : '×';
   $('infoClose').setAttribute('aria-label', t(infoCollapsed ? 'info_show' : 'info_hide'));
   $('infoClose').setAttribute('aria-expanded', String(!infoCollapsed));
@@ -6420,11 +6455,13 @@ $('camRow').addEventListener('click', e => {
 $('swRotate').addEventListener('change', e => { orbit.autoRotate = e.target.checked; });
 
 /* ---- tabs, top bar, sheet */
-document.querySelectorAll('.tabs [role="tab"]').forEach(tab => tab.addEventListener('click', () => {
-  document.querySelectorAll('.tabs [role="tab"]').forEach(x => x.setAttribute('aria-selected', String(x === tab)));
-  document.querySelectorAll('.tabpanel').forEach(p => { p.hidden = p.dataset.tab !== tab.dataset.tab; });
-  $('dock').classList.remove('collapsed');
-}));
+function showTab(name){   // one panel at a time, the dock unfolded; the step's or the part's text shows with the guide and the parts only (the dock's data-tab, in the CSS)
+  document.querySelectorAll('.tabs [role="tab"]').forEach(x => x.setAttribute('aria-selected', String(x.dataset.tab === name)));
+  document.querySelectorAll('.tabpanel').forEach(p => { p.hidden = p.dataset.tab !== name; });
+  $('dock').dataset.tab = name; $('dock').classList.remove('collapsed');
+  if (name === 'guide' && selected) select(null);   // back to the steps: the step's text and its part lit again
+}
+document.querySelectorAll('.tabs [role="tab"]').forEach(tab => tab.addEventListener('click', () => showTab(tab.dataset.tab)));
 $('sheetToggle').addEventListener('click', () => $('dock').classList.toggle('collapsed'));
 $('modeSeg').addEventListener('click', e => { const b = e.target.closest('button'); if (b && b.dataset.mode !== S.mode) setMode(b.dataset.mode); });
 $('langSeg').addEventListener('click', e => { const b = e.target.closest('button'); if (b && b.dataset.lang !== S.lang) setLang(b.dataset.lang); });
@@ -6445,7 +6482,7 @@ orbit.onClick = e => {
     if (!id || !parts[id] || !parts[id].group.visible) continue;
     if ((id === 'shell' || id === 'tgvShell') && shellLevel < 1) continue;
     if (cutPlane && clipMats.includes(h.object.material) && cutPlane.distanceToPoint(h.point) < 0) continue;
-    select(id);
+    showTab('parts'); select(id); $('partList').querySelector(`[data-part="${id}"]`)?.scrollIntoView({ block:'nearest' });   // a part picked on the model: its text, and its row in the list
     return;
   }
   select(null);
@@ -6915,6 +6952,28 @@ function resize(){
   camera.aspect = w / h; camera.updateProjectionMatrix();
 }
 new ResizeObserver(resize).observe(canvas.parentElement);
+/* the view's centre: the middle of what the panels leave of the stage (the dock down the left or along the bottom, the line bar, a phone's row of gauges), so the model is not drawn under them; first person looks straight ahead */
+const aim = { x:0, y:0, tx:0, ty:0, set:false, dirty:false }, aimEls = [$('dock'), $('hud'), $('gauges')];
+function aimView(){
+  const st = canvas.getBoundingClientRect(); let l = st.left, t = st.top, b = st.bottom;
+  if (!st.width || !st.height) return;
+  for (const el of aimEls){   // hidden (the cab, walking, the kid page): a 0×0 box, left out
+    const r = el.getBoundingClientRect();
+    if (r.height > st.height * 0.6) l = Math.max(l, r.right);   // a column down the left
+    else if (r.width > st.width * 0.6){ if (r.top > st.top + st.height / 3) b = Math.min(b, r.top); else t = Math.max(t, r.bottom); }   // a band across, below or above
+  }
+  aim.tx = (st.left - l) / 2; aim.ty = (st.top + st.bottom - t - b) / 2; aim.dirty = true;
+  if (!aim.set){ aim.set = true; aim.x = aim.tx; aim.y = aim.ty; }   // the page opens with the model already there
+}
+function stepAim(dt){   // glides to it as a panel folds or opens; in a seat with the panels shown the windshield moves clear of them too
+  const tx = aim.tx, ty = aim.ty, k = Math.min(1, dt * 5);
+  if (aim.x === tx && aim.y === ty && !aim.dirty) return;
+  aim.x += (tx - aim.x) * k; aim.y += (ty - aim.y) * k; aim.dirty = false;
+  if (Math.abs(tx - aim.x) + Math.abs(ty - aim.y) < 0.5){ aim.x = tx; aim.y = ty; }
+  const w = canvas.clientWidth, h = canvas.clientHeight;
+  if (aim.x || aim.y) camera.setViewOffset(w, h, aim.x, aim.y, w, h); else camera.clearViewOffset();
+}
+const aimRo = new ResizeObserver(aimView); [canvas.parentElement, ...aimEls].forEach(el => aimRo.observe(el));
 darkMq.addEventListener('change', () => setTimeout(recolorFlows, 0));
 new MutationObserver(() => recolorFlows()).observe(document.documentElement, { attributes:true, attributeFilter:['data-theme'] });
 
@@ -6965,7 +7024,7 @@ let frameHook = null;   // the kid build hangs its own rules here
 function frame(dt){
   simulate(dt); animate(Math.min(dt * S.timeScale, 0.25)); updateFlows(dt); updateWeather(dt); panKeys(dt); if (frameHook) frameHook(dt);
   keepDriver(); keepWalker(dt); updateIdle(dt);
-  orbit.update(dt); updateCab(dt); updateCompass(); updateSound(dt);
+  orbit.update(dt); stepAim(dt); updateCab(dt); updateCompass(); updateSound(dt);
 }
 window.tick = (sec, dt = 0.05) => { for (let t = 0; t < sec - 1e-9; t += dt) frame(dt); renderer.render(scene, camera); updateLabels(); updateGauges(); updateHud(); };
 
