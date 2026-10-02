@@ -82,7 +82,7 @@ const CAB = (() => {
   const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
   // blank gutters between cells that meet a different colour, or the mipmaps bleed one into the other along the edges
   const cell = { speed:[0, 0, 512, 320], line:[512, 0, 512, 320], panel:[0, 384, 512, 320], horn:[576, 448, 128, 128], panto:[736, 448, 128, 128], doors:[896, 448, 128, 128], next:[576, 608, 128, 128] };
-  return { ctx:c.getContext('2d'), tex, cell, W:0.352, H:0.22, GAP:0.39, btns:[], mats:{},
+  return { ctx:c.getContext('2d'), tex, cell, W:0.352, H:0.22, GAP:0.39, btns:[], scrs:[], mats:{},
            cols:{ tgv:['horn', 'panto', 'doors', 'next'], loco:['horn', 'panto', 'next'] }, px:{ tgv:[64, 192, 320, 448], loco:[85, 256, 427] } };   // button columns, in panel pixels
 })();
 function atlasUV(geo, [x, y, w, h]){   // squeeze a geometry's 0..1 UVs into one cell of the cab canvas
@@ -98,7 +98,7 @@ function dashboard(parent, eye, d, el, tilt, kind){
   g.position.set(eye[0] + d * Math.cos(el), eye[1] - d * Math.sin(el), eye[2]); g.rotation.z = -tilt; parent.add(g);
   g.add(box(0.04, H + 0.05, 2 * GAP + W + 0.08, mat(0x1c2229, { roughness:0.8 }), 0.022, 0, 0));
   const scrM = lit({ map:CAB.tex });
-  [['line', -GAP], ['speed', 0], ['panel', GAP]].forEach(([id, z]) => { const q = new THREE.Mesh(atlasUV(new THREE.PlaneGeometry(W, H), CAB.cell[id]), scrM); q.rotation.y = -Math.PI / 2; q.position.z = z; g.add(q); });
+  [['line', -GAP], ['speed', 0], ['panel', GAP]].forEach(([id, z]) => { const q = new THREE.Mesh(atlasUV(new THREE.PlaneGeometry(W, H), CAB.cell[id]), scrM); q.rotation.y = -Math.PI / 2; q.position.z = z; q.userData.cabScr = id; g.add(q); CAB.scrs.push(q); });   // tagged: a tap on the line screen's stops (03h)
   CAB.cols[kind].forEach((id, i) => {
     const b = new THREE.Group(), M = CAB.mats[id]; b.userData.cabBtn = id;
     b.position.set(0, (0.5 - 130 / 320) * H, GAP + (CAB.px[kind][i] / 512 - 0.5) * W);

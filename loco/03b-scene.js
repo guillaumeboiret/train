@@ -240,7 +240,7 @@ class Orbit {
     this.autoRotate = false; this.moved = 0;
     this.ptrs = new Map(); this.lastPinch = 0; this.lastMid = null;
     this.fence = null;   // fence(position): may move the eye out of a hill's rock; returns the lowest height it may take there, or null (03f4-route.js)
-    this.onClick = null; this.onPress = null; this.onWheel = null;   // onPress(e) returns true when it took the press (a cab button), so the view does not turn; onWheel(e), when it took the wheel (walking: it looks), so it does not zoom
+    this.onClick = null; this.onPress = null; this.onWheel = null;   // onPress(e) returns true when it took the press (a cab button, the cab's lever), so the view does not turn; onWheel(e), when it took the wheel (walking: it looks), so it does not zoom
     this.fp = null; this.fpZoom = 1; this.fov = cam.fov;   // first person {obj, eye, yaw, pitch, t, from, fromQ}; fov: the orbit's own lens
     dom.addEventListener('pointerdown', e => this.down(e));
     dom.addEventListener('pointermove', e => this.move(e));

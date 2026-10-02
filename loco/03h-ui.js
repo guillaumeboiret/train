@@ -409,8 +409,8 @@ $('langSeg').addEventListener('click', e => { const b = e.target.closest('button
 /* ---- picking */
 const ray = new THREE.Raycaster(), ptr = new THREE.Vector2();
 orbit.onClick = e => {
+  if (inCab){ wakeTap = false; if (!cabRowTap(e)) cabTap(e); return; }   // the driver's seat, GUI or not: a stop on the line screen, else the view's edges jump along the line
   if (noGui){ wakeTap = false; ngWake(); return; }   // no GUI: a tap only brings back the way back
-  if (inCab){ wakeTap = false; cabTap(e); return; }   // nothing to pick from the driver's seat: its view's edges jump along the line
   if (wakeTap){ wakeTap = false; return; }   // that tap only brought the controls back
   const r = canvas.getBoundingClientRect();
   ptr.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
@@ -459,23 +459,56 @@ const cabActions = {   // what each desk button does, and the way out of the cab
     }
     S.notch = Math.max(0, v); S.brake = Math.max(0, -v); syncControls();
   },
+  leverTip(){ cabSay(t('cab_lever_drag'), 'l'); },   // the 3D lever tapped, not dragged
   leave(){ flyPreset(stepV(STEPS[S.mode][stepIdx]).cam); },   // back to the guide's view
 };
 const shown = o => { for (; o; o = o.parent) if (!o.visible) return false; return true; };
-orbit.onPress = e => {   // in the driver's place a press on a desk button works it; anywhere else it turns the head
-  if (noGui || orbit.fp?.name !== 'driver' || e.button !== 0) return false;
+const deskRay = e => {   // the ray under a press or a tap, and the canvas' rectangle
   const r = canvas.getBoundingClientRect();
   ptr.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
-  ray.setFromCamera(ptr, camera);
-  for (const h of ray.intersectObjects(CAB.btns, true)){
-    let b = h.object; while (!b.userData.cabBtn) b = b.parent;
-    if (!shown(b)) continue;
-    const id = b.userData.cabBtn;
-    if (id === 'next') holdPress(() => cabActions.next(), () => cabActions.service()); else cabActions[id]();
-    return true;
-  }
-  return false;
+  ray.setFromCamera(ptr, camera); return r;
 };
+const deskHit = list => ray.intersectObjects(list, true).find(h => h.distance < 3 && shown(h.object));   // the driver's own desk, never a far train's
+const LEVER_REACH = 36, _kn = new THREE.Vector3();   // px around the lever's knob that still take it: a fingertip is wider than the knob seen from the seat
+function driverLever(){   // the lever of the cab the driver sits in: the nearest shown one, within 2 m (a loco backing up has none)
+  let best = null, bd = 4;
+  for (const l of cabLevers){ if (!shown(l)) continue; const d = l.getWorldPosition(_kn).distanceToSquared(camera.position); if (d < bd){ bd = d; best = l; } }
+  return best;
+}
+orbit.onPress = e => {   // in the driver's place, GUI or not, a press on a desk button works it and the lever is dragged; anywhere else it turns the head
+  if (orbit.fp?.name !== 'driver' || e.button !== 0) return false;
+  const r = deskRay(e), lv = driverLever(), h = deskHit(lv ? [...CAB.btns, ...CAB.scrs, lv] : [...CAB.btns, ...CAB.scrs]);
+  let o = h?.object; while (o && !o.userData.cabBtn && !o.userData.lever) o = o.parent;
+  const id = o?.userData.cabBtn;
+  if (id){ if (id === 'next') holdPress(() => cabActions.next(), () => cabActions.service()); else cabActions[id](); return true; }
+  const knob = lv && !h && lv.children[1].getWorldPosition(_kn).project(camera);   // nothing hit: near enough to the knob
+  if (o || knob && knob.z < 1 && Math.hypot(r.left + (knob.x + 1) / 2 * r.width - e.clientX, r.top + (1 - knob.y) / 2 * r.height - e.clientY) < LEVER_REACH){ leverDrag(e, r); return true; }
+  return false;   // a screen is left to the tap (cabRowTap) or to the head
+};
+function leverDrag(e, r){   // up for power, down to brake (to 🐢 on the playground), a notch every few pixels, so the whole range fits between the press and the view's edges
+  const y0 = e.clientY, v0 = cabLever.pos(), { min, max } = cabLever, room = (px, n) => n > 0 ? px / n : Infinity;   // px a notch, for the n notches left that way
+  const step = clamp(Math.min(room(r.bottom - 8 - y0, v0 - min), room(y0 - r.top - 8, max - v0)), 6, 24);
+  let moved = false;
+  const move = m => { if (m.pointerId !== e.pointerId || !moved && Math.abs(m.clientY - y0) < 6) return; moved = true; cabLever.set(v0 + (y0 - m.clientY) / step); };
+  const end = m => {
+    if (m.pointerId !== e.pointerId) return;
+    removeEventListener('pointermove', move); removeEventListener('pointerup', end); removeEventListener('pointercancel', end);
+    if (!moved && m.type === 'pointerup') cabActions.leverTip();
+  };
+  canvas.setPointerCapture(e.pointerId);
+  addEventListener('pointermove', move); addEventListener('pointerup', end); addEventListener('pointercancel', end);
+}
+function cabRowTap(e){   // a tap on the line screen's row of stops: that station, as a tap on its dot on the line bar
+  deskRay(e);
+  const h = deskHit(CAB.scrs); if (h?.object.userData.cabScr !== 'line') return false;
+  const [x0, y0, w] = CAB.cell.line, { width:cw, height:ch } = CAB.ctx.canvas, x = h.uv.x * cw - x0;
+  if ((1 - h.uv.y) * ch - y0 < CAB_ROW_Y - 40) return false;   // the words above the row
+  let st = null, bd = 30;   // canvas px: the nearest dot, the stops being about 38 apart
+  for (const s of ROUTE.stations){ const d = Math.abs(cabRowX(s.s, w) - x); if (d < bd){ bd = d; st = s; } }
+  if (!st) return false;
+  jumpToStation(st); cabSay(st.name);
+  return true;
+}
 let inCab = false, cabDirMv = false;
 function keepDriver(){   // in the driver's place the page's controls step aside (🎛️ shows and hides them); the view moves to the other end when the train turns round
   const on = orbit.fp?.name === 'driver';
@@ -654,7 +687,7 @@ const cabLever = (() => {   // the HTML lever: drag or tap along it, or ↑ ↓;
     tr.setAttribute('aria-valuenow', v); tr.setAttribute('aria-valuetext', val.textContent);
   };
   const set = v => { v = clamp(Math.round(v), L.min, L.max); if (v !== L.pos()) cabActions.lever(v); L.sync(); };
-  L.step = d => set(L.pos() + d);
+  L.set = set; L.step = d => set(L.pos() + d);
   const fromY = e => { const r = tr.getBoundingClientRect(); return L.max - clamp((e.clientY - r.top) / r.height, 0, 1) * (L.max - L.min); };
   let drag = false;
   tr.addEventListener('pointerdown', e => { if (e.button) return; drag = true; tr.setPointerCapture(e.pointerId); set(fromY(e)); });
@@ -711,6 +744,7 @@ function cabSpeed(c){   // 512 × 320: speed dial with the line's limit, what is
   c.fillStyle = '#8fb3d9'; c.font = `600 20px ${CAB_FONT}`; c.textBaseline = 'bottom';
   c.textAlign = 'left'; c.fillText(t('scr_brake').toUpperCase(), 56, y - 11); c.textAlign = 'right'; c.fillText(t('scr_power').toUpperCase(), 456, y - 11);
 }
+const CAB_ROW_Y = 262, cabRowX = (s, w) => 30 + RB.f(s) * (w - 60);   // the line screen's row of stops, Toulouse on the left as on the line bar
 function cabLine(c, w){   // 512 × 320: where the train is going, the next stop, the line with its stops
   const list = ROUTE.stations, st = nextStation(0), d = st ? (st.s - TGV.PLAT_FRONT - S.dist) * S.dir : 0, end = S.dir > 0 ? list[list.length - 1] : list[0];
   const now = new Date(), hm = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
@@ -722,7 +756,7 @@ function cabLine(c, w){   // 512 × 320: where the train is going, the next stop
   c.fillStyle = '#fff'; c.font = `700 50px ${CAB_FONT}`; c.fillText((st || end).name, 18, 150, w - 36);
   if (st){ c.fillStyle = '#ffcf33'; c.font = `700 40px ${CAB_FONT}`; c.fillText(distText(d), 18, 202); }
   c.fillStyle = '#8fb3d9'; c.font = `600 24px ${CAB_FONT}`; c.textAlign = 'right'; c.fillText(`${t('hud_pk')} ${(S.dist / 1000).toFixed(1)}`, w - 18, 202);
-  const X = s => 30 + RB.f(s) * (w - 60), y = 262;   // Toulouse on the left, as on the line bar
+  const X = s => cabRowX(s, w), y = CAB_ROW_Y;
   c.strokeStyle = '#3a4a5c'; c.lineWidth = 6; c.lineCap = 'round'; c.beginPath(); c.moveTo(30, y); c.lineTo(w - 30, y); c.stroke();
   for (const s of list){ c.fillStyle = s === st ? '#ffcf33' : '#dce8f5'; c.beginPath(); c.arc(X(s.s), y, s === st ? 10 : 7, 0, Math.PI * 2); c.fill(); }
   const tx = X(S.dist), k = S.dir;
@@ -1041,4 +1075,4 @@ resize();
 setShell(0.18); setCut('none'); setExplode(0);
 setMode('diesel');
 requestAnimationFrame(loop);
-window.locoDebug = { BAR, BAR_MENU, barOpen, barClose, barBuy, barEat, barNear, barIsOpen, walkSitStool, updateBar, CAB, driverSeat, cabActions, cabLever, S, simulate, animate, updateFlows, updateGauges, orbit, renderer, scene, camera, goStep, setMode, setCut, setExplode, setShell, select, parts, TGV, tgvSets, station, updateTgv, syncControls, tick:window.tick, ROUTE, horn, chunks, requestTrack, trk, opp, parked, cars, curveLocal, updateHud, jumpToStation, jumpTo, setWeather, pcHosts, pcShells, flowObjs, landmarks, flyPreset, SND, PX, pool, paxResolve, paxHolding, allCoaches, world, keys, WK, walkMove, walkSitNear, walkPick, walkStand, walkZones, STICK, walkView, nextStation, goNextStation, serviceOn, serviceOff };
+window.locoDebug = { BAR, BAR_MENU, barOpen, barClose, barBuy, barEat, barNear, barIsOpen, walkSitStool, updateBar, CAB, driverSeat, cabActions, cabLever, S, simulate, animate, updateFlows, updateGauges, orbit, renderer, scene, camera, goStep, setMode, setCut, setExplode, setShell, select, parts, TGV, tgvSets, station, updateTgv, syncControls, tick:window.tick, ROUTE, horn, chunks, requestTrack, trk, opp, parked, cars, curveLocal, updateHud, jumpToStation, jumpTo, setWeather, pcHosts, pcShells, flowObjs, landmarks, flyPreset, SND, PX, pool, paxResolve, paxHolding, allCoaches, world, keys, WK, walkMove, walkSitNear, walkPick, walkStand, walkZones, STICK, walkView, nextStation, goNextStation, serviceOn, serviceOff, driverLever, cabRowX, CAB_ROW_Y };

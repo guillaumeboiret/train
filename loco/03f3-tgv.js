@@ -843,7 +843,7 @@ function equipPowerCar(pc, pantoX){
   const clones = {};
   for (const id of PC_INTERNALS){
     const c = parts[id].group.clone(); c.position.set(0, 0, 0); ig.add(c); clones[id] = c;
-    c.traverse(o => { if (o.userData.axle) axles.push(o); else if (o.userData.rotor) motorRotors.push(o); else if (o.userData.lever) cabLevers.push(o); else if (o.userData.cabBtn) CAB.btns.push(o); });
+    c.traverse(o => { if (o.userData.axle) axles.push(o); else if (o.userData.rotor) motorRotors.push(o); else if (o.userData.lever) cabLevers.push(o); else if (o.userData.cabBtn) CAB.btns.push(o); else if (o.userData.cabScr) CAB.scrs.push(o); });
   }
   clones.cab.getObjectByName('cabLoco').visible = false; clones.cab.getObjectByName('cabTgv').visible = true;
   const driver = clones.cab.getObjectByName('driver'); driver.visible = false;   // shown only in the leading cab
