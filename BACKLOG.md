@@ -20,7 +20,10 @@ Nothing leaves this file: a request is added the moment it is made, and a done i
 - [ ] Lights on the train at night and in tunnels.
 - [ ] A weather system, set by hand or on a schedule.
 
-### 3. Other open requests
+### 3. Cinematic camera, for streaming (asked 2026-10-02)
+- [ ] A camera mode that changes the point of view by itself, so the content can be streamed on YouTube: all the points of view, with aesthetic camera moves, "like a cinematic".
+
+### 4. Other open requests
 - [ ] A "super hero futuriste" button that runs the whole line in 5 minutes (2026-10-02).
 - [ ] Gangway doors (sas) between coaches that open as you walk past (2026-10-02).
 - [ ] Random landscape so the country is not empty (2026-10-02).
