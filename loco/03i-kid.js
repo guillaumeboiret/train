@@ -66,8 +66,10 @@ body.kid .compass{top:64px;right:10px;background:rgba(255,255,255,.93);border:0;
 .kid-gear{width:46px;height:46px;border-radius:50%;border:0;background:rgba(255,255,255,.85);font-size:22px;line-height:1;box-shadow:0 4px 12px rgba(0,0,0,.25);flex:0 0 auto}
 body.kid .cab-bar{top:10px;right:10px;gap:10px;flex-direction:column}
 body.kid.in-cab :is(.kid-gear,.kid-menu){display:none}body.kid.in-cab .kid-top{right:76px}body.kid.in-cab .compass{top:142px}   /* in the cab its two buttons take the menu's corner */
-body.kid .cab-line{top:10px;left:10px;right:76px;width:auto;transform:none;background:rgba(255,255,255,.93);border:0;border-radius:22px;box-shadow:0 6px 18px rgba(0,0,0,.25);padding:12px 22px 2px;-webkit-backdrop-filter:none;backdrop-filter:none}
-body.kid .cab-lever{left:10px;top:50%;transform:translateY(-50%);max-height:none;gap:4px;padding:10px 12px;background:rgba(255,255,255,.93);border:0;border-radius:22px;box-shadow:0 6px 18px rgba(0,0,0,.25);-webkit-backdrop-filter:none;backdrop-filter:none}
+body.kid .cab-deck{inset:10px 76px 10px 10px;gap:10px}body.kid .cab-line{align-self:stretch;width:auto;background:rgba(255,255,255,.93);border:0;border-radius:22px;box-shadow:0 6px 18px rgba(0,0,0,.25);padding:12px 22px 2px;-webkit-backdrop-filter:none;backdrop-filter:none}
+body.kid .cab-row .seg{border:0;border-radius:14px;background:#e8edf3}body.kid .cab-row button{padding:8px 16px;font:700 17px/1 var(--font-body);color:#1b2430}body.kid .cab-row button[aria-pressed="true"]{background:#2f9e44;color:#fff}
+body.kid .cab-say{background:rgba(255,255,255,.93);color:#1b2430;border:0;border-radius:16px;box-shadow:0 6px 18px rgba(0,0,0,.25);-webkit-backdrop-filter:none;backdrop-filter:none;font:700 19px/1.3 var(--font-body)}body.kid .cab-say.l{left:116px}
+body.kid .cab-lever{margin:auto 0;gap:4px;padding:10px 12px;background:rgba(255,255,255,.93);border:0;border-radius:22px;box-shadow:0 6px 18px rgba(0,0,0,.25);-webkit-backdrop-filter:none;backdrop-filter:none}
 body.kid .cl-end{font-size:26px;line-height:1}
 body.kid .cl-track{width:58px;height:min(250px,38vh);margin:26px 0}
 body.kid .cl-track::before{width:24px;top:-10px;bottom:-10px;border-radius:12px;background:linear-gradient(#e5484d,#ffcf33 45%,#3ccf6f);box-shadow:inset 0 2px 4px rgba(0,0,0,.25)}
@@ -134,7 +136,7 @@ body.kid #rbTip{font-size:13px;padding:5px 9px;top:-30px;border-radius:8px}
   .kid-speed{padding:2px 12px 3px;min-width:0}.kid-speed .n{font-size:26px}.kid-speed .n small{font-size:12px}.kid-next{display:block;font-size:11px;margin-top:0}
   .kid-gear{width:36px;height:36px;font-size:17px}.kid-menu{top:48px;right:6px}
   body.kid .compass{top:48px;right:6px;width:44px;height:44px}
-  body.kid .cab-line{top:6px;left:6px;right:58px;padding:6px 14px 0}body.kid .cab-lever{left:6px;padding:6px 8px}body.kid .cl-end{font-size:20px}
+  body.kid .cab-deck{inset:6px 58px 6px 6px;gap:6px}body.kid .cab-line{padding:6px 14px 0}body.kid .cab-lever{padding:6px 8px}body.kid .cl-end{font-size:20px}
   body.kid .cl-track{width:48px;margin:20px 0}body.kid #clKnob{width:42px;height:42px;border-width:4px}
   body.kid .cab-bar{top:6px;right:6px;gap:8px}body.kid .cab-bar button{width:46px;height:46px;font-size:23px}body.kid.in-cab .kid-top{right:58px}body.kid.in-cab .compass{top:114px}
   .kid-toast{font-size:17px;padding:10px 16px;top:32%}
@@ -317,8 +319,8 @@ document.addEventListener('pointerdown', e => { if (!$('kidMenu').hidden && !e.t
 /* ---- hooks into the engine: both pantographs of the first TGV set follow the switch; the desk buttons in the cab work as the kid buttons, its 📷 as the camera button */
 pantoHook = f => { if (S.mode !== 'tgv') return false; for (const p of tgvSets[0].pantos) posePanto(p, f); posePanto(panto, f); return true; };   // kid mode: the front pantograph rises too, so the ⚡ button shows on the car the child looks at
 frameHook = () => { if (S.mode !== 'diesel' && S.battery && S.lineOn && S.panto && !S.vcb) S.vcb = true; };   // the child only handles the pantograph: the line breaker follows it
-Object.assign(cabActions, { panto:kidPanto, doors:() => kidDoors(true), stop:kidStop, leave:kidCam, lever:kidLever });
-cabLever.min = 0; cabLever.build();   // the cab's lever is the kid lever stood up: 🐢 at the bottom holds the brake, 🚀 at the top, no brake notches (the desk's STOP does that)
+Object.assign(cabActions, { panto:kidPanto, doors:() => kidDoors(true), next:kidStation, dir:d => { if (d !== S.dir) kidTurn(); }, leave:kidCam, lever:kidLever });
+cabLever.min = 0; cabLever.build();   // the cab's lever is the kid lever stood up: 🐢 at the bottom holds the brake, 🚀 at the top, no brake notches (🐢 stops the train, as the kid lever does)
 document.querySelectorAll('.cl-end').forEach((el, i) => { el.textContent = i ? '🐢' : '🚀'; delete el.dataset.i18n; });
 { const b = document.querySelector('.cab-lever'); b.removeAttribute('title'); delete b.dataset.i18nTitle; delete $('clTrack').dataset.i18nAria; }
 

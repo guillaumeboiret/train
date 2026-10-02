@@ -246,7 +246,8 @@ function syncControls(){
   $('trackSeg').querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(+b.dataset.track === trk.to)));
   $('timeSeg').querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(+b.dataset.time === S.timeScale)));
   $('rgBrake').value = S.brake; $('brakeVal').textContent = S.brake; cabLever.sync();
-  $('dirSeg').querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(+b.dataset.dir === S.dir)));
+  document.querySelectorAll('#dirSeg button, #cabDir button').forEach(b => b.setAttribute('aria-pressed', String(+b.dataset.dir === S.dir)));
+  $('cabNext').setAttribute('aria-pressed', String(S.autoStop));
   $('btnStart').disabled = !(S.battery && S.engine === 'off');
   $('btnStop').disabled = !(S.engine === 'running' || S.engine === 'cranking');
   syncTgvControls();
@@ -274,10 +275,14 @@ $('swDoors').addEventListener('change', e => {
   if (!e.target.checked && paxHolding()){ PX.closeWhenDone = true; e.target.checked = true; syncControls(); return; }   // terminus: they close once the last passenger is through
   S.doors = e.target.checked; syncControls();
 });
-$('btnStation').addEventListener('click', () => {
-  const st = nextStation(); if (!st){ syncControls(); return; }   // terminus: nothing ahead
-  manual(); ensureLive(); S.doors = false; S.stopS = st.s - TGV.PLAT_FRONT; S.autoStop = true; S.autoDoors = true; syncControls();
-});
+function goNextStation(){   // the station autopilot (Go to platform, the cab desk's Next stop): to the next platform it can still stop at; null at a terminus
+  const st = nextStation(); if (!st){ syncControls(); return null; }
+  manual(); if (S.mode === 'diesel') ensureRunning(); else ensureLive();
+  if (S.doors){ if (paxHolding()) PX.closeWhenDone = true; else S.doors = false; }   // the last passengers through first, as the doors switch does
+  S.stopS = st.s - TGV.PLAT_FRONT; S.autoStop = true; S.autoDoors = S.mode === 'tgv'; syncControls();
+  return st;
+}
+$('btnStation').addEventListener('click', () => goNextStation());
 $('swBattery').addEventListener('change', e => { manual(); S.battery = e.target.checked; syncControls(); });
 $('btnStart').addEventListener('click', () => { manual(); startEngine(); syncControls(); });
 $('btnStop').addEventListener('click', () => { manual(); stopEngine(); syncControls(); });
@@ -368,8 +373,8 @@ $('langSeg').addEventListener('click', e => { const b = e.target.closest('button
 /* ---- picking */
 const ray = new THREE.Raycaster(), ptr = new THREE.Vector2();
 orbit.onClick = e => {
+  if (inCab){ wakeTap = false; cabTap(e); return; }   // nothing to pick from the driver's seat: its view's edges jump along the line
   if (wakeTap){ wakeTap = false; return; }   // that tap only brought the controls back
-  if (inCab) return;   // nothing to pick from the driver's seat
   const r = canvas.getBoundingClientRect();
   ptr.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
   ray.setFromCamera(ptr, camera);
@@ -398,7 +403,15 @@ const cabActions = {   // what each desk button does, and the way out of the cab
   },
   panto(){ $('swPanto').click(); },
   doors(){ $('swDoors').click(); },
-  stop(){ manual(); S.notch = 0; S.brake = 8; syncControls(); },   // emergency: power off, full brake
+  next(){   // the station autopilot, lit until the train stands at the platform; pressed again it says where it is going
+    if (!S.autoStop && !goNextStation()){ cabSay(t('cab_end')); return; }
+    cabSay(`${t('hud_next')}\n${stationText(cabTarget())}`);
+  },
+  dir(d){   // the deck's Toulouse / Paris: at rest the train turns round, and the view moves to the other cab
+    if (d === S.dir) return;
+    if (S.speed > 0.3){ cabSay(t('cab_stopped')); return; }
+    manual(); S.dir = d; syncControls();
+  },
   lever(v){   // the combined lever: up powers (each notch a speed to hold), down brakes; pushed up it readies a cold train and closes its doors
     manual();
     if (v > 0){
@@ -422,21 +435,52 @@ orbit.onPress = e => {   // in the driver's place a press on a desk button works
   }
   return false;
 };
-let inCab = false;
+let inCab = false, cabDirMv = false;
 function keepDriver(){   // in the driver's place the page's controls step aside (🎛️ shows and hides them); the view moves to the other end when the train turns round
   const on = orbit.fp?.name === 'driver';
   if (on !== inCab){ inCab = on; document.body.classList.toggle('in-cab', on); showCabUi(false); }
   if (on && orbit.fp.obj !== driverSeat()) flyPreset('driver');
+  if (on && (S.speed > 0.3) !== cabDirMv){ cabDirMv = !cabDirMv; $('cabDir').classList.toggle('moving', cabDirMv); }
+}
+/* the cab view's outer fifths: a double tap moves the train 1 km on (right) or back (left), each further tap within a second 1 km more, as a video skips;
+   the speed, the lever and a station stop ahead stay as they were */
+const SKIP_EDGE = 0.2, SKIP_DBL = 500, SKIP_MORE = 1000;
+let skip = { side:0, t:0, n:0, m:0 }, cabSayT = 0;
+function cabTap(e){
+  const r = canvas.getBoundingClientRect(), u = (e.clientX - r.left) / r.width, now = e.timeStamp;   // when the finger lifted, not when a slow frame let the page see it
+  const side = u > 1 - SKIP_EDGE ? 1 : u < SKIP_EDGE ? -1 : 0;
+  if (!side || side !== skip.side || now - skip.t > (skip.n ? SKIP_MORE : SKIP_DBL)){ skip = { side, t:now, n:0, m:0 }; return; }   // a first tap: one more makes it a double tap
+  skip.t = now; skip.n++; cabSkip();
+}
+function cabSkip(){
+  const d = S.dir, v = Math.abs(S.speed), from = S.dist, keep = S.autoStop && { autoStop:true, stopS:S.stopS, autoDoors:S.autoDoors };
+  let to = from + 1000 * skip.side * d;
+  if (skip.side > 0){   // never nearer where the train must stop than its braking distance and a margin: the platform it brakes for, or the end of the line
+    const list = ROUTE.stations, mark = keep ? keep.stopS : (d > 0 ? list[list.length - 1] : list[0]).s - TGV.PLAT_FRONT, lim = mark - Math.max(400, v * v / 1.7 + 200) * d;
+    if ((to - lim) * d > 0) to = (lim - from) * d > 0 ? lim : from;
+  }
+  if (Math.abs(to - from) > 1){ jumpTo(to); if (keep && (keep.stopS - S.dist) * d > 0){ Object.assign(S, keep); syncControls(); } }
+  const m = (S.dist - from) * d, km = Math.abs(skip.m += m) / 1000, n = Math.abs(km - Math.round(km)) < 0.05 ? Math.round(km) : km.toFixed(1);
+  const head = Math.abs(m) < 1 ? t(keep && skip.side > 0 ? 'station_running' : 'hud_end') : skip.m > 0 ? `▶▶ +${n} km` : `◀◀ −${n} km`;   // nothing moved: why
+  cabSay(`${head}\n${stationText(cabTarget())}`, skip.side > 0 ? 'r' : 'l');
+}
+function cabTarget(){ return S.autoStop && ROUTE.stations.find(x => Math.abs(x.s - TGV.PLAT_FRONT - S.stopS) < 1) || nextStation(0); }   // the platform the autopilot brakes for, else the next one
+function cabSay(txt, side = ''){   // a word over the windshield for a moment, beside the edge tapped or in the middle
+  const el = $('cabSay'); clearTimeout(cabSayT);
+  el.textContent = txt; el.className = `cab-say ${side}`; el.hidden = false;
+  cabSayT = setTimeout(() => { el.hidden = true; }, 2000);
 }
 let rbHome = null;   // where the line bar lives with the page's controls (the HUD, or the kid page's bottom panel) while it sits over the windshield
 function showCabUi(on){
   document.body.classList.toggle('cab-ui', on); $('cabUi').setAttribute('aria-pressed', String(on));
   const rb = $('routeBar');
-  if (inCab && !on){ if (!rbHome){ rbHome = [rb.parentElement, rb.nextSibling]; $('cabLine').appendChild(rb); } }
+  if (inCab && !on){ if (!rbHome){ rbHome = [rb.parentElement, rb.nextSibling]; $('cabLine').prepend(rb); } }
   else if (rbHome){ rbHome[0].insertBefore(rb, rbHome[1]); rbHome = null; }
 }
 $('cabUi').addEventListener('click', () => showCabUi(!document.body.classList.contains('cab-ui')));
 $('cabLeave').addEventListener('click', () => cabActions.leave());
+$('cabDir').addEventListener('click', e => { const b = e.target.closest('button'); if (b) cabActions.dir(+b.dataset.dir); });
+$('cabNext').addEventListener('click', () => cabActions.next());   // the desk's Next stop, within reach where the desk is out of view (a phone held upright)
 /* ---- walking through the train (CAMS.walk, 03f3): the page's controls step aside for a pad (the arrows), Sit and ✕; a tap on a free seat sits there */
 let walking = false, walkSayT = 0;
 function walkSay(key, n, ms = 2200){   // a word over the view: the car just entered, why that seat cannot be taken, how to walk; no key: away
@@ -550,7 +594,7 @@ cabLever.build();
 let cabT = 1;   // seconds since the screens were last drawn
 const _cabP = new THREE.Vector3();
 function updateCab(dt){
-  const hot = { horn:horn.active, panto:S.panto, doors:S.doorsF > 0.02, stop:S.brake >= 8 };   // a lit or pushed-in button: its function is on
+  const hot = { horn:horn.active, panto:S.panto, doors:S.doorsF > 0.02, next:S.autoStop };   // a lit or pushed-in button: its function is on
   for (const b of CAB.btns){ const id = b.userData.cabBtn; b.visible = id !== 'panto' || S.mode !== 'diesel'; b.position.x = hot[id] ? 0.008 : 0; }
   for (const id in CAB.mats){ const M = CAB.mats[id], k = !S.battery ? 0.06 : hot[id] ? 1 : 0.3; M.body.color.copy(M.base).multiplyScalar(k); M.cap.color.setScalar(k); }
   cabT += dt; if (cabT < 0.25) return;
@@ -562,7 +606,7 @@ function drawCab(){
   cell('speed', (w, h) => { c.fillStyle = '#05070a'; c.fillRect(0, 0, w, h); if (S.battery) cabSpeed(c); });
   cell('line', (w, h) => { c.fillStyle = '#05070a'; c.fillRect(0, 0, w, h); if (S.battery) cabLine(c, w); });
   cell('panel', (w, h) => cabPanel(c, w, h));
-  for (const id of ['horn', 'panto', 'doors']) cell(id, () => cabIcon(c, id));
+  for (const id in CAB.mats) cell(id, () => cabIcon(c, id));
 }
 function cabSpeed(c){   // 512 × 320: speed dial with the line's limit, what is live, brake and power
   const v = S.speed * 3.6, top = Math.round(SPEC[S.mode].vMax * 3.6 / 20) * 20, lim = ROUTE.lineLimit(S.dist);
@@ -599,7 +643,7 @@ function cabLine(c, w){   // 512 × 320: where the train is going, the next stop
   c.textAlign = 'left'; c.textBaseline = 'alphabetic';
   c.fillStyle = '#8fb3d9'; c.font = `600 24px ${CAB_FONT}`; c.fillText(t(st ? 'hud_next' : 'hud_end').toUpperCase(), 18, 96);
   c.fillStyle = '#fff'; c.font = `700 50px ${CAB_FONT}`; c.fillText((st || end).name, 18, 150, w - 36);
-  if (st){ c.fillStyle = '#ffcf33'; c.font = `700 40px ${CAB_FONT}`; c.fillText(d < 950 ? `${Math.round(d)} m` : `${(d / 1000).toFixed(d < 10000 ? 1 : 0)} km`, 18, 202); }
+  if (st){ c.fillStyle = '#ffcf33'; c.font = `700 40px ${CAB_FONT}`; c.fillText(distText(d), 18, 202); }
   c.fillStyle = '#8fb3d9'; c.font = `600 24px ${CAB_FONT}`; c.textAlign = 'right'; c.fillText(`${t('hud_pk')} ${(S.dist / 1000).toFixed(1)}`, w - 18, 202);
   const X = s => 30 + RB.f(s) * (w - 60), y = 262;   // Toulouse on the left, as on the line bar
   c.strokeStyle = '#3a4a5c'; c.lineWidth = 6; c.lineCap = 'round'; c.beginPath(); c.moveTo(30, y); c.lineTo(w - 30, y); c.stroke();
@@ -615,8 +659,11 @@ function cabPanel(c, w, h){   // 512 × 320: the print around the push buttons, 
   CAB.cols[kind].forEach((id, i) => {
     if (id === 'panto' && S.mode === 'diesel') return;
     const x = CAB.px[kind][i];
-    if (id !== 'stop'){ c.fillStyle = '#151a20'; c.beginPath(); c.arc(x, 130, 54, 0, Math.PI * 2); c.fill(); }   // the stop has its own plate
-    c.fillStyle = S.battery ? '#c9d4df' : '#56606b'; c.fillText(t('btn_' + id).toUpperCase(), x, 250, 120);
+    c.fillStyle = '#151a20'; c.beginPath(); c.arc(x, 130, 54, 0, Math.PI * 2); c.fill();
+    const lab = t('btn_' + id).toUpperCase(), sp = lab.indexOf(' ');
+    c.fillStyle = S.battery ? '#c9d4df' : '#56606b';
+    if (sp > 0 && c.measureText(lab).width > 108){ c.fillText(lab.slice(0, sp), x, 234, 108); c.fillText(lab.slice(sp + 1), x, 266, 108); }   // as wide as the button at most: two words go on two lines
+    else c.fillText(lab, x, 250, 108);
   });
 }
 function cabIcon(c, id){   // 128 × 128 on the button's cap, in the button's colour
@@ -627,7 +674,14 @@ function cabIcon(c, id){   // 128 × 128 on the button's cap, in the button's co
     for (const r of [22, 36]){ c.beginPath(); c.arc(78, 64, r, -0.7, 0.7); c.stroke(); }
   } else if (id === 'panto'){   // a bolt: the line's power
     c.beginPath(); [[72, 12], [36, 70], [60, 70], [50, 116], [94, 52], [68, 52], [80, 12]].forEach(([x, y], i) => i ? c.lineTo(x, y) : c.moveTo(x, y)); c.closePath(); c.fill();
-  } else { c.fillRect(26, 26, 30, 78); c.fillRect(72, 26, 30, 78); }   // the two door leaves
+  } else if (id === 'doors'){   // two leaves with their windows, sliding apart
+    c.fillRect(30, 22, 31, 84); c.fillRect(67, 22, 31, 84);
+    for (const k of [-1, 1]){ c.beginPath(); c.moveTo(64 + 57 * k, 64); c.lineTo(64 + 45 * k, 52); c.lineTo(64 + 45 * k, 76); c.closePath(); c.fill(); }
+    c.fillStyle = '#' + CAB.mats.doors.base.getHexString(); c.fillRect(36, 30, 19, 30); c.fillRect(73, 30, 19, 30);
+  } else {   // a pin: the next platform
+    c.beginPath(); c.arc(64, 52, 32, 0.8 * Math.PI, 0.2 * Math.PI); c.lineTo(64, 114); c.closePath(); c.fill();
+    c.fillStyle = '#' + CAB.mats.next.base.getHexString(); c.beginPath(); c.arc(64, 52, 13, 0, Math.PI * 2); c.fill();
+  }
 }
 
 /* ---- labels */
@@ -669,12 +723,13 @@ function updateHud(){
   const g = Math.round(ROUTE.gradeAt(s) * 1000 * S.dir); $('hudGrade').textContent = (g > 0 ? '+' : '') + g;
   $('hudTracks').textContent = ROUTE.tracksAt(s);
   $('hudLimit').textContent = ROUTE.lineLimit(s);
-  const st = nextStation(0), d = st ? (st.s - TGV.PLAT_FRONT - s) * S.dir : 0;
-  $('hudNext').textContent = st ? `${st.name} · ${d < 950 ? `${Math.round(d)} m` : `${(d / 1000).toFixed(d < 10000 ? 1 : 0)} km`}` : t('hud_end');
+  $('hudNext').textContent = stationText(nextStation(0));
   const k = ROUTE.kindAt(s); $('hudKind').textContent = k ? t(KIND_KEY[k]) : '';
   $('rbTrain').style.left = `${(RB.f(s) * 100).toFixed(2)}%`;
   $('throttleVal').textContent = `${S.notch} · ${Math.round(S.vMaxEff * S.notch / 8 * 3.6)} km/h`; cabLever.sync();
 }
+function distText(d){ return d < 950 ? `${Math.round(d)} m` : `${(d / 1000).toFixed(d < 10000 ? 1 : 0)} km`; }
+function stationText(st){ return st ? `${st.name} · ${distText((st.s - TGV.PLAT_FRONT - S.dist) * S.dir)}` : t('hud_end'); }   // a stop and how far to its mark
 function tailLen(){ return S.mode === 'tgv' ? (S.sets === 2 || S.coupling !== 0 ? 382.5 - Math.min(0, S.set2Off) : 185.4) : 82; }
 /* teleport along the line; the train keeps its speed unless asked to stop */
 function jumpTo(s, stop = false){

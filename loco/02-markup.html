@@ -217,13 +217,22 @@
       <button type="button" id="cabLeave" aria-label="Quitter la cabine" title="Quitter la cabine" data-i18n-aria="cab_leave" data-i18n-title="cab_leave">✕</button>
     </div>
     <div class="cab-deck" id="cabDeck">
-      <div class="cab-line" id="cabLine"></div>
+      <div class="cab-line" id="cabLine">
+        <div class="cab-row">
+          <div class="seg cab-dir" id="cabDir" role="group" aria-label="Sens de marche" data-i18n-aria="ctl_dir">
+            <button type="button" data-dir="-1" aria-pressed="false" aria-label="Vers Toulouse" data-i18n-aria="dir_tls">◀ Toulouse</button>
+            <button type="button" data-dir="1" aria-pressed="true" aria-label="Vers Paris" data-i18n-aria="dir_par">Paris ▶</button>
+          </div>
+          <div class="seg"><button type="button" id="cabNext" aria-pressed="false">🚉 <span data-i18n="btn_next">Prochain arrêt</span></button></div>
+        </div>
+      </div>
       <div class="cab-lever" title="Vers le haut, la traction et la vitesse visée. Vers le bas, le frein. Touches ↑ et ↓." data-i18n-title="cab_lever_tip">
         <span class="cl-end" data-i18n="scr_power">Traction</span>
         <div class="cl-track" id="clTrack" role="slider" tabindex="0" aria-orientation="vertical" aria-valuemin="-8" aria-valuemax="8" aria-valuenow="0" aria-label="Manipulateur traction-freinage" data-i18n-aria="cab_lever"><b id="clKnob"><span id="clVal">0</span></b></div>
         <span class="cl-end" data-i18n="scr_brake">Frein</span>
       </div>
     </div>
+    <div class="cab-say" id="cabSay" role="status" aria-live="polite" hidden></div>
     <div class="walk-bar" id="walkBar">
       <div class="walk-say" id="walkSay" role="status" aria-live="polite" hidden></div>
       <div class="walk-pad" id="walkPad" role="group" aria-label="Marcher" data-i18n-aria="cam_walk">

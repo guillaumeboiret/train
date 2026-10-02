@@ -156,11 +156,16 @@ body.in-cab:not(.cab-ui) :is(.dock,.infocard,.gauges,.hud,.compass,#labels){disp
 body.in-cab .cab-bar{display:flex}
 @media (min-width:841px){ body.in-cab .gauges{top:68px} body.in-cab :is(.hud,.compass){top:140px} }   /* the cab's two buttons keep the top right corner */
 /* the cab's own controls while the page's are put away: the line bar over the windshield, the power/brake lever at the driver's left hand */
-.cab-deck{display:none}
-body.in-cab:not(.cab-ui) .cab-deck{display:block}
-.cab-line{position:absolute;top:12px;left:50%;transform:translateX(-50%);width:min(680px,calc(100% - 240px));background:var(--panel);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid var(--line);border-radius:8px;padding:10px 12px 2px}
+.cab-deck{display:none;position:absolute;inset:12px;flex-direction:column;align-items:flex-start;gap:8px;pointer-events:none}   /* a column: the line on top, the lever in the room left under it, however tall the line grows */
+body.in-cab:not(.cab-ui) .cab-deck{display:flex}
+.cab-deck>*{pointer-events:auto}
+.cab-line{align-self:center;width:min(680px,calc(100% - 216px));background:var(--panel);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid var(--line);border-radius:8px;padding:10px 12px 2px}
 .cab-line #routeBar{margin-top:0}
-.cab-lever{position:absolute;left:12px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;align-items:center;gap:8px;padding:10px 8px;background:var(--panel);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid var(--line);border-radius:10px;-webkit-user-select:none;user-select:none}
+.cab-row{display:flex;justify-content:center;flex-wrap:wrap;gap:8px;margin:6px 0 8px}.cab-row .seg{display:flex}.cab-dir.moving button[aria-pressed="false"]{opacity:.4}   /* the way the train cannot take while it runs */
+.cab-say{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);display:none;max-width:min(320px,calc(100% - 140px));background:var(--panel);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid var(--line);border-radius:8px;padding:8px 14px;font-size:15px;font-weight:600;text-align:center;white-space:pre-line;pointer-events:none}
+.cab-say.r{left:auto;right:24px;transform:translateY(-50%)}.cab-say.l{left:110px;transform:translateY(-50%)}   /* beside the edge tapped, clear of the lever */
+body.in-cab .cab-say:not([hidden]){display:block}
+.cab-lever{margin:auto 0;min-height:0;display:flex;flex-direction:column;align-items:center;gap:8px;padding:10px 8px;background:var(--panel);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid var(--line);border-radius:10px;-webkit-user-select:none;user-select:none}
 .cl-end{font-size:10px;letter-spacing:.08em;text-transform:uppercase;font-weight:600;color:var(--ok)}
 .cl-end:last-child{color:var(--bad)}
 .cl-track{position:relative;width:52px;height:min(240px,36vh);margin:9px 0;cursor:ns-resize;touch-action:none;border-radius:4px}
@@ -228,8 +233,8 @@ body.ui-idle :is(.dock,.infocard,.gauges,.hud,.compass,#labels,.cab-bar,.cab-dec
   .infocard.collapsed{right:auto;max-width:calc(100% - 88px);padding:6px 8px 6px 12px}
   .compass{top:12px;right:12px;width:48px;height:48px}
   .cab-bar{flex-direction:column}body.in-cab .compass{display:none}
-  .cab-line{left:12px;right:68px;width:auto;transform:none}
-  .cab-lever{top:72px;transform:none;max-height:calc(100% - 84px)}.cl-track{min-height:72px}   /* the line bar spans the width here: the lever starts under it, its track giving way on a short screen */
+  .cab-deck{right:68px}.cab-line{align-self:stretch;width:auto}
+  .cab-lever{margin:0}.cl-track{min-height:72px}   /* the line bar spans the width here: the lever starts under it, its track giving way on a short screen */
   .infocard h2{font-size:19px}
   .infocard p{font-size:13px;margin-top:6px}
   .gauges{top:auto;bottom:calc(44% + 8px);left:8px;right:8px;grid-auto-flow:row;grid-template-columns:repeat(5,1fr);gap:4px}

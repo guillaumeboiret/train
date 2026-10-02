@@ -76,14 +76,14 @@ definePart('shell', g => {
 /* Two fit-outs in the same part: the loco cab (diesel, electric) and the TGV cab (raised floor, wide desk under the
    windshield, driver in the middle). setTgvVisible shows one or the other; the TGV power cars' copies show the TGV one.
    Each desk carries a dashboard turned to the driver's eyes: a line screen, a speed screen and a panel of push buttons
-   (horn, pantograph, doors, emergency stop). Screens, panel print and button icons are one canvas, redrawn by updateCab (03h). */
+   (horn, pantograph, doors, next stop). Screens, panel print and button icons are one canvas, redrawn by updateCab (03h). */
 const CAB = (() => {
   const c = document.createElement('canvas'); c.width = 1024; c.height = 768;
   const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
   // blank gutters between cells that meet a different colour, or the mipmaps bleed one into the other along the edges
-  const cell = { speed:[0, 0, 512, 320], line:[512, 0, 512, 320], panel:[0, 384, 512, 320], horn:[576, 448, 128, 128], panto:[736, 448, 128, 128], doors:[896, 448, 128, 128] };
+  const cell = { speed:[0, 0, 512, 320], line:[512, 0, 512, 320], panel:[0, 384, 512, 320], horn:[576, 448, 128, 128], panto:[736, 448, 128, 128], doors:[896, 448, 128, 128], next:[576, 608, 128, 128] };
   return { ctx:c.getContext('2d'), tex, cell, W:0.352, H:0.22, GAP:0.39, btns:[], mats:{},
-           cols:{ tgv:['horn', 'panto', 'doors', 'stop'], loco:['horn', 'panto', 'stop'] }, px:{ tgv:[64, 192, 320, 448], loco:[85, 256, 427] } };   // button columns, in panel pixels
+           cols:{ tgv:['horn', 'panto', 'doors', 'next'], loco:['horn', 'panto', 'next'] }, px:{ tgv:[64, 192, 320, 448], loco:[85, 256, 427] } };   // button columns, in panel pixels
 })();
 function atlasUV(geo, [x, y, w, h]){   // squeeze a geometry's 0..1 UVs into one cell of the cab canvas
   const uv = geo.attributes.uv, { width:cw, height:ch } = CAB.ctx.canvas;
@@ -91,10 +91,7 @@ function atlasUV(geo, [x, y, w, h]){   // squeeze a geometry's 0..1 UVs into one
   return geo;
 }
 function lit(o){ const m = new THREE.MeshBasicMaterial(Object.assign({ toneMapped:false }, o)); clipMats.push(m); return m; }   // lights its own colour: screens and backlit buttons in a dark cab
-for (const [id, col] of [['horn', 0xffcf33], ['panto', 0xe8eef4], ['doors', 0x4c8dff]]) CAB.mats[id] = { body:lit({ color:col }), cap:lit({ map:CAB.tex }), base:new THREE.Color(col) };
-// the emergency stop is not backlit: a red mushroom on a yellow plate, always bright enough to find in a dark cab
-CAB.stopM = mat(0xe5484d, { roughness:0.35, metalness:0, emissive:0xe5484d, emissiveIntensity:0.45 });
-CAB.plateM = mat(0xffcf33, { roughness:0.6, metalness:0, emissive:0xffcf33, emissiveIntensity:0.3 });
+for (const [id, col] of [['horn', 0xffcf33], ['panto', 0xe8eef4], ['doors', 0x4c8dff], ['next', 0x3ccf6f]]) CAB.mats[id] = { body:lit({ color:col }), cap:lit({ map:CAB.tex }), base:new THREE.Color(col) };
 // The slab stands d metres from the eyes, el radians under them, tilted back by tilt; the button panel prints its labels around the real buttons
 function dashboard(parent, eye, d, el, tilt, kind){
   const g = new THREE.Group(), { W, H, GAP } = CAB;
@@ -105,14 +102,8 @@ function dashboard(parent, eye, d, el, tilt, kind){
   CAB.cols[kind].forEach((id, i) => {
     const b = new THREE.Group(), M = CAB.mats[id]; b.userData.cabBtn = id;
     b.position.set(0, (0.5 - 130 / 320) * H, GAP + (CAB.px[kind][i] / 512 - 0.5) * W);
-    if (id === 'stop'){   // the mushroom sinks when pushed, its plate stays on the panel
-      g.add(cyl(0.048, 0.006, CAB.plateM, 'x', -0.003, b.position.y, b.position.z, 32));
-      b.add(cyl(0.016, 0.014, CAB.stopM, 'x', -0.007, 0, 0, 16));
-      const dome = new THREE.Mesh(new THREE.SphereGeometry(0.036, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2), CAB.stopM); dome.rotation.z = Math.PI / 2; dome.position.x = -0.014; b.add(dome);
-    } else {
-      b.add(cyl(0.03, 0.02, M.body, 'x', -0.01, 0, 0, 24));
-      const cap = new THREE.Mesh(atlasUV(new THREE.CircleGeometry(0.027, 24), CAB.cell[id]), M.cap); cap.rotation.y = -Math.PI / 2; cap.position.x = -0.0205; b.add(cap);
-    }
+    b.add(cyl(0.03, 0.02, M.body, 'x', -0.01, 0, 0, 24));
+    const cap = new THREE.Mesh(atlasUV(new THREE.CircleGeometry(0.027, 24), CAB.cell[id]), M.cap); cap.rotation.y = -Math.PI / 2; cap.position.x = -0.0205; b.add(cap);
     g.add(b); CAB.btns.push(b);
   });
   return g;

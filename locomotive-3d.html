@@ -156,11 +156,16 @@ body.in-cab:not(.cab-ui) :is(.dock,.infocard,.gauges,.hud,.compass,#labels){disp
 body.in-cab .cab-bar{display:flex}
 @media (min-width:841px){ body.in-cab .gauges{top:68px} body.in-cab :is(.hud,.compass){top:140px} }   /* the cab's two buttons keep the top right corner */
 /* the cab's own controls while the page's are put away: the line bar over the windshield, the power/brake lever at the driver's left hand */
-.cab-deck{display:none}
-body.in-cab:not(.cab-ui) .cab-deck{display:block}
-.cab-line{position:absolute;top:12px;left:50%;transform:translateX(-50%);width:min(680px,calc(100% - 240px));background:var(--panel);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid var(--line);border-radius:8px;padding:10px 12px 2px}
+.cab-deck{display:none;position:absolute;inset:12px;flex-direction:column;align-items:flex-start;gap:8px;pointer-events:none}   /* a column: the line on top, the lever in the room left under it, however tall the line grows */
+body.in-cab:not(.cab-ui) .cab-deck{display:flex}
+.cab-deck>*{pointer-events:auto}
+.cab-line{align-self:center;width:min(680px,calc(100% - 216px));background:var(--panel);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid var(--line);border-radius:8px;padding:10px 12px 2px}
 .cab-line #routeBar{margin-top:0}
-.cab-lever{position:absolute;left:12px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;align-items:center;gap:8px;padding:10px 8px;background:var(--panel);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid var(--line);border-radius:10px;-webkit-user-select:none;user-select:none}
+.cab-row{display:flex;justify-content:center;flex-wrap:wrap;gap:8px;margin:6px 0 8px}.cab-row .seg{display:flex}.cab-dir.moving button[aria-pressed="false"]{opacity:.4}   /* the way the train cannot take while it runs */
+.cab-say{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);display:none;max-width:min(320px,calc(100% - 140px));background:var(--panel);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid var(--line);border-radius:8px;padding:8px 14px;font-size:15px;font-weight:600;text-align:center;white-space:pre-line;pointer-events:none}
+.cab-say.r{left:auto;right:24px;transform:translateY(-50%)}.cab-say.l{left:110px;transform:translateY(-50%)}   /* beside the edge tapped, clear of the lever */
+body.in-cab .cab-say:not([hidden]){display:block}
+.cab-lever{margin:auto 0;min-height:0;display:flex;flex-direction:column;align-items:center;gap:8px;padding:10px 8px;background:var(--panel);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid var(--line);border-radius:10px;-webkit-user-select:none;user-select:none}
 .cl-end{font-size:10px;letter-spacing:.08em;text-transform:uppercase;font-weight:600;color:var(--ok)}
 .cl-end:last-child{color:var(--bad)}
 .cl-track{position:relative;width:52px;height:min(240px,36vh);margin:9px 0;cursor:ns-resize;touch-action:none;border-radius:4px}
@@ -228,8 +233,8 @@ body.ui-idle :is(.dock,.infocard,.gauges,.hud,.compass,#labels,.cab-bar,.cab-dec
   .infocard.collapsed{right:auto;max-width:calc(100% - 88px);padding:6px 8px 6px 12px}
   .compass{top:12px;right:12px;width:48px;height:48px}
   .cab-bar{flex-direction:column}body.in-cab .compass{display:none}
-  .cab-line{left:12px;right:68px;width:auto;transform:none}
-  .cab-lever{top:72px;transform:none;max-height:calc(100% - 84px)}.cl-track{min-height:72px}   /* the line bar spans the width here: the lever starts under it, its track giving way on a short screen */
+  .cab-deck{right:68px}.cab-line{align-self:stretch;width:auto}
+  .cab-lever{margin:0}.cl-track{min-height:72px}   /* the line bar spans the width here: the lever starts under it, its track giving way on a short screen */
   .infocard h2{font-size:19px}
   .infocard p{font-size:13px;margin-top:6px}
   .gauges{top:auto;bottom:calc(44% + 8px);left:8px;right:8px;grid-auto-flow:row;grid-template-columns:repeat(5,1fr);gap:4px}
@@ -468,13 +473,22 @@ body.ui-idle :is(.dock,.infocard,.gauges,.hud,.compass,#labels,.cab-bar,.cab-dec
       <button type="button" id="cabLeave" aria-label="Quitter la cabine" title="Quitter la cabine" data-i18n-aria="cab_leave" data-i18n-title="cab_leave">✕</button>
     </div>
     <div class="cab-deck" id="cabDeck">
-      <div class="cab-line" id="cabLine"></div>
+      <div class="cab-line" id="cabLine">
+        <div class="cab-row">
+          <div class="seg cab-dir" id="cabDir" role="group" aria-label="Sens de marche" data-i18n-aria="ctl_dir">
+            <button type="button" data-dir="-1" aria-pressed="false" aria-label="Vers Toulouse" data-i18n-aria="dir_tls">◀ Toulouse</button>
+            <button type="button" data-dir="1" aria-pressed="true" aria-label="Vers Paris" data-i18n-aria="dir_par">Paris ▶</button>
+          </div>
+          <div class="seg"><button type="button" id="cabNext" aria-pressed="false">🚉 <span data-i18n="btn_next">Prochain arrêt</span></button></div>
+        </div>
+      </div>
       <div class="cab-lever" title="Vers le haut, la traction et la vitesse visée. Vers le bas, le frein. Touches ↑ et ↓." data-i18n-title="cab_lever_tip">
         <span class="cl-end" data-i18n="scr_power">Traction</span>
         <div class="cl-track" id="clTrack" role="slider" tabindex="0" aria-orientation="vertical" aria-valuemin="-8" aria-valuemax="8" aria-valuenow="0" aria-label="Manipulateur traction-freinage" data-i18n-aria="cab_lever"><b id="clKnob"><span id="clVal">0</span></b></div>
         <span class="cl-end" data-i18n="scr_brake">Frein</span>
       </div>
     </div>
+    <div class="cab-say" id="cabSay" role="status" aria-live="polite" hidden></div>
     <div class="walk-bar" id="walkBar">
       <div class="walk-say" id="walkSay" role="status" aria-live="polite" hidden></div>
       <div class="walk-pad" id="walkPad" role="group" aria-label="Marcher" data-i18n-aria="cam_walk">
@@ -527,7 +541,7 @@ const T = {
     ctl_station:"Arrêt en gare (pilote auto)", station_go:"Aller au quai", station_running:"Approche…", station_at:"À quai", station_hint:"Freine et arrête la rame au repère du quai.",
     coupling:"Accostage…", uncoupling:"Séparation…", lamp_doors:"Portes", info_hide:"Masquer la fiche", info_show:"Afficher la fiche", f_roof:"Ligne de toiture 25 kV",
     cam_train:"Rame entière", cam_rearroof:"Motrice arrière", cam_coupler:"Attelage", cam_station:"Gare", cam_door:"Portes", cam_seatUp:"Place en haut", cam_seatLo:"Place en bas", cam_driver:"Poste de conduite", cab_ui:"Afficher ou masquer les commandes", cab_leave:"Quitter la cabine",
-    cam_walk:"Marcher", walk_fwd:"Avancer", walk_back:"Reculer", walk_left:"Tourner à gauche", walk_right:"Tourner à droite", walk_sit:"S'asseoir", walk_stand:"Se lever", walk_leave:"Arrêter de marcher", walk_taken:"Place occupée", walk_noseat:"Pas de place libre ici", walk_far:"Trop loin", walk_car:"Voiture", walk_first:"1re classe", walk_hint:"Flèches ou ZQSD pour marcher, glisser pour regarder, cliquer sur un siège libre pour s'asseoir. Entrée: s'asseoir ou se lever.", walk_hint_touch:"Les flèches pour marcher, glisser pour regarder, toucher un siège libre pour s'asseoir.", cab_lever:"Manipulateur traction-freinage", cab_lever_tip:"Vers le haut, la traction et la vitesse visée. Vers le bas, le frein. Touches ↑ et ↓.", scr_brake:"Frein", scr_power:"Traction", scr_engine:"Moteur", scr_doors:"Portes", scr_panto_dn:"Panto baissé", btn_horn:"Klaxon", btn_panto:"Panto", btn_doors:"Portes", btn_stop:"Stop",
+    cam_walk:"Marcher", walk_fwd:"Avancer", walk_back:"Reculer", walk_left:"Tourner à gauche", walk_right:"Tourner à droite", walk_sit:"S'asseoir", walk_stand:"Se lever", walk_leave:"Arrêter de marcher", walk_taken:"Place occupée", walk_noseat:"Pas de place libre ici", walk_far:"Trop loin", walk_car:"Voiture", walk_first:"1re classe", walk_hint:"Flèches ou ZQSD pour marcher, glisser pour regarder, cliquer sur un siège libre pour s'asseoir. Entrée: s'asseoir ou se lever.", walk_hint_touch:"Les flèches pour marcher, glisser pour regarder, toucher un siège libre pour s'asseoir.", cab_lever:"Manipulateur traction-freinage", cab_lever_tip:"Vers le haut, la traction et la vitesse visée. Vers le bas, le frein. Touches ↑ et ↓.", scr_brake:"Frein", scr_power:"Traction", scr_engine:"Moteur", scr_doors:"Portes", scr_panto_dn:"Panto baissé", btn_horn:"Klaxon", btn_panto:"Panto", btn_doors:"Portes", btn_next:"Prochain arrêt", dir_tls:"Vers Toulouse", dir_par:"Vers Paris", cab_stopped:"Arrêtez d'abord le train", cab_end:"Terminus : changez de sens",
     walk_bar:"Bar", bar_title:"Le bar", bar_order:"Commander", bar_close:"Fermer le menu", bar_wallet:"Porte-monnaie", bar_tray:"Mon plateau", bar_tray_hint:"Choisis-en un pour le déguster.", bar_empty:"Rien pour l'instant.", bar_pocket:"Argent de poche +10€", bar_pocket_say:"Et 10€ de plus !", bar_broke:"Pas assez de sous", bar_thanks:"Voilà ! Merci.", bar_yum:"Miam !", bar_gulp:"Glou glou !", bar_free:"Gratuit", bar_full:"Plateau plein, goûte d'abord !", bar_speed:"Vitesse du train",
     bar_i_espresso:"Café", bar_i_choco:"Chocolat chaud", bar_i_tea:"Thé", bar_i_soda:"Soda", bar_i_juice:"Jus de pomme", bar_i_water:"Verre d'eau", bar_i_club:"Club sandwich", bar_i_croque:"Croque-monsieur", bar_i_burger:"Burger", bar_i_cookie:"Cookie", bar_i_muffin:"Muffin", bar_i_painchoc:"Pain au chocolat", bar_i_chips:"Chips", bar_i_sweets:"Bonbons",
     ctl_track:"Voie", track_hint:"Changement par une communication 400 m devant la rame.", track_busy:"Communication déjà engagée, attendez.", track_occupied:"Voie occupée par un train en face.", track_2:"Voie 2 (sens Paris)", track_1:"Voie 1 (sens Toulouse)",
@@ -564,7 +578,7 @@ const T = {
     ctl_station:"Station stop (autopilot)", station_go:"Go to platform", station_running:"Approaching…", station_at:"At platform", station_hint:"Brakes and stops the set at the platform mark.",
     coupling:"Coupling…", uncoupling:"Uncoupling…", lamp_doors:"Doors", info_hide:"Hide card", info_show:"Show card", f_roof:"25 kV roof line",
     cam_train:"Whole train", cam_rearroof:"Rear power car", cam_coupler:"Coupling", cam_station:"Station", cam_door:"Doors", cam_seatUp:"Seat upstairs", cam_seatLo:"Seat downstairs", cam_driver:"Driver's seat", cab_ui:"Show or hide the controls", cab_leave:"Leave the cab",
-    cam_walk:"Walk", walk_fwd:"Walk forward", walk_back:"Step back", walk_left:"Turn left", walk_right:"Turn right", walk_sit:"Sit down", walk_stand:"Stand up", walk_leave:"Stop walking", walk_taken:"Seat taken", walk_noseat:"No free seat here", walk_far:"Too far", walk_car:"Car", walk_first:"First class", walk_hint:"Arrows or WASD to walk, drag to look around, click a free seat to sit. Enter: sit down or stand up.", walk_hint_touch:"Use the arrows to walk, drag to look around, tap a free seat to sit.", cab_lever:"Power and brake lever", cab_lever_tip:"Up for power and the speed to hold, down to brake. Keys ↑ and ↓.", scr_brake:"Brake", scr_power:"Power", scr_engine:"Engine", scr_doors:"Doors", scr_panto_dn:"Panto down", btn_horn:"Horn", btn_panto:"Panto", btn_doors:"Doors", btn_stop:"Stop",
+    cam_walk:"Walk", walk_fwd:"Walk forward", walk_back:"Step back", walk_left:"Turn left", walk_right:"Turn right", walk_sit:"Sit down", walk_stand:"Stand up", walk_leave:"Stop walking", walk_taken:"Seat taken", walk_noseat:"No free seat here", walk_far:"Too far", walk_car:"Car", walk_first:"First class", walk_hint:"Arrows or WASD to walk, drag to look around, click a free seat to sit. Enter: sit down or stand up.", walk_hint_touch:"Use the arrows to walk, drag to look around, tap a free seat to sit.", cab_lever:"Power and brake lever", cab_lever_tip:"Up for power and the speed to hold, down to brake. Keys ↑ and ↓.", scr_brake:"Brake", scr_power:"Power", scr_engine:"Engine", scr_doors:"Doors", scr_panto_dn:"Panto down", btn_horn:"Horn", btn_panto:"Panto", btn_doors:"Doors", btn_next:"Next stop", dir_tls:"To Toulouse", dir_par:"To Paris", cab_stopped:"Stop the train first", cab_end:"End of the line: change direction",
     walk_bar:"Bar", bar_title:"The bar", bar_order:"Order", bar_close:"Close the menu", bar_wallet:"Wallet", bar_tray:"My tray", bar_tray_hint:"Pick one to enjoy it.", bar_empty:"Nothing yet.", bar_pocket:"Pocket money +10€", bar_pocket_say:"Here's 10€ more!", bar_broke:"Not enough money", bar_thanks:"Here you go! Thanks.", bar_yum:"Yum!", bar_gulp:"Gulp!", bar_free:"Free", bar_full:"Tray full, enjoy something first!", bar_speed:"Train speed",
     bar_i_espresso:"Espresso", bar_i_choco:"Hot chocolate", bar_i_tea:"Tea", bar_i_soda:"Soda", bar_i_juice:"Apple juice", bar_i_water:"Glass of water", bar_i_club:"Club sandwich", bar_i_croque:"Croque-monsieur", bar_i_burger:"Burger", bar_i_cookie:"Cookie", bar_i_muffin:"Muffin", bar_i_painchoc:"Pain au chocolat", bar_i_chips:"Crisps", bar_i_sweets:"Sweets",
     ctl_track:"Track", track_hint:"Changes over a crossover 400 m ahead of the train.", track_busy:"Crossover already in use, wait.", track_occupied:"Track occupied by an oncoming train.", track_2:"Track 2 (to Paris)", track_1:"Track 1 (to Toulouse)",
@@ -1223,14 +1237,14 @@ definePart('shell', g => {
 /* Two fit-outs in the same part: the loco cab (diesel, electric) and the TGV cab (raised floor, wide desk under the
    windshield, driver in the middle). setTgvVisible shows one or the other; the TGV power cars' copies show the TGV one.
    Each desk carries a dashboard turned to the driver's eyes: a line screen, a speed screen and a panel of push buttons
-   (horn, pantograph, doors, emergency stop). Screens, panel print and button icons are one canvas, redrawn by updateCab (03h). */
+   (horn, pantograph, doors, next stop). Screens, panel print and button icons are one canvas, redrawn by updateCab (03h). */
 const CAB = (() => {
   const c = document.createElement('canvas'); c.width = 1024; c.height = 768;
   const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
   // blank gutters between cells that meet a different colour, or the mipmaps bleed one into the other along the edges
-  const cell = { speed:[0, 0, 512, 320], line:[512, 0, 512, 320], panel:[0, 384, 512, 320], horn:[576, 448, 128, 128], panto:[736, 448, 128, 128], doors:[896, 448, 128, 128] };
+  const cell = { speed:[0, 0, 512, 320], line:[512, 0, 512, 320], panel:[0, 384, 512, 320], horn:[576, 448, 128, 128], panto:[736, 448, 128, 128], doors:[896, 448, 128, 128], next:[576, 608, 128, 128] };
   return { ctx:c.getContext('2d'), tex, cell, W:0.352, H:0.22, GAP:0.39, btns:[], mats:{},
-           cols:{ tgv:['horn', 'panto', 'doors', 'stop'], loco:['horn', 'panto', 'stop'] }, px:{ tgv:[64, 192, 320, 448], loco:[85, 256, 427] } };   // button columns, in panel pixels
+           cols:{ tgv:['horn', 'panto', 'doors', 'next'], loco:['horn', 'panto', 'next'] }, px:{ tgv:[64, 192, 320, 448], loco:[85, 256, 427] } };   // button columns, in panel pixels
 })();
 function atlasUV(geo, [x, y, w, h]){   // squeeze a geometry's 0..1 UVs into one cell of the cab canvas
   const uv = geo.attributes.uv, { width:cw, height:ch } = CAB.ctx.canvas;
@@ -1238,10 +1252,7 @@ function atlasUV(geo, [x, y, w, h]){   // squeeze a geometry's 0..1 UVs into one
   return geo;
 }
 function lit(o){ const m = new THREE.MeshBasicMaterial(Object.assign({ toneMapped:false }, o)); clipMats.push(m); return m; }   // lights its own colour: screens and backlit buttons in a dark cab
-for (const [id, col] of [['horn', 0xffcf33], ['panto', 0xe8eef4], ['doors', 0x4c8dff]]) CAB.mats[id] = { body:lit({ color:col }), cap:lit({ map:CAB.tex }), base:new THREE.Color(col) };
-// the emergency stop is not backlit: a red mushroom on a yellow plate, always bright enough to find in a dark cab
-CAB.stopM = mat(0xe5484d, { roughness:0.35, metalness:0, emissive:0xe5484d, emissiveIntensity:0.45 });
-CAB.plateM = mat(0xffcf33, { roughness:0.6, metalness:0, emissive:0xffcf33, emissiveIntensity:0.3 });
+for (const [id, col] of [['horn', 0xffcf33], ['panto', 0xe8eef4], ['doors', 0x4c8dff], ['next', 0x3ccf6f]]) CAB.mats[id] = { body:lit({ color:col }), cap:lit({ map:CAB.tex }), base:new THREE.Color(col) };
 // The slab stands d metres from the eyes, el radians under them, tilted back by tilt; the button panel prints its labels around the real buttons
 function dashboard(parent, eye, d, el, tilt, kind){
   const g = new THREE.Group(), { W, H, GAP } = CAB;
@@ -1252,14 +1263,8 @@ function dashboard(parent, eye, d, el, tilt, kind){
   CAB.cols[kind].forEach((id, i) => {
     const b = new THREE.Group(), M = CAB.mats[id]; b.userData.cabBtn = id;
     b.position.set(0, (0.5 - 130 / 320) * H, GAP + (CAB.px[kind][i] / 512 - 0.5) * W);
-    if (id === 'stop'){   // the mushroom sinks when pushed, its plate stays on the panel
-      g.add(cyl(0.048, 0.006, CAB.plateM, 'x', -0.003, b.position.y, b.position.z, 32));
-      b.add(cyl(0.016, 0.014, CAB.stopM, 'x', -0.007, 0, 0, 16));
-      const dome = new THREE.Mesh(new THREE.SphereGeometry(0.036, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2), CAB.stopM); dome.rotation.z = Math.PI / 2; dome.position.x = -0.014; b.add(dome);
-    } else {
-      b.add(cyl(0.03, 0.02, M.body, 'x', -0.01, 0, 0, 24));
-      const cap = new THREE.Mesh(atlasUV(new THREE.CircleGeometry(0.027, 24), CAB.cell[id]), M.cap); cap.rotation.y = -Math.PI / 2; cap.position.x = -0.0205; b.add(cap);
-    }
+    b.add(cyl(0.03, 0.02, M.body, 'x', -0.01, 0, 0, 24));
+    const cap = new THREE.Mesh(atlasUV(new THREE.CircleGeometry(0.027, 24), CAB.cell[id]), M.cap); cap.rotation.y = -Math.PI / 2; cap.position.x = -0.0205; b.add(cap);
     g.add(b); CAB.btns.push(b);
   });
   return g;
@@ -6269,7 +6274,8 @@ function syncControls(){
   $('trackSeg').querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(+b.dataset.track === trk.to)));
   $('timeSeg').querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(+b.dataset.time === S.timeScale)));
   $('rgBrake').value = S.brake; $('brakeVal').textContent = S.brake; cabLever.sync();
-  $('dirSeg').querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(+b.dataset.dir === S.dir)));
+  document.querySelectorAll('#dirSeg button, #cabDir button').forEach(b => b.setAttribute('aria-pressed', String(+b.dataset.dir === S.dir)));
+  $('cabNext').setAttribute('aria-pressed', String(S.autoStop));
   $('btnStart').disabled = !(S.battery && S.engine === 'off');
   $('btnStop').disabled = !(S.engine === 'running' || S.engine === 'cranking');
   syncTgvControls();
@@ -6297,10 +6303,14 @@ $('swDoors').addEventListener('change', e => {
   if (!e.target.checked && paxHolding()){ PX.closeWhenDone = true; e.target.checked = true; syncControls(); return; }   // terminus: they close once the last passenger is through
   S.doors = e.target.checked; syncControls();
 });
-$('btnStation').addEventListener('click', () => {
-  const st = nextStation(); if (!st){ syncControls(); return; }   // terminus: nothing ahead
-  manual(); ensureLive(); S.doors = false; S.stopS = st.s - TGV.PLAT_FRONT; S.autoStop = true; S.autoDoors = true; syncControls();
-});
+function goNextStation(){   // the station autopilot (Go to platform, the cab desk's Next stop): to the next platform it can still stop at; null at a terminus
+  const st = nextStation(); if (!st){ syncControls(); return null; }
+  manual(); if (S.mode === 'diesel') ensureRunning(); else ensureLive();
+  if (S.doors){ if (paxHolding()) PX.closeWhenDone = true; else S.doors = false; }   // the last passengers through first, as the doors switch does
+  S.stopS = st.s - TGV.PLAT_FRONT; S.autoStop = true; S.autoDoors = S.mode === 'tgv'; syncControls();
+  return st;
+}
+$('btnStation').addEventListener('click', () => goNextStation());
 $('swBattery').addEventListener('change', e => { manual(); S.battery = e.target.checked; syncControls(); });
 $('btnStart').addEventListener('click', () => { manual(); startEngine(); syncControls(); });
 $('btnStop').addEventListener('click', () => { manual(); stopEngine(); syncControls(); });
@@ -6391,8 +6401,8 @@ $('langSeg').addEventListener('click', e => { const b = e.target.closest('button
 /* ---- picking */
 const ray = new THREE.Raycaster(), ptr = new THREE.Vector2();
 orbit.onClick = e => {
+  if (inCab){ wakeTap = false; cabTap(e); return; }   // nothing to pick from the driver's seat: its view's edges jump along the line
   if (wakeTap){ wakeTap = false; return; }   // that tap only brought the controls back
-  if (inCab) return;   // nothing to pick from the driver's seat
   const r = canvas.getBoundingClientRect();
   ptr.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
   ray.setFromCamera(ptr, camera);
@@ -6421,7 +6431,15 @@ const cabActions = {   // what each desk button does, and the way out of the cab
   },
   panto(){ $('swPanto').click(); },
   doors(){ $('swDoors').click(); },
-  stop(){ manual(); S.notch = 0; S.brake = 8; syncControls(); },   // emergency: power off, full brake
+  next(){   // the station autopilot, lit until the train stands at the platform; pressed again it says where it is going
+    if (!S.autoStop && !goNextStation()){ cabSay(t('cab_end')); return; }
+    cabSay(`${t('hud_next')}\n${stationText(cabTarget())}`);
+  },
+  dir(d){   // the deck's Toulouse / Paris: at rest the train turns round, and the view moves to the other cab
+    if (d === S.dir) return;
+    if (S.speed > 0.3){ cabSay(t('cab_stopped')); return; }
+    manual(); S.dir = d; syncControls();
+  },
   lever(v){   // the combined lever: up powers (each notch a speed to hold), down brakes; pushed up it readies a cold train and closes its doors
     manual();
     if (v > 0){
@@ -6445,21 +6463,52 @@ orbit.onPress = e => {   // in the driver's place a press on a desk button works
   }
   return false;
 };
-let inCab = false;
+let inCab = false, cabDirMv = false;
 function keepDriver(){   // in the driver's place the page's controls step aside (🎛️ shows and hides them); the view moves to the other end when the train turns round
   const on = orbit.fp?.name === 'driver';
   if (on !== inCab){ inCab = on; document.body.classList.toggle('in-cab', on); showCabUi(false); }
   if (on && orbit.fp.obj !== driverSeat()) flyPreset('driver');
+  if (on && (S.speed > 0.3) !== cabDirMv){ cabDirMv = !cabDirMv; $('cabDir').classList.toggle('moving', cabDirMv); }
+}
+/* the cab view's outer fifths: a double tap moves the train 1 km on (right) or back (left), each further tap within a second 1 km more, as a video skips;
+   the speed, the lever and a station stop ahead stay as they were */
+const SKIP_EDGE = 0.2, SKIP_DBL = 500, SKIP_MORE = 1000;
+let skip = { side:0, t:0, n:0, m:0 }, cabSayT = 0;
+function cabTap(e){
+  const r = canvas.getBoundingClientRect(), u = (e.clientX - r.left) / r.width, now = e.timeStamp;   // when the finger lifted, not when a slow frame let the page see it
+  const side = u > 1 - SKIP_EDGE ? 1 : u < SKIP_EDGE ? -1 : 0;
+  if (!side || side !== skip.side || now - skip.t > (skip.n ? SKIP_MORE : SKIP_DBL)){ skip = { side, t:now, n:0, m:0 }; return; }   // a first tap: one more makes it a double tap
+  skip.t = now; skip.n++; cabSkip();
+}
+function cabSkip(){
+  const d = S.dir, v = Math.abs(S.speed), from = S.dist, keep = S.autoStop && { autoStop:true, stopS:S.stopS, autoDoors:S.autoDoors };
+  let to = from + 1000 * skip.side * d;
+  if (skip.side > 0){   // never nearer where the train must stop than its braking distance and a margin: the platform it brakes for, or the end of the line
+    const list = ROUTE.stations, mark = keep ? keep.stopS : (d > 0 ? list[list.length - 1] : list[0]).s - TGV.PLAT_FRONT, lim = mark - Math.max(400, v * v / 1.7 + 200) * d;
+    if ((to - lim) * d > 0) to = (lim - from) * d > 0 ? lim : from;
+  }
+  if (Math.abs(to - from) > 1){ jumpTo(to); if (keep && (keep.stopS - S.dist) * d > 0){ Object.assign(S, keep); syncControls(); } }
+  const m = (S.dist - from) * d, km = Math.abs(skip.m += m) / 1000, n = Math.abs(km - Math.round(km)) < 0.05 ? Math.round(km) : km.toFixed(1);
+  const head = Math.abs(m) < 1 ? t(keep && skip.side > 0 ? 'station_running' : 'hud_end') : skip.m > 0 ? `▶▶ +${n} km` : `◀◀ −${n} km`;   // nothing moved: why
+  cabSay(`${head}\n${stationText(cabTarget())}`, skip.side > 0 ? 'r' : 'l');
+}
+function cabTarget(){ return S.autoStop && ROUTE.stations.find(x => Math.abs(x.s - TGV.PLAT_FRONT - S.stopS) < 1) || nextStation(0); }   // the platform the autopilot brakes for, else the next one
+function cabSay(txt, side = ''){   // a word over the windshield for a moment, beside the edge tapped or in the middle
+  const el = $('cabSay'); clearTimeout(cabSayT);
+  el.textContent = txt; el.className = `cab-say ${side}`; el.hidden = false;
+  cabSayT = setTimeout(() => { el.hidden = true; }, 2000);
 }
 let rbHome = null;   // where the line bar lives with the page's controls (the HUD, or the kid page's bottom panel) while it sits over the windshield
 function showCabUi(on){
   document.body.classList.toggle('cab-ui', on); $('cabUi').setAttribute('aria-pressed', String(on));
   const rb = $('routeBar');
-  if (inCab && !on){ if (!rbHome){ rbHome = [rb.parentElement, rb.nextSibling]; $('cabLine').appendChild(rb); } }
+  if (inCab && !on){ if (!rbHome){ rbHome = [rb.parentElement, rb.nextSibling]; $('cabLine').prepend(rb); } }
   else if (rbHome){ rbHome[0].insertBefore(rb, rbHome[1]); rbHome = null; }
 }
 $('cabUi').addEventListener('click', () => showCabUi(!document.body.classList.contains('cab-ui')));
 $('cabLeave').addEventListener('click', () => cabActions.leave());
+$('cabDir').addEventListener('click', e => { const b = e.target.closest('button'); if (b) cabActions.dir(+b.dataset.dir); });
+$('cabNext').addEventListener('click', () => cabActions.next());   // the desk's Next stop, within reach where the desk is out of view (a phone held upright)
 /* ---- walking through the train (CAMS.walk, 03f3): the page's controls step aside for a pad (the arrows), Sit and ✕; a tap on a free seat sits there */
 let walking = false, walkSayT = 0;
 function walkSay(key, n, ms = 2200){   // a word over the view: the car just entered, why that seat cannot be taken, how to walk; no key: away
@@ -6573,7 +6622,7 @@ cabLever.build();
 let cabT = 1;   // seconds since the screens were last drawn
 const _cabP = new THREE.Vector3();
 function updateCab(dt){
-  const hot = { horn:horn.active, panto:S.panto, doors:S.doorsF > 0.02, stop:S.brake >= 8 };   // a lit or pushed-in button: its function is on
+  const hot = { horn:horn.active, panto:S.panto, doors:S.doorsF > 0.02, next:S.autoStop };   // a lit or pushed-in button: its function is on
   for (const b of CAB.btns){ const id = b.userData.cabBtn; b.visible = id !== 'panto' || S.mode !== 'diesel'; b.position.x = hot[id] ? 0.008 : 0; }
   for (const id in CAB.mats){ const M = CAB.mats[id], k = !S.battery ? 0.06 : hot[id] ? 1 : 0.3; M.body.color.copy(M.base).multiplyScalar(k); M.cap.color.setScalar(k); }
   cabT += dt; if (cabT < 0.25) return;
@@ -6585,7 +6634,7 @@ function drawCab(){
   cell('speed', (w, h) => { c.fillStyle = '#05070a'; c.fillRect(0, 0, w, h); if (S.battery) cabSpeed(c); });
   cell('line', (w, h) => { c.fillStyle = '#05070a'; c.fillRect(0, 0, w, h); if (S.battery) cabLine(c, w); });
   cell('panel', (w, h) => cabPanel(c, w, h));
-  for (const id of ['horn', 'panto', 'doors']) cell(id, () => cabIcon(c, id));
+  for (const id in CAB.mats) cell(id, () => cabIcon(c, id));
 }
 function cabSpeed(c){   // 512 × 320: speed dial with the line's limit, what is live, brake and power
   const v = S.speed * 3.6, top = Math.round(SPEC[S.mode].vMax * 3.6 / 20) * 20, lim = ROUTE.lineLimit(S.dist);
@@ -6622,7 +6671,7 @@ function cabLine(c, w){   // 512 × 320: where the train is going, the next stop
   c.textAlign = 'left'; c.textBaseline = 'alphabetic';
   c.fillStyle = '#8fb3d9'; c.font = `600 24px ${CAB_FONT}`; c.fillText(t(st ? 'hud_next' : 'hud_end').toUpperCase(), 18, 96);
   c.fillStyle = '#fff'; c.font = `700 50px ${CAB_FONT}`; c.fillText((st || end).name, 18, 150, w - 36);
-  if (st){ c.fillStyle = '#ffcf33'; c.font = `700 40px ${CAB_FONT}`; c.fillText(d < 950 ? `${Math.round(d)} m` : `${(d / 1000).toFixed(d < 10000 ? 1 : 0)} km`, 18, 202); }
+  if (st){ c.fillStyle = '#ffcf33'; c.font = `700 40px ${CAB_FONT}`; c.fillText(distText(d), 18, 202); }
   c.fillStyle = '#8fb3d9'; c.font = `600 24px ${CAB_FONT}`; c.textAlign = 'right'; c.fillText(`${t('hud_pk')} ${(S.dist / 1000).toFixed(1)}`, w - 18, 202);
   const X = s => 30 + RB.f(s) * (w - 60), y = 262;   // Toulouse on the left, as on the line bar
   c.strokeStyle = '#3a4a5c'; c.lineWidth = 6; c.lineCap = 'round'; c.beginPath(); c.moveTo(30, y); c.lineTo(w - 30, y); c.stroke();
@@ -6638,8 +6687,11 @@ function cabPanel(c, w, h){   // 512 × 320: the print around the push buttons, 
   CAB.cols[kind].forEach((id, i) => {
     if (id === 'panto' && S.mode === 'diesel') return;
     const x = CAB.px[kind][i];
-    if (id !== 'stop'){ c.fillStyle = '#151a20'; c.beginPath(); c.arc(x, 130, 54, 0, Math.PI * 2); c.fill(); }   // the stop has its own plate
-    c.fillStyle = S.battery ? '#c9d4df' : '#56606b'; c.fillText(t('btn_' + id).toUpperCase(), x, 250, 120);
+    c.fillStyle = '#151a20'; c.beginPath(); c.arc(x, 130, 54, 0, Math.PI * 2); c.fill();
+    const lab = t('btn_' + id).toUpperCase(), sp = lab.indexOf(' ');
+    c.fillStyle = S.battery ? '#c9d4df' : '#56606b';
+    if (sp > 0 && c.measureText(lab).width > 108){ c.fillText(lab.slice(0, sp), x, 234, 108); c.fillText(lab.slice(sp + 1), x, 266, 108); }   // as wide as the button at most: two words go on two lines
+    else c.fillText(lab, x, 250, 108);
   });
 }
 function cabIcon(c, id){   // 128 × 128 on the button's cap, in the button's colour
@@ -6650,7 +6702,14 @@ function cabIcon(c, id){   // 128 × 128 on the button's cap, in the button's co
     for (const r of [22, 36]){ c.beginPath(); c.arc(78, 64, r, -0.7, 0.7); c.stroke(); }
   } else if (id === 'panto'){   // a bolt: the line's power
     c.beginPath(); [[72, 12], [36, 70], [60, 70], [50, 116], [94, 52], [68, 52], [80, 12]].forEach(([x, y], i) => i ? c.lineTo(x, y) : c.moveTo(x, y)); c.closePath(); c.fill();
-  } else { c.fillRect(26, 26, 30, 78); c.fillRect(72, 26, 30, 78); }   // the two door leaves
+  } else if (id === 'doors'){   // two leaves with their windows, sliding apart
+    c.fillRect(30, 22, 31, 84); c.fillRect(67, 22, 31, 84);
+    for (const k of [-1, 1]){ c.beginPath(); c.moveTo(64 + 57 * k, 64); c.lineTo(64 + 45 * k, 52); c.lineTo(64 + 45 * k, 76); c.closePath(); c.fill(); }
+    c.fillStyle = '#' + CAB.mats.doors.base.getHexString(); c.fillRect(36, 30, 19, 30); c.fillRect(73, 30, 19, 30);
+  } else {   // a pin: the next platform
+    c.beginPath(); c.arc(64, 52, 32, 0.8 * Math.PI, 0.2 * Math.PI); c.lineTo(64, 114); c.closePath(); c.fill();
+    c.fillStyle = '#' + CAB.mats.next.base.getHexString(); c.beginPath(); c.arc(64, 52, 13, 0, Math.PI * 2); c.fill();
+  }
 }
 
 /* ---- labels */
@@ -6692,12 +6751,13 @@ function updateHud(){
   const g = Math.round(ROUTE.gradeAt(s) * 1000 * S.dir); $('hudGrade').textContent = (g > 0 ? '+' : '') + g;
   $('hudTracks').textContent = ROUTE.tracksAt(s);
   $('hudLimit').textContent = ROUTE.lineLimit(s);
-  const st = nextStation(0), d = st ? (st.s - TGV.PLAT_FRONT - s) * S.dir : 0;
-  $('hudNext').textContent = st ? `${st.name} · ${d < 950 ? `${Math.round(d)} m` : `${(d / 1000).toFixed(d < 10000 ? 1 : 0)} km`}` : t('hud_end');
+  $('hudNext').textContent = stationText(nextStation(0));
   const k = ROUTE.kindAt(s); $('hudKind').textContent = k ? t(KIND_KEY[k]) : '';
   $('rbTrain').style.left = `${(RB.f(s) * 100).toFixed(2)}%`;
   $('throttleVal').textContent = `${S.notch} · ${Math.round(S.vMaxEff * S.notch / 8 * 3.6)} km/h`; cabLever.sync();
 }
+function distText(d){ return d < 950 ? `${Math.round(d)} m` : `${(d / 1000).toFixed(d < 10000 ? 1 : 0)} km`; }
+function stationText(st){ return st ? `${st.name} · ${distText((st.s - TGV.PLAT_FRONT - S.dist) * S.dir)}` : t('hud_end'); }   // a stop and how far to its mark
 function tailLen(){ return S.mode === 'tgv' ? (S.sets === 2 || S.coupling !== 0 ? 382.5 - Math.min(0, S.set2Off) : 185.4) : 82; }
 /* teleport along the line; the train keeps its speed unless asked to stop */
 function jumpTo(s, stop = false){
