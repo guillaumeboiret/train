@@ -170,9 +170,25 @@ body.in-cab:not(.cab-ui) .cab-deck{display:block}
 .cl-track i.z{left:4px;right:4px;height:2px;margin-top:-1px;background:var(--ink)}
 #clKnob{position:absolute;left:0;right:0;top:50%;height:20px;transform:translateY(-50%);border-radius:5px;background:var(--panel-solid);border:2px solid var(--accent);box-shadow:0 2px 6px rgba(0,0,0,.35);transition:top .12s}
 #clVal{position:absolute;left:calc(100% + 18px);top:50%;transform:translateY(-50%);background:var(--accent);color:var(--accent-ink);font:600 11px/1 var(--font-mono);padding:4px 6px;border-radius:4px;white-space:nowrap;pointer-events:none}
+/* walking through the train: the page's controls put away, a pad (held like the arrow keys) at the bottom left, Sit at the bottom right, ✕ top right */
+.walk-bar{display:none}
+body.walking .walk-bar{display:block}
+body.walking :is(.dock,.infocard,.gauges,.hud,.compass,#labels){display:none}
+.walk-bar button{border:1px solid var(--line);background:var(--panel);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);color:var(--ink);cursor:pointer;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:none}
+.walk-pad{position:absolute;left:16px;bottom:16px;display:grid;grid-template-columns:repeat(3,52px);grid-template-rows:repeat(2,52px);gap:6px}
+.walk-pad button{border-radius:12px;font-size:20px;padding:0}
+.walk-pad [data-move="fwd"]{grid-column:2}
+.walk-pad [data-move="left"]{grid-column:1;grid-row:2}
+.walk-pad [data-move="back"]{grid-column:2;grid-row:2}
+.walk-pad [data-move="right"]{grid-column:3;grid-row:2}
+.walk-pad button.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.walk-sit{position:absolute;right:16px;bottom:16px;height:52px;padding:0 22px;border-radius:26px;font-weight:600;font-size:15px}
+.walk-leave{position:absolute;top:12px;right:12px;width:44px;height:44px;padding:0;border-radius:50%;font-size:20px;line-height:1}
+.walk-say{position:absolute;top:14px;left:50%;transform:translateX(-50%);max-width:min(560px,calc(100% - 140px));background:var(--panel);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid var(--line);border-radius:8px;padding:8px 14px;font-size:13.5px;text-align:center;pointer-events:none}
+.walk-say[hidden]{display:none}
 /* while the train runs and nobody touches the page the overlays fade away (ui-idle, set by the page's script); any move, tap or key brings them back */
-:is(.dock,.infocard,.gauges,.hud,.compass,#labels,.cab-bar,.cab-deck){transition:opacity .2s}
-body.ui-idle :is(.dock,.infocard,.gauges,.hud,.compass,#labels,.cab-bar,.cab-deck){opacity:0;visibility:hidden;pointer-events:none;transition:opacity .8s,visibility 0s .8s}
+:is(.dock,.infocard,.gauges,.hud,.compass,#labels,.cab-bar,.cab-deck,.walk-bar){transition:opacity .2s}
+body.ui-idle :is(.dock,.infocard,.gauges,.hud,.compass,#labels,.cab-bar,.cab-deck,.walk-bar){opacity:0;visibility:hidden;pointer-events:none;transition:opacity .8s,visibility 0s .8s}
 .btn.horn{width:100%;font-weight:600}
 .btn.horn.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
 @media (max-width:840px){

@@ -225,6 +225,11 @@ $('nextStep').addEventListener('click', () => { stopAuto(); goStep(stepIdx + 1);
 $('autoPlay').addEventListener('click', () => autoOn ? stopAuto() : startAuto());
 window.addEventListener('keydown', e => {
   if (e.target.matches('input,textarea,select')) return;
+  if (walking){   // the arrows walk (the keys below); Enter sits down or stands up, Esc stops walking
+    if (e.key === 'Escape') cabActions.leave();
+    else if (e.key === 'Enter' && !e.target.closest('button,a')){ e.preventDefault(); if (!e.repeat) walkSitNear(); }
+    return;
+  }
   if (e.key === 'ArrowRight'){ stopAuto(); goStep(stepIdx + 1); }
   else if (e.key === 'ArrowLeft'){ stopAuto(); goStep(stepIdx - 1); }
   else if (e.key === 'Escape'){ if (inCab) cabActions.leave(); else select(null); }
@@ -339,7 +344,7 @@ function setExplode(f){
 $('rgExplode').addEventListener('input', e => setExplode(+e.target.value));
 $('camRow').addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b) return;
-  if (b.dataset.cam.startsWith('seat') || b.dataset.cam === 'driver'){   // a passenger's or the driver's view: the body whole and opaque, the windows glazed
+  if (b.dataset.cam.startsWith('seat') || b.dataset.cam === 'driver' || b.dataset.cam === 'walk'){   // a passenger's or the driver's view: the body whole and opaque, the windows glazed
     if (shellLevel < 1) setShell(1);
     if (cutAxis !== 'none') setCut('none');
     if (S.explode > 0){ setExplode(0); $('rgExplode').value = 0; }
@@ -366,6 +371,7 @@ orbit.onClick = e => {
   const r = canvas.getBoundingClientRect();
   ptr.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
   ray.setFromCamera(ptr, camera);
+  if (walking){ walkPick(ray); return; }   // walking: a tap on a free seat sits there
   const catG = [...chunks.values()].map(c => c.cat);
   const hits = ray.intersectObjects(S.mode === 'tgv' ? [loco, catenary, tgvTrain, ...catG] : [loco, catenary, ...catG], true);
   for (const h of hits){
@@ -429,6 +435,35 @@ function showCabUi(on){
 }
 $('cabUi').addEventListener('click', () => showCabUi(!document.body.classList.contains('cab-ui')));
 $('cabLeave').addEventListener('click', () => cabActions.leave());
+/* ---- walking through the train (CAMS.walk, 03f3): the page's controls step aside for a pad (the arrows), Sit and ✕; a tap on a free seat sits there */
+let walking = false, walkSayT = 0;
+function walkSay(key, n, ms = 2200){   // a word over the view: the car just entered, why that seat cannot be taken, how to walk; no key: away
+  const el = $('walkSay'); clearTimeout(walkSayT);
+  if (!key){ el.hidden = true; return; }
+  el.textContent = key === 'walk_car' ? `${t('walk_car')} ${n}${n % 10 <= 3 ? ' · ' + t('walk_first') : ''}` : t(key);
+  el.hidden = false; readFor(el.textContent);
+  walkSayT = setTimeout(() => { el.hidden = true; }, ms);
+}
+function keepWalker(dt){
+  const on = orbit.fp?.name === 'walk';
+  if (on !== walking){
+    walking = on; document.body.classList.toggle('walking', on);
+    if (on){ document.activeElement?.blur?.(); walkSay(lastPtr === 'mouse' ? 'walk_hint' : 'walk_hint_touch', 0, 6000); }   // off the Walk button: Enter now sits
+    else { walkFree(); walkSay(null); keys.clear(); }
+  }
+  if (!on) return;
+  walkMove(dt, m => keys.has(m));
+  const sit = WK.seat >= 0 ? 'walk_stand' : 'walk_sit', b = $('walkSit');
+  if (b.dataset.i18n !== sit){ b.dataset.i18n = sit; b.textContent = t(sit); }
+}
+document.querySelectorAll('#walkPad button[data-move]').forEach(b => {   // held like the key it stands for
+  const mv = b.dataset.move, up = () => { keys.delete(mv); b.classList.remove('on'); };
+  b.addEventListener('pointerdown', e => { e.preventDefault(); keys.add(mv); b.classList.add('on'); });
+  for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) b.addEventListener(ev, up);
+  b.addEventListener('contextmenu', e => e.preventDefault());
+});
+$('walkSit').addEventListener('click', () => walkSitNear());
+$('walkLeave').addEventListener('click', () => cabActions.leave());
 const cabLever = (() => {   // the HTML lever: drag or tap along it, or ↑ ↓; it follows the train when the autopilot or the page's controls move it
   const tr = $('clTrack'), knob = $('clKnob'), val = $('clVal'), L = { min:-8, max:8 };   // the kid build makes it 0 to 8, its own lever's range
   const at = v => `${((L.max - v) / (L.max - L.min) * 100).toFixed(2)}%`;   // the top is full power
@@ -669,7 +704,8 @@ $('timeSeg').addEventListener('click', e => { const b = e.target.closest('button
 const keys = new Set();
 const KEY_MOVE = { w:'fwd', s:'back', a:'left', d:'right', e:'up', r:'up', q:'down', f:'down' };
 const CODE_MOVE = { KeyW:'fwd', KeyS:'back', KeyA:'left', KeyD:'right', KeyE:'up', KeyQ:'down' };   // physical positions, so an AZERTY Z also goes forward
-const moveOf = e => KEY_MOVE[e.key.toLowerCase()] || CODE_MOVE[e.code] || null;
+const ARROW_MOVE = { ArrowUp:'fwd', ArrowDown:'back', ArrowLeft:'left', ArrowRight:'right' };   // walking only: elsewhere ← → step the guide
+const moveOf = e => (walking && (ARROW_MOVE[e.key] || CODE_MOVE[e.code])) || KEY_MOVE[e.key.toLowerCase()] || CODE_MOVE[e.code] || null;   // walking, a key's place first: an AZERTY Q turns left
 window.addEventListener('keydown', e => {
   if (e.target.matches('input,textarea,select') || e.metaKey || e.ctrlKey || e.altKey) return;
   const k = e.key.toLowerCase();
@@ -681,14 +717,15 @@ window.addEventListener('keydown', e => {
 window.addEventListener('keyup', e => {
   const k = e.key.toLowerCase();
   if (k === 'shift') keys.delete('shift');
-  const mv = moveOf(e); if (mv) keys.delete(mv);
+  for (const mv of [ARROW_MOVE[e.key], CODE_MOVE[e.code], KEY_MOVE[k]]) if (mv) keys.delete(mv);   // all it may have held: walking may have begun or ended since it went down
   if (k === 'h' || k === ' ') horn.release();
 });
 window.addEventListener('blur', () => { keys.clear(); horn.release(); });
 const _pf = new THREE.Vector3(), _pr = new THREE.Vector3();
 function panKeys(dt){   // the focus point moves in the train's frame, so the camera stays attached to it
   if (!keys.size || (keys.size === 1 && keys.has('shift'))) return;
-  if (orbit.fp){   // first person: the keys turn the head
+  if (orbit.fp){   // first person: the keys turn the head (walking: they walk, keepWalker)
+    if (orbit.fp.name === 'walk') return;
     const a = 1.3 * dt, on = m => keys.has(m) ? 1 : 0;
     orbit.turn((on('left') - on('right')) * a, (Math.max(on('fwd'), on('up')) - Math.max(on('back'), on('down'))) * a); return;
   }
@@ -753,13 +790,13 @@ function updateIdle(dt){
   idleT += dt;
   if (Math.abs(S.speed) < 0.3){ idleT = Math.min(idleT, 0); if (B.contains('ui-idle')) B.remove('ui-idle'); return; }   // a train at rest brings them back
   if (idleT < IDLE_S || B.contains('ui-idle')) return;
-  if (lastPtr === 'mouse' && document.querySelector(':is(.dock,.infocard,.hud,.gauges,.cab-bar,.cab-deck>*):hover')){ idleT = 0; return; }   // the mouse rests on them: someone is reading
+  if (lastPtr === 'mouse' && document.querySelector(':is(.dock,.infocard,.hud,.gauges,.cab-bar,.cab-deck>*,.walk-bar>*):hover')){ idleT = 0; return; }   // the mouse rests on them: someone is reading
   B.add('ui-idle');
 }
 let frameHook = null;   // the kid build hangs its own rules here
 function frame(dt){
   simulate(dt); animate(Math.min(dt * S.timeScale, 0.25)); updateFlows(dt); updateWeather(dt); panKeys(dt); if (frameHook) frameHook(dt);
-  keepDriver(); updateIdle(dt);
+  keepDriver(); keepWalker(dt); updateIdle(dt);
   orbit.update(dt); updateCab(dt); updateCompass(); updateSound(dt);
 }
 window.tick = (sec, dt = 0.05) => { for (let t = 0; t < sec - 1e-9; t += dt) frame(dt); renderer.render(scene, camera); updateLabels(); updateGauges(); updateHud(); };
@@ -769,4 +806,4 @@ resize();
 setShell(0.18); setCut('none'); setExplode(0);
 setMode('diesel');
 requestAnimationFrame(loop);
-window.locoDebug = { CAB, driverSeat, cabActions, cabLever, S, simulate, animate, updateFlows, updateGauges, orbit, renderer, scene, camera, goStep, setMode, setCut, setExplode, setShell, select, parts, TGV, tgvSets, station, updateTgv, syncControls, tick:window.tick, ROUTE, horn, chunks, requestTrack, trk, opp, parked, cars, curveLocal, updateHud, jumpToStation, jumpTo, setWeather, pcHosts, pcShells, flowObjs, landmarks, flyPreset, SND, PX, pool, paxResolve, paxHolding, allCoaches, world };
+window.locoDebug = { CAB, driverSeat, cabActions, cabLever, S, simulate, animate, updateFlows, updateGauges, orbit, renderer, scene, camera, goStep, setMode, setCut, setExplode, setShell, select, parts, TGV, tgvSets, station, updateTgv, syncControls, tick:window.tick, ROUTE, horn, chunks, requestTrack, trk, opp, parked, cars, curveLocal, updateHud, jumpToStation, jumpTo, setWeather, pcHosts, pcShells, flowObjs, landmarks, flyPreset, SND, PX, pool, paxResolve, paxHolding, allCoaches, world, keys, WK, walkMove, walkSitNear, walkPick, walkStand, walkZones };

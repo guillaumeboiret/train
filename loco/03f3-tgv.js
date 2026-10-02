@@ -483,13 +483,15 @@ function paxPut(m, k, x, y, z, yaw, sit, ph, amp, turn){   // instance k of m at
 const DECK_GEO = {};
 function deckGeo(L){   // per body length, x from the car's -x end: lower floor + upper floor + stair + tables in one mesh, the lower deck's ceiling (the upper floor's underside) in another
   if (!DECK_GEO[L]){
-    const x0 = 3.4, w = L - 3.6, xb = seatRows(L).bay;   // the upper floor is open over the vestibule and the stair
+    const x0 = 3.4, w = L - 3.43, xb = seatRows(L).bay;   // the upper floor runs to the front gangway and is open over the vestibule and the stair, but for a bridge from it to the rear gangway
+    const br = [new THREE.BoxGeometry(x0 - 0.03, 0.06, 0.9).translate(x0 / 2 + 0.015, DECK.up - 0.03, 0)];   // the bridge, between parapets
+    for (const s of [1, -1]) br.push(new THREE.BoxGeometry(x0 - 0.03, 0.9, 0.03).translate(x0 / 2 + 0.015, DECK.up + 0.45, s * 0.46));
     const st = new THREE.BoxGeometry(Math.hypot(1.7, DECK.up - DECK.lo), 0.06, 0.9).rotateZ(Math.atan2(DECK.up - DECK.lo, 1.7)).translate(2.7, (DECK.lo + DECK.up) / 2 - 0.03, -0.9);   // stair: vestibule (x 1.85) up to the upper deck (x 3.55)
     const tb = [];   // the bay's tables on both decks and sides, on a pedestal: top 0.7 over the floor, clear of the aisle, the feet and the wall
     for (const y of [DECK.lo, DECK.up]) for (const s of [1, -1]) tb.push(new THREE.BoxGeometry(0.4, 0.04, 1.08).translate(xb, y + 0.68, s * 0.84), new THREE.BoxGeometry(0.06, 0.66, 0.06).translate(xb, y + 0.33, s * 0.72));
     DECK_GEO[L] = {
-      floor:mergeGeos([new THREE.BoxGeometry(L - 0.2, 0.06, 2.28).translate(L / 2, DECK.lo - 0.03, 0), new THREE.BoxGeometry(w, 0.06, 2.98).translate(x0 + w / 2, DECK.up - 0.03, 0), st, ...tb], [null, [18, 24]]),   // the upper floor without its -y face
-      ceil:new THREE.PlaneGeometry(w, 2.98).rotateX(Math.PI / 2).translate(x0 + w / 2, DECK.up - 0.06, 0),
+      floor:mergeGeos([new THREE.BoxGeometry(L - 0.2, 0.06, 2.28).translate(L / 2, DECK.lo - 0.03, 0), new THREE.BoxGeometry(w, 0.06, 2.98).translate(x0 + w / 2, DECK.up - 0.03, 0), ...br, st, ...tb], [null, [18, 24], [18, 24]]),   // the upper floor and the bridge without their -y faces
+      ceil:mergeGeos([new THREE.PlaneGeometry(w, 2.98).rotateX(Math.PI / 2).translate(x0 + w / 2, DECK.up - 0.06, 0), new THREE.PlaneGeometry(x0 - 0.03, 0.9).rotateX(Math.PI / 2).translate(x0 / 2 + 0.015, DECK.up - 0.06, 0)]),
     };
   }
   return DECK_GEO[L];
@@ -508,7 +510,7 @@ function buildCoach(parent, cm, xr, L, carNo){
   const n = deck.length, cls = carNo % 10 <= 3 ? 0 : 1;                                 // cars 1..3 (11..13) are first class
   const seats = new THREE.InstancedMesh(SEAT_GEO, cm.seat, n), people = paxMesh(n, cm.people);
   // people: one instance per person in the coach, packed at the front (inst[seat] -> instance, slot[instance] -> seat) so only they are drawn; look[seat]: who sits there
-  const c = { g, id:carNo, xr, L, n, seat:new Float32Array(seat), deck:new Uint8Array(deck), face:new Int8Array(face), occ:new Uint8Array(n), view,
+  const c = { g, id:carNo, xr, L, n, seats, solid:[fl, ce], seat:new Float32Array(seat), deck:new Uint8Array(deck), face:new Int8Array(face), occ:new Uint8Array(n), view,
               look:new Uint32Array(n), inst:new Int16Array(n).fill(-1), slot:new Int16Array(n), people, paths:[], walk:[], crowd:[[], []], dirty:false, colDirty:false };
   for (let i = 0; i < n; i++){
     _m4.compose(_p.set(seat[3 * i], seat[3 * i + 1], seat[3 * i + 2]), face[i] > 0 ? Q0 : QB, _s.setScalar(1)); seats.setMatrixAt(i, _m4); seats.setColorAt(i, SEAT_COL[cls]);
@@ -598,7 +600,16 @@ const TR = (() => {
     };
     return { band, round, cut, cx, cy };
   };
-  const geo = {}, tex = {}, lin = {}, pane = {}, lining = {}, surround = {}, logo = inouiLogo(128, '#f2f1ee', '#e5415d');
+  const geo = {}, tex = {}, lin = {}, pane = {}, lining = {}, surround = {}, cap = {}, logo = inouiLogo(128, '#f2f1ee', '#e5415d');
+  const fan = (hw, top) => {   // an end wall round the upper deck's gangway opening (GANGWAY), hw either side and up to top: points [z, y], triangles wound to face -x (rear) or +x
+    const hole = [[hw, DECK.up], [-hw, DECK.up], [-hw, top], [hw, top]], all = [...pts, ...hole], v2 = q => q.map(([z, y]) => new THREE.Vector2(z, y));
+    const tri = THREE.ShapeUtils.triangulateShape(v2(pts), [v2(hole)]).map(([a, b, c]) => {   // earcut picks its own winding: each triangle made anticlockwise in (z, y), facing -x
+      const [za, ya] = all[a], [zb, yb] = all[b], [zc, yc] = all[c];
+      return (zb - za) * (yc - ya) - (yb - ya) * (zc - za) > 0 ? [a, b, c] : [a, c, b];
+    });
+    return { pts:all, tri:rear => tri.flatMap(([a, b, c]) => rear ? [a, b, c] : [a, c, b]) };
+  };
+  const endFan = fan(0.45, 4.05), capFan = fan(0.47, 4.07);   // the caps' opening wider than the gangway's walls and ceiling (1 cm past the end walls' edges): no rim of them inside it
   for (const L of Ls){
     geo[L] = loftGeo([{ x:0, pts }, { x:L, pts }], vs);
     tex[L] = canvasTex(2048, 1024, (c, W, H) => {   // inOui livery: silver over a Carmillon line, anthracite band (to the floor by the door), pale sill, dark gaskets and door frame, logo past the door
@@ -625,10 +636,15 @@ const TR = (() => {
     });
     const body = geo[L].body, lp = [...body.getAttribute('position').array], lu = [...body.getAttribute('uv').array], li = [...body.index.array];
     for (const [x, rear] of [[0.015, true], [L - 0.015, false]]){   // end walls, 1.5 cm in from the gangway faces, wound like the caps (seen from inside)
-      const o = lp.length / 3; lp.push(x, (yBot + yTop) / 2, 0); lu.push(0.004, 0.25);
-      for (let j = 0; j < RING_N; j++){ lp.push(x, pts[j][1], pts[j][0]); lu.push(0.004, 0.25); }
-      for (let j = 0; j < RING_N; j++){ const a = o + 1 + j, b = o + 1 + (j + 1) % RING_N; rear ? li.push(o, a, b) : li.push(o, b, a); }
+      const o = lp.length / 3;
+      for (const [z, y] of endFan.pts){ lp.push(x, y, z); lu.push(0.004, 0.25); }
+      for (const t of endFan.tri(rear)) li.push(o + t);
     }
+    const capGeo = (x, rear) => {
+      const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(capFan.pts.flatMap(([z, y]) => [x, y, z]), 3));
+      g.setIndex(capFan.tri(rear)); g.computeVertexNormals(); return g;
+    };
+    cap[L] = { rear:capGeo(0, true), front:capGeo(L, false) };
     const lg = lining[L] = new THREE.BufferGeometry();
     lg.setAttribute('position', new THREE.Float32BufferAttribute(lp, 3)); lg.setAttribute('uv', new THREE.Float32BufferAttribute(lu, 2)); lg.setIndex(li); lg.computeVertexNormals();
     const strips = (doorway, inset, r) => {   // quads following the section over each opening (2 cm larger all round, corners rounded to r), `inset` in from the skin (< 0: out), facing out
@@ -648,7 +664,8 @@ const TR = (() => {
       const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
       return g;
     };
-    pane[L] = { glass:strips(false, -0.004, 0.12), plug:strips(true, 0.07, 0) };   // glass 4 mm proud of the skin, over the gasket (its corners on the gasket's arcs, 2 cm in from its edge); the plug sits behind the closed leaf (its back is 4.8 cm in)
+    pane[L] = { glass:strips(false, -0.004, 0.12), plug:mergeGeos([strips(true, 0.07, 0),   // glass 4 mm proud of the skin, over the gasket (its corners on the gasket's arcs, 2 cm in from its edge); the plug sits behind the closed leaf (its back is 4.8 cm in)
+      new THREE.PlaneGeometry(0.94, 1.61).rotateY(-Math.PI / 2).translate(0.005, 3.265, 0), new THREE.PlaneGeometry(0.94, 1.61).rotateY(Math.PI / 2).translate(L - 0.005, 3.265, 0)]) };   // and over both gangway openings: from afar the coach is empty, so they would show through it
     const rr = (x0, x1, y0, y1, r, ys) => {   // rounded rectangle, anticlockwise from the top right corner: 7 points per corner, and the heights ys (rising) up each jamb
       const out = [];
       for (const [cx, cy, q] of [[x1 - r, y1 - r, 0], [x0 + r, y1 - r, 1], [x0 + r, y0 + r, 2], [x1 - r, y0 + r, 3]]){
@@ -671,9 +688,10 @@ const TR = (() => {
     const fg = surround[L] = new THREE.BufferGeometry();
     fg.setAttribute('position', new THREE.Float32BufferAttribute(fp, 3)); fg.setIndex(fi); fg.computeVertexNormals();
   }
-  const paint = g => {   // inOui door: magenta at the top and bottom, coral a little over mid height (vertex colours by height)
-    const p = g.getAttribute('position'), st = [[0, '#dd4c8e'], [0.55, '#fa6951'], [1, '#e034a2']].map(([t, h]) => [t, new THREE.Color(h)]), q = new THREE.Color(), col = [];
+  const paint = g => {   // inOui door: magenta at the top and bottom, coral a little over mid height (vertex colours by height); its inner face the lining's end-wall grey
+    const p = g.getAttribute('position'), st = [[0, '#dd4c8e'], [0.55, '#fa6951'], [1, '#e034a2']].map(([t, h]) => [t, new THREE.Color(h)]), q = new THREE.Color(), inner = new THREE.Color(LIN.end), col = [];
     for (let i = 0; i < p.count; i++){
+      if (Math.abs(p.getZ(i)) < zAtY(pts, p.getY(i)) - 0.018){ col.push(inner.r, inner.g, inner.b); continue; }   // the inner face: 6 cm in from the skin (doorLeafGeo)
       const t = Math.min(1, Math.max(0, (p.getY(i) - DOOR[2]) / (DOOR[3] - DOOR[2]))), k = t < st[1][0] ? 0 : 1;
       q.copy(st[k][1]).lerp(st[k + 1][1], (t - st[k][0]) / (st[k + 1][0] - st[k][0])); col.push(q.r, q.g, q.b);
     }
@@ -681,7 +699,7 @@ const TR = (() => {
     return g;
   };
   const leaf = { p:paint(doorLeafGeo(pts, 1, ...DOOR.slice(2), DOOR[1] - DOOR[0])), n:paint(doorLeafGeo(pts, -1, ...DOOR.slice(2), DOOR[1] - DOOR[0])) };
-  return { geo, tex, lin, pane, lining, surround, pts, yBot, yTop, leaf, doorX:(DOOR[0] + DOOR[1]) / 2 };
+  return { geo, tex, lin, pane, lining, surround, cap, pts, yBot, yTop, leaf, doorX:(DOOR[0] + DOOR[1]) / 2 };
 })();
 /* rubber fairings over the car gaps, as on the real sets: each car's own section 2 cm in all round, lofted across the gap and 1 cm
    into both cars. They read as a dark seam that follows the roof (a box across the gap stood out of the rounded roof shoulders). */
@@ -696,6 +714,15 @@ const GANG = (() => {
     pcFront:loftGeo([{ x:-o, pts:tr }, { x:0, pts:tr }, { x:0.6, pts:pc }, { x:0.6 + o, pts:pc }]).body,     // ahead of the first trailer (x 0) to its power car
     pcRear:loftGeo([{ x:-0.6 - o, pts:pc }, { x:-0.6, pts:pc }, { x:0, pts:tr }, { x:o, pts:tr }]).body,     // behind the last trailer (x 0) to its power car
   };
+})();
+/* the walk-through between two cars on the upper deck, inside the fairing: floor, walls and ceiling from 3 cm into a car (x 0, its
+   rear end) to 3 cm into the next one, over the edges of both end walls' openings (TR endFan). Faces inward. Groups: floor, walls, ceiling.
+   Walls and ceiling 1 cm out past the openings' edges (z ±0.45, y 4.05), behind the end walls: on them, the edges flickered along the walls */
+const GANGWAY = (() => {
+  const P = (w, h) => new THREE.PlaneGeometry(w, h), top = 4.06, y = (DECK.up + top) / 2, h = top - DECK.up;
+  const g = mergeGeos([P(0.56, 0.92).rotateX(-Math.PI / 2).translate(-0.25, DECK.up, 0), P(0.56, h).rotateY(Math.PI).translate(-0.25, y, 0.46), P(0.56, h).translate(-0.25, y, -0.46), P(0.56, 0.92).rotateX(Math.PI / 2).translate(-0.25, top, 0)]);
+  g.addGroup(0, 6, 0); g.addGroup(6, 12, 1); g.addGroup(18, 6, 2);
+  return g;
 })();
 const carNumTex = {};
 function carNumber(n){
@@ -726,11 +753,12 @@ function buildSet(opts){
   if (internals) trShells.mats.push(...Object.values(bodyM), capM, bellowsM, doorM, glassM);
   set.coaches = [];
   const coachM = { floor:mk(0x3a3f46, { roughness:0.9 }), ceil:mk(0xe6e2da, { roughness:0.9, emissive:0xe6e2da, emissiveIntensity:0.45 }), seat:mk(0xffffff, { roughness:0.85 }), people:paxMat(mk) };
+  const gangM = [coachM.floor, frameM, coachM.ceil], staffM = mk(LIN.rack, { roughness:0.6, metalness:0.2, emissive:LIN.rack, emissiveIntensity:0.25 }), staffGeo = new THREE.PlaneGeometry(0.9, 4.05 - DECK.up);
   const trailerRear = [];
   TGV.TRAILERS.forEach(([xr, L], i) => {
     const g = new THREE.Group(); g.position.x = xr;
     const b = new THREE.Mesh(TR.geo[L].body, bodyM[L]); b.castShadow = true; b.receiveShadow = true; g.add(skin(b));
-    const cr = new THREE.Mesh(TR.geo[L].capRear, capM), cf = new THREE.Mesh(TR.geo[L].capFront, capM); cf.position.x = 0; g.add(skin(cr), skin(cf));
+    const cr = new THREE.Mesh(TR.cap[L].rear, capM), cf = new THREE.Mesh(TR.cap[L].front, capM); g.add(skin(cr), skin(cf));
     const lining = new THREE.Mesh(TR.lining[L], linM[L]), glass = new THREE.Mesh(TR.pane[L].glass, paneM.far), plug = new THREE.Mesh(TR.pane[L].plug, paneM.plug);
     lining.visible = false; glass.receiveShadow = plug.receiveShadow = true; g.add(lining, glass, plug);
     lining.add(new THREE.Mesh(TR.surround[L], frameM));   // shown with the lining
@@ -744,12 +772,17 @@ function buildSet(opts){
       const d = new THREE.Group(); d.position.set(xr + TR.doorX, 0, 0);
       const leaf = new THREE.Mesh(TR.leaf[s > 0 ? 'p' : 'n'], doorM); leaf.castShadow = true; d.add(skin(leaf));
       d.add(skin(box(0.8, 0.6, 0.02, glassM, 0, 2.0, s * (zAtY(TR.pts, 2.0) + 0.022))));  // door window, level with the lower deck
+      d.add(skin(box(0.8, 0.6, 0.02, glassM, 0, 2.0, s * (Math.min(...[1.7, 2.0, 2.3].map(y => zAtY(TR.pts, y))) - 0.06))));   // and its inside, clear of the leaf's inner face
       G.doors.add(d); set.doors.push({ g:d, s, x0:xr + TR.doorX, z0:0 });
       const num = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.25), new THREE.MeshBasicMaterial({ map:carNumber(firstCar + i), side:THREE.DoubleSide }));
       num.position.set(xr + 2.75, 3.3, s * (zAtY(TR.pts, 3.3) + 0.012)); if (s < 0) num.rotation.y = Math.PI; G.trailers.add(num);
     });
     const c = buildCoach(G.trailers, coachM, xr, L, firstCar + i);
     Object.assign(c, { lining, glass, plug, paneM, own:internals, lod:0 });
+    if (i < TGV.TRAILERS.length - 1){ const t = new THREE.Mesh(GANGWAY, gangM); t.position.x = xr; c.g.add(t); }   // through to the next car
+    for (const [end, x, ry] of [[i === 0, xr + L - 0.02, -Math.PI / 2], [i === TGV.TRAILERS.length - 1, xr + 0.02, Math.PI / 2]]) if (end){   // the end against a power car: a staff door shuts the opening
+      const d = new THREE.Mesh(staffGeo, staffM); d.position.set(x, (DECK.up + 4.05) / 2, 0); d.rotation.y = ry; c.g.add(d);
+    }
     set.coaches.push(c); allCoaches.push(c);
   });
   // bogies: end bogies + 7 Jacobs at the articulations
@@ -967,7 +1000,8 @@ function paxSeed(c){   // the passengers a coach starts with: 30% of the seats, 
   c.people.count = 0; c.inst.fill(-1);
   for (let i = 0; i < c.n; i++){
     c.look[i] = hash32(c.id * 1000 + i);
-    c.occ[i] = !c.view.includes(i) && hash32(c.id * 7919 + i) % 100 < 30 ? 1 : 0; poseSeat(c, i, c.occ[i] === 1);   // occ: 0 free, 1 seated, 2 getting off, 3 taken by someone getting on
+    if (c.occ[i] !== 4) c.occ[i] = !c.view.includes(i) && hash32(c.id * 7919 + i) % 100 < 30 ? 1 : 0;   // occ: 0 free, 1 seated, 2 getting off, 3 taken by someone getting on, 4 the walker's (walkSit)
+    poseSeat(c, i, c.occ[i] === 1);
   }
   c.dirty = c.colDirty = true;
 }
@@ -1162,7 +1196,7 @@ function paxResolve(reset = false){   // settle everyone at once (teleport, rese
   for (const set of tgvSets) for (const c of set.coaches){
     c.walk.length = 0; c.crowd[0].length = c.crowd[1].length = 0;
     if (reset){ paxSeed(c); continue; }
-    for (let i = 0; i < c.n; i++){ const o = c.occ[i]; if (o >= 2){ c.occ[i] = o === 2 ? 0 : 1; } poseSeat(c, i, c.occ[i] === 1); }
+    for (let i = 0; i < c.n; i++){ const o = c.occ[i]; if (o === 2 || o === 3) c.occ[i] = o === 2 ? 0 : 1; poseSeat(c, i, c.occ[i] === 1); }
   }
   poolClear(); PX.list.length = 0;
   Object.assign(PX, { phase:'idle', hold:false, closeWhenDone:false, rebuild:true, visited:null });
@@ -1189,6 +1223,7 @@ Object.assign(CAMS, {
   seatUp:   () => seatView(1),
   seatLo:   () => seatView(0),
   driver:   () => driverView(),
+  walk:     () => walkView(),
 });
 function driverSeat(){   // the cab at the head of the train, whichever way it runs; a loco backing its wagons has none there: the last wagon stands in
   if (S.mode !== 'tgv') return S.dir > 0 ? parts.cab.group.getObjectByName('cabLoco') : wagons.children[wagons.children.length - 1];
@@ -1204,6 +1239,124 @@ let seatFace = 1;   // the way the viewer's seat faces: the way the train ran wh
 function seatView(d){   // first person in the viewer's seat of coach 1 (deck d), facing the way the train runs, head over the seat, looking ahead toward the window beside it
   const c = tgvSets[0].coaches[0], f = seatFace = S.dir < 0 ? -1 : 1, i = c.view[2 * d + (f > 0 ? 0 : 1)];
   return { obj:c.g, eye:new THREE.Vector3(c.seat[3 * i] + 0.12 * f, c.seat[3 * i + 1] + 1.16, c.seat[3 * i + 2]), yaw:f > 0 ? -0.75 : 0.75 - Math.PI, pitch:-0.14 };
+}
+/* ---- walking through set 1 in first person (CAMS.walk): up the stair at a car's rear end, over the bridge and through the upper-deck
+   gangway into the next car, either way, and into any free seat (occ 4 while taken). The walker stands at x from the rear end of car
+   WK.i, on floor y, at z across, inside the boxes of that car's floor plan (walkZones). keepWalker (03h) drives it every frame */
+const WK = { on:false, i:0, x:0, y:0, z:0, ey:0, seat:-1, hold:false };   // ey: the eye's floor, eased up and down the stair; hold: forward still held from before sitting
+const WALK_EYE = 1.33, WALK_R = 0.35, WALK_REACH = 2.2;   // eye over the floor; room kept from anyone walking in the car; how far a seat can be taken from
+const _wk = new THREE.Vector3(), _wk2 = new THREE.Vector3(), _wkQ = new THREE.Quaternion(), _wkQ2 = new THREE.Quaternion();
+const WALK_Z = {};
+function walkZones(i){   // [x0, x1, z0, z1, floor at x0, floor at x1]: where the walker's centre may be, 0.18 m clear of walls, rails and seats (and the eye 0.2 m clear of the curved upper wall)
+  if (WALK_Z[i]) return WALK_Z[i];
+  const L = TGV.TRAILERS[i][1], rows = seatRows(L).rows, e = rows[rows.length - 1][0] + 0.4, lo = DECK.lo, up = DECK.up;
+  const Z = [
+    [0.2, 1.85, -0.95, 0.95, lo, lo],                                          // the vestibule, between the doors
+    [1.85, 3.6, -0.27, 0.95, lo, lo],                                          // beside the stair's foot, into the lower saloon
+    [3.4, L - 0.2, -0.08, 0.08, lo, lo], [e, L - 0.2, -0.95, 0.95, lo, lo],    // the lower aisle; the room past the last row
+    [1.85, 3.55, -1.05, -0.63, lo, up],                                        // the stair
+    [i < TGV.TRAILERS.length - 1 ? -0.6 : 0.21, 3.4, -0.27, 0.27, up, up],     // the bridge over the vestibule, on into the rear gangway (car 8: its staff door)
+    [3.4, 3.6, -1.05, 1.05, up, up],                                           // the stair head
+    [3.4, L - 0.2, -0.08, 0.08, up, up], [e, L - 0.2, -1.05, 1.05, up, up],    // the upper aisle; the room past the last row (car 1: its staff door)
+  ];
+  if (i > 0) Z.push([L - 0.2, L + 0.6, -0.27, 0.27, up, up]);                 // the front gangway, into the car ahead
+  return WALK_Z[i] = Z;
+}
+function walkFloor(Z, x, z, y){   // the floor under (x, z) nearest y within a step (0.25 m), or NaN: nowhere to stand
+  let f = NaN;
+  for (const [x0, x1, z0, z1, y0, y1] of Z){
+    if (x < x0 || x > x1 || z < z0 || z > z1) continue;
+    const h = y0 + (y1 - y0) * (x - x0) / (x1 - x0);
+    if (Math.abs(h - y) <= 0.25 && (isNaN(f) || Math.abs(h - y) < Math.abs(f - y))) f = h;
+  }
+  return f;
+}
+function walkCrowded(c, x, z){   // someone walking in car c (to or from a seat) stands within WALK_R of (x, z), and that step does not take the walker away from them
+  const near = p => {
+    if (Math.abs(p.y - WK.y) > 0.6) return false;
+    const px = p.x - c.xr, d = Math.hypot(x - px, z - p.z);
+    return d < WALK_R && d < Math.hypot(WK.x - px, WK.z - p.z);
+  };
+  for (const w of c.walk) if (near(pathAt(w.p, w.s, _wk))) return true;
+  for (const e of PX.list) if (e.c === c) for (const ln of e.L) for (const w of ln.outs) if (PX.t >= w.rel && near(pathAt(w.p, w.s, _wk))) return true;
+  return false;
+}
+function walkMove(dt, on){   // on(move): that key or pad button is held. Forward and back walk the way the eye looks, left and right turn, up and down tilt the head
+  const f = orbit.fp, k = m => on(m) ? 1 : 0;
+  if (WK.seat >= 0){   // seated: the head turns; forward stands up (pressed anew: the one that walked here may still be held)
+    if (!on('fwd')) WK.hold = false; else if (!WK.hold){ walkStand(); return; }
+    orbit.turn((k('left') - k('right')) * 1.3 * dt, (k('up') - k('down')) * 1.3 * dt); return;
+  }
+  orbit.turn((k('left') - k('right')) * 1.8 * dt, (k('up') - k('down')) * 1.3 * dt);
+  const v = (k('fwd') - k('back')) * 1.3 * (on('shift') ? 2 : 1) * dt;
+  if (v){
+    const c = tgvSets[0].coaches[WK.i], Z = walkZones(WK.i), dx = Math.cos(f.yaw) * v, dz = -Math.sin(f.yaw) * v;
+    const zc = WK.z - Math.sign(WK.z) * Math.min(Math.abs(WK.z), Math.abs(v));   // drawn toward the middle, where the aisles, the bridge and the gangways are
+    for (const [x, z] of [[WK.x + dx, WK.z + dz], [WK.x + dx, WK.z], [WK.x, WK.z + dz], [WK.x + dx, zc], [WK.x, zc]]){   // straight on, sliding along what is in the way, or eased into the opening pushed against
+      if (Math.abs(x - WK.x) + Math.abs(z - WK.z) < 1e-6) continue;
+      const y = walkFloor(Z, x, z, WK.y);
+      if (isNaN(y) || walkCrowded(c, x, z)) continue;
+      WK.x = x; WK.z = z; WK.y = y; break;
+    }
+    walkCar();
+  }
+  WK.ey += (WK.y - WK.ey) * Math.min(1, dt * 12);
+  f.eye.set(tgvSets[0].coaches[WK.i].xr + WK.x, WK.ey + WALK_EYE, WK.z);
+}
+function walkCar(){   // half way through a gangway the next car takes over, in its own frame (on a curve the two turn apart)
+  const n = TGV.TRAILERS.length, L = TGV.TRAILERS[WK.i][1], j = WK.x > L + 0.3 && WK.i > 0 ? WK.i - 1 : WK.x < -0.3 && WK.i < n - 1 ? WK.i + 1 : -1;
+  if (j < 0) return;
+  const cs = tgvSets[0].coaches, a = cs[WK.i], b = cs[j], f = orbit.fp;
+  a.g.updateWorldMatrix(true, false); b.g.updateWorldMatrix(true, false);
+  b.g.worldToLocal(a.g.localToWorld(_wk.set(a.xr + WK.x, WK.y, WK.z)));
+  _wk2.set(Math.cos(f.yaw), 0, -Math.sin(f.yaw)).applyQuaternion(a.g.getWorldQuaternion(_wkQ)).applyQuaternion(b.g.getWorldQuaternion(_wkQ2).invert());
+  WK.i = j; WK.x = _wk.x - b.xr; WK.z = THREE.MathUtils.clamp(_wk.z, -0.27, 0.27);   // the floor stays the upper deck's
+  f.obj = b.g; f.yaw = Math.atan2(-_wk2.z, _wk2.x);
+  walkSay('walk_car', b.id);
+}
+function walkSit(i){   // into seat i of the walker's car: the eye over the cushion, looking ahead and a little toward the window
+  const c = tgvSets[0].coaches[WK.i], f = c.face[i], x = c.seat[3 * i], y = c.seat[3 * i + 1], z = c.seat[3 * i + 2];
+  if (WK.seat >= 0) c.occ[WK.seat] = 0;
+  c.occ[i] = 4; Object.assign(WK, { seat:i, hold:true, x:x - c.xr + 0.42 * f, y, ey:y, z:0 });   // x, z: where standing up puts the walker, the aisle beside it
+  orbit.look(c.g, new THREE.Vector3(x + 0.12 * f, y + 1.16, z), (f > 0 ? 0 : Math.PI) - Math.sign(z) * f * 0.35, -0.1); orbit.fp.name = 'walk';
+}
+function walkStand(){   // up into the aisle beside the seat, facing along it the way the seat did
+  const c = tgvSets[0].coaches[WK.i], i = WK.seat; if (i < 0) return;
+  c.occ[i] = 0; WK.seat = -1;
+  orbit.look(c.g, new THREE.Vector3(c.xr + WK.x, WK.y + WALK_EYE, WK.z), c.face[i] > 0 ? 0 : Math.PI, -0.05); orbit.fp.name = 'walk';
+}
+function walkSitNear(){   // Sit (or Enter): the nearest free seat within reach on this deck, one ahead rather than one behind; seated: stand up
+  if (WK.seat >= 0){ walkStand(); return; }
+  const c = tgvSets[0].coaches[WK.i], d = WK.y > 1.7 ? 1 : 0, fx = Math.cos(orbit.fp.yaw), fz = -Math.sin(orbit.fp.yaw);
+  let best = -1, bs = Infinity;
+  for (let i = 0; i < c.n; i++){
+    if (c.deck[i] !== d || c.occ[i] !== 0) continue;
+    const dx = c.seat[3 * i] - c.xr - WK.x, dz = c.seat[3 * i + 2] - WK.z, s = Math.hypot(dx, dz);
+    if (s > WALK_REACH) continue;
+    const sc = s + (dx * fx + dz * fz < 0 ? 1 : 0);
+    if (sc < bs){ bs = sc; best = i; }
+  }
+  if (best >= 0) walkSit(best); else walkSay('walk_noseat');
+}
+function walkPick(ray){   // a tap on a seat of the walker's car (not through the floor): taken if it is free and within reach, else a word why not
+  const c = tgvSets[0].coaches[WK.i], h = ray.intersectObjects([c.seats, ...c.solid], false)[0];
+  if (!h || h.object !== c.seats || h.instanceId === WK.seat) return;
+  const i = h.instanceId;
+  if (c.deck[i] !== (WK.y > 1.7 ? 1 : 0) || Math.hypot(c.seat[3 * i] - c.xr - WK.x, c.seat[3 * i + 2] - WK.z) > WALK_REACH) walkSay('walk_far');
+  else if (c.occ[i] !== 0) walkSay('walk_taken');
+  else walkSit(i);
+}
+function walkFree(){ if (WK.seat >= 0) tgvSets[0].coaches[WK.i].occ[WK.seat] = 0; WK.seat = -1; WK.on = false; }   // out of the walk: the seat is free again
+function walkView(){   // standing at coach 1's stair head facing the bridge to coach 2, or in the aisle beside the seat the viewer had; already walking: stay put
+  if (S.mode !== 'tgv' || WK.on) return null;
+  const c = tgvSets[0].coaches[0], fp = orbit.fp;
+  let x = 3.5, y = DECK.up, yaw = Math.PI;
+  if (fp?.obj === c.g && (fp.name === 'seatUp' || fp.name === 'seatLo')){
+    const i = c.view[2 * (fp.name === 'seatUp' ? 1 : 0) + (seatFace > 0 ? 0 : 1)], f = c.face[i];
+    x = c.seat[3 * i] - c.xr + 0.42 * f; y = c.seat[3 * i + 1]; yaw = f > 0 ? 0 : Math.PI;
+  }
+  Object.assign(WK, { on:true, i:0, x, y, z:0, ey:y, seat:-1, hold:false });
+  return { obj:c.g, eye:new THREE.Vector3(c.xr + x, y + WALK_EYE, 0), yaw, pitch:-0.05 };
 }
 
 /* ---- the sun's shadow box: over the train (a long one takes a bigger map), stretched over a station's slab near it so the slab shades the

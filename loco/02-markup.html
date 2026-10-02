@@ -189,6 +189,7 @@
                 <button type="button" class="btn" data-cam="door" data-i18n="cam_door">Portes</button>
                 <button type="button" class="btn" data-cam="seatUp" data-i18n="cam_seatUp">Place en haut</button>
                 <button type="button" class="btn" data-cam="seatLo" data-i18n="cam_seatLo">Place en bas</button>
+                <button type="button" class="btn" data-cam="walk" data-i18n="cam_walk">Marcher</button>
               </span>
             </div>
             <div class="hint" data-i18n="cam_hint">Clavier: W A S D déplacent le point de visée le long de la rame, R/F (ou E/Q) montent et descendent, Maj accélère. H ou Espace: klaxon.</div>
@@ -222,6 +223,17 @@
         <div class="cl-track" id="clTrack" role="slider" tabindex="0" aria-orientation="vertical" aria-valuemin="-8" aria-valuemax="8" aria-valuenow="0" aria-label="Manipulateur traction-freinage" data-i18n-aria="cab_lever"><b id="clKnob"><span id="clVal">0</span></b></div>
         <span class="cl-end" data-i18n="scr_brake">Frein</span>
       </div>
+    </div>
+    <div class="walk-bar" id="walkBar">
+      <div class="walk-say" id="walkSay" role="status" aria-live="polite" hidden></div>
+      <div class="walk-pad" id="walkPad" role="group" aria-label="Marcher" data-i18n-aria="cam_walk">
+        <button type="button" data-move="fwd" aria-label="Avancer" data-i18n-aria="walk_fwd">▲</button>
+        <button type="button" data-move="left" aria-label="Tourner à gauche" data-i18n-aria="walk_left">◀</button>
+        <button type="button" data-move="back" aria-label="Reculer" data-i18n-aria="walk_back">▼</button>
+        <button type="button" data-move="right" aria-label="Tourner à droite" data-i18n-aria="walk_right">▶</button>
+      </div>
+      <button type="button" class="walk-sit" id="walkSit" data-i18n="walk_sit">S'asseoir</button>
+      <button type="button" class="walk-leave" id="walkLeave" aria-label="Arrêter de marcher" title="Arrêter de marcher" data-i18n-aria="walk_leave" data-i18n-title="walk_leave">✕</button>
     </div>
   </main>
 </div>

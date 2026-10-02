@@ -15,7 +15,7 @@ const KID_T = {
 };
 const kt = k => KID_T[S.lang][k] ?? k;
 const KID_WX = [['sun', '☀️'], ['cloud', '☁️'], ['rain', '🌧️'], ['dusk', '🌆']];
-const KID_CAMS = ['overview', 'driver', 'door', 'seatUp', 'seatLo', 'side', 'train', 'far'], KID_TGV_CAMS = ['door', 'seatUp', 'seatLo'];   // one tap: next view (the door and the two window seats on the TGV only)
+const KID_CAMS = ['overview', 'driver', 'door', 'seatUp', 'seatLo', 'walk', 'side', 'train', 'far'], KID_TGV_CAMS = ['door', 'seatUp', 'seatLo', 'walk'];   // one tap: next view (the door, the two window seats and the walk through the train on the TGV only)
 Object.assign(CAMS, {
   door: () => {   // on the platform just ahead of coach 1's door, over the heads of the queue: the leaf slides toward the camera
     const x = TGV.TRAILERS[0][0] + TR.doorX, V = THREE.Vector3, k = nearestStation().side;
@@ -30,6 +30,14 @@ document.body.classList.add('kid');
 document.head.insertAdjacentHTML('beforeend', `<style>
 body.kid .topbar,body.kid .dock,body.kid .infocard,body.kid .gauges,body.kid #hud{display:none!important}
 body.in-cab:not(.cab-ui) :is(.kid-top,.kid-menu,.kid-bottom){display:none}
+body.kid.walking :is(.kid-top,.kid-menu,.kid-bottom){display:none}
+body.kid .walk-bar button{border:0;background:rgba(255,255,255,.93);color:#1b2430;box-shadow:0 4px 12px rgba(0,0,0,.25);-webkit-backdrop-filter:none;backdrop-filter:none}
+body.kid .walk-pad{left:10px;bottom:calc(10px + env(safe-area-inset-bottom,0px));grid-template-columns:repeat(3,64px);grid-template-rows:repeat(2,64px);gap:8px}
+body.kid .walk-pad button{font-size:28px;border-radius:18px}
+body.kid .walk-pad button.on{background:#f28c28;color:#1b1206}
+body.kid .walk-sit{right:10px;bottom:calc(10px + env(safe-area-inset-bottom,0px));height:64px;border-radius:32px;padding:0 26px;font:700 18px/1 var(--font-display);letter-spacing:.06em;text-transform:uppercase}
+body.kid .walk-leave{top:10px;right:10px;width:56px;height:56px;font-size:28px}
+body.kid .walk-say{top:12px;max-width:calc(100% - 160px);background:rgba(255,255,255,.93);color:#1b2430;border:0;border-radius:16px;box-shadow:0 6px 18px rgba(0,0,0,.25);-webkit-backdrop-filter:none;backdrop-filter:none;font:600 17px/1.3 var(--font-body)}
 body.kid .lbl{font:600 15px/1 var(--font-body);padding:8px 12px;border-radius:10px;background:#fff;color:#1b2430;border-color:#fff}
 body.kid .lbl::after{background:#fff;height:18px}
 #kid{position:absolute;inset:0;pointer-events:none;color:#1b2430;font-family:var(--font-body);-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
@@ -124,6 +132,9 @@ body.kid #rbTip{font-size:13px;padding:5px 9px;top:-30px;border-radius:8px}
   body.kid .cl-track{width:48px;margin:20px 0}body.kid #clKnob{width:42px;height:42px;border-width:4px}
   body.kid .cab-bar{top:6px;right:6px;gap:8px}body.kid .cab-bar button{width:46px;height:46px;font-size:23px}body.kid.in-cab .kid-top{right:58px}body.kid.in-cab .compass{top:114px}
   .kid-toast{font-size:17px;padding:10px 16px;top:32%}
+  body.kid .walk-pad{left:6px;bottom:calc(6px + env(safe-area-inset-bottom,0px));grid-template-columns:repeat(3,50px);grid-template-rows:repeat(2,50px);gap:6px}body.kid .walk-pad button{font-size:22px}
+  body.kid .walk-sit{right:6px;bottom:calc(6px + env(safe-area-inset-bottom,0px));height:50px;padding:0 18px;font-size:15px}
+  body.kid .walk-leave{top:6px;right:6px;width:46px;height:46px;font-size:23px}body.kid .walk-say{top:8px;font-size:15px}
   .kid-bottom{left:6px;right:6px;bottom:calc(6px + env(safe-area-inset-bottom,0px));gap:6px}
   .kid-route{padding:4px 12px 0}
   body.kid #routeBar{height:34px}body.kid #routeBar::before{top:7px;height:4px}
@@ -176,7 +187,7 @@ $('c3d').parentElement.insertAdjacentHTML('beforeend', `<div id="kid">
   </div>
 </div>`);
 $('kidRoute').appendChild($('routeBar'));   // the line with its station dots keeps its own click, drag and teleport handlers
-{ const b = $('cabLeave'); b.textContent = '📷'; delete b.dataset.i18nAria; delete b.dataset.i18nTitle; }   // in the cab the way out is the camera button: next view
+for (const b of [$('cabLeave'), $('walkLeave')]){ b.textContent = '📷'; delete b.dataset.i18nAria; delete b.dataset.i18nTitle; }   // in the cab and walking the way out is the camera button: next view
 
 /* ---- helpers */
 function kidPower(full){ ensureBattery(); if (S.mode === 'diesel') ensureRunning(); else if (full) ensureLive(); }   // full: pantograph up and line closed at once (start, train change)
@@ -252,7 +263,7 @@ function kidLang(){
   document.querySelectorAll('[data-kid]').forEach(el => { el.textContent = kt(el.dataset.kid); });
   $('kidLang').querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.lang === S.lang)));
   $('kidLever').setAttribute('aria-label', kt('lever')); $('clTrack').setAttribute('aria-label', kt('lever'));
-  $('cabLeave').setAttribute('aria-label', kt('cam')); $('cabLeave').title = kt('cam');
+  for (const b of [$('cabLeave'), $('walkLeave')]){ b.setAttribute('aria-label', kt('cam')); b.title = kt('cam'); }
 }
 function kidTick(){
   $('kidSpeed').textContent = Math.round(S.speed * 3.6);
