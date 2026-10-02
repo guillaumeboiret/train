@@ -6,9 +6,7 @@ Nothing leaves this file: a request is added the moment it is made, and a done i
 ## Open, in working order
 
 ### 0. Now (asked 2026-10-03)
-- [ ] The camera never goes under the ground or under the rails ("Make sure the camera can go under the soil, under the rails, and it's useless": "can" heard, "can't" meant). An item of 2026-09-27 said the camera stays above the ground (482d499), but nothing stops the outside camera from orbiting below the track.
 - [ ] Heat as a transparent shimmer instead of the orange smoke: the hot air bends and blurs what is behind it, in waves ("Can you change the orange smoke to something that makes the feeling of heat but it's transparent? It just makes waves"). Changes the warm haze of 73a8dd0.
-- [ ] A no GUI button: hides every control so only the trip is on screen ("add a no-GUI mode Button that hides the GUI to only see the the travel").
 
 ### 1. World (asked 2026-10-02)
 - [ ] A real clock to set the time of day.
@@ -42,6 +40,10 @@ Nothing leaves this file: a request is added the moment it is made, and a done i
 - The HUD's track count includes the far face of island platforms, one too many.
 
 ## Done
+
+### 2026-10-03
+- [x] The camera never goes under the ground or under the rails ("Make sure the camera can go under the soil, under the rails, and it's useless": "can" heard, "can't" meant). In a tunnel it stays inside the tube. The Underside preset now looks from the rails' height: 7c11f0f
+- [x] A no GUI button: hides every control so only the trip is on screen ("add a no-GUI mode Button that hides the GUI to only see the the travel"). In the explainer's topbar and under the playground's compass, or G. The corner button, Esc or G bring the controls back: 319e082
 
 ### 2026-10-02
 - [x] Next stop, long press: the button stays pressed and the train serves the line by itself, again and again: to the next station, stop, doors open, people get off and on, doors close, on to the next; at either end it turns back ("if I long-press on it, it stays clicked and the train goes to the next station, stops, opens the doors, waits for the people to leave and go in, closes the doors, and goes to the next one"). A tap ends it: 607ef93
