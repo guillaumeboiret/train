@@ -43,9 +43,9 @@ body.kid .walk-sit{right:10px;bottom:calc(10px + env(safe-area-inset-bottom,0px)
 body.kid.touch .walk-sit{bottom:calc(174px + env(safe-area-inset-bottom,0px))}   /* over the right stick */
 body.kid .walk-leave,body.kid .cab-bar{display:none}   /* the way out is the corner's views */
 body.kid .walk-say{top:12px;max-width:calc(100% - 2 * (var(--kid-side,110px) + 30px));background:rgba(255,255,255,.93);color:#1b2430;border:0;border-radius:16px;box-shadow:0 6px 18px rgba(0,0,0,.25);-webkit-backdrop-filter:none;backdrop-filter:none;font:600 17px/1.3 var(--font-body)}
-body.kid .bar-menu{right:calc(var(--kid-side,110px) + 20px);background:rgba(255,255,255,.97);color:#1b2430;border:0;border-radius:20px;box-shadow:0 8px 24px rgba(0,0,0,.3);padding:16px}
+body.kid .bar-menu{right:calc(var(--kid-side,110px) + 20px);width:min(480px,calc(100% - var(--kid-side,110px) - 36px));background:rgba(255,255,255,.97);color:#1b2430;border:0;border-radius:20px;box-shadow:0 8px 24px rgba(0,0,0,.3);padding:16px}
 body.kid .walk-bar .bar-menu button{border:0;background:#eef2f6;color:#1b2430;box-shadow:none}
-body.kid .walk-bar .bar-menu .bar-item{min-height:64px;border-radius:14px}body.kid .bar-e{font-size:30px}body.kid .bar-n{font-size:15px}body.kid .bar-p{color:#5b6672;font-size:13px}
+body.kid .bar-items{grid-template-columns:repeat(auto-fill,minmax(130px,1fr))}body.kid .walk-bar .bar-menu .bar-item{min-height:64px;border-radius:14px}body.kid .bar-e{font-size:30px}body.kid .bar-n{font-size:15px}body.kid .bar-p{color:#5b6672;font-size:13px}
 body.kid .bar-title{font-size:26px}body.kid .bar-wallet{background:#fff4e6;border-color:#f28c28;color:#1b2430;font-size:15px}body.kid .walk-bar .bar-menu .bar-x{width:44px;height:44px;font-size:20px}
 body.kid .walk-bar .bar-menu .bar-chip{width:52px;height:52px;font-size:28px}body.kid .bar-tray{font-size:15px}body.kid .bar-tray-hint{color:#5b6672}
 body.kid .walk-bar .bar-menu .bar-pocket{background:#f28c28;color:#1b1206;font:700 16px/1 var(--font-display);letter-spacing:.04em;text-transform:uppercase;padding:12px 18px}
@@ -144,6 +144,7 @@ body.kid #rbTip{font-size:13px;padding:5px 9px;top:-30px;border-radius:8px}
   .kid-speed{padding:4px 10px}.kid-speed .n{font-size:30px}.kid-next{display:none}
   .kb .lab{display:none}.kb{min-width:60px;height:60px}
   body.kid .rb-st{width:18px}body.kid .rb-st i{width:12px;height:12px}   /* 13 stops 26 px apart: room to tap between two dots */
+  body.kid .bar-menu{padding:10px}body.kid .bar-items{grid-template-columns:repeat(auto-fill,minmax(110px,1fr))}   /* two columns on a phone held upright */
 }
 @media (max-height:520px){   /* phone held sideways: one thin row of controls, the view stays visible */
   .kid-top{top:6px;left:6px;right:calc(var(--kid-side,80px) + 12px);gap:6px}

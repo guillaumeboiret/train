@@ -207,8 +207,9 @@ body.bar-open :is(.walk-stick,#walkSit,#walkLeave){display:none}
 .bar-wallet{font:600 13px/1 var(--font-mono);padding:7px 10px;border-radius:999px;background:var(--panel-2);border:1px solid var(--line);white-space:nowrap}
 .walk-bar .bar-menu .bar-x{width:36px;height:36px;padding:0;border-radius:50%;font-size:16px;line-height:1;flex:0 0 auto}
 .bar-items{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:6px}
-.walk-bar .bar-menu .bar-item{display:grid;grid-template-columns:auto 1fr;grid-template-rows:auto auto;column-gap:8px;align-items:center;text-align:left;min-height:52px;padding:6px 8px;border-radius:10px}
+.walk-bar .bar-menu .bar-item{display:grid;grid-template-columns:auto minmax(0,1fr);grid-template-rows:auto auto;column-gap:8px;align-items:center;text-align:left;min-height:52px;padding:6px 8px;border-radius:10px}
 .bar-e{grid-row:span 2;font-size:24px;line-height:1}
+.bar-ico{display:block;width:1em;height:1em}.bar-chip .bar-ico{display:inline-block;vertical-align:middle}
 .bar-n{font-size:13px;font-weight:600;line-height:1.15}
 .bar-p{font:12px/1.2 var(--font-mono);color:var(--muted)}
 .bar-item.dear{opacity:.5}
@@ -618,12 +619,13 @@ const T = {
 };
 
 /* ------------------------------------------------------------ the bar car's menu: price in cents, and where the barista fetches it (BAR_AT) */
+const MADELEINE_ICON = `<svg class="bar-ico" viewBox="3.4 3.6 53.0 53.0" aria-hidden="true"><defs><radialGradient id="barMdF" cx="42%" cy="36%" r="66%"><stop offset="0" stop-color="#fde09a"/><stop offset=".5" stop-color="#f2b553"/><stop offset=".85" stop-color="#d48632"/><stop offset="1" stop-color="#b8661f"/></radialGradient></defs><g transform="rotate(-38 32 32)"><path d="M32.0 0.9 L32.7 1.0 L33.4 1.3 L34.1 1.7 L34.8 2.3 L35.4 2.9 L36.1 3.1 L36.7 3.3 L37.4 3.6 L38.0 3.9 L38.7 4.2 L39.3 4.6 L39.9 5.0 L40.5 5.4 L41.2 5.8 L41.8 6.3 L42.5 6.4 L43.3 6.6 L44.0 6.9 L44.6 7.4 L45.2 8.0 L45.7 8.7 L46.1 9.6 L46.5 10.6 L46.7 11.6 L46.9 12.7 L47.4 13.5 L47.8 14.2 L48.2 15.1 L48.5 15.9 L48.9 16.7 L49.2 17.6 L49.5 18.5 L49.8 19.4 L50.1 20.3 L50.3 21.3 L50.9 22.0 L51.4 22.9 L51.7 23.8 L52.0 24.8 L52.1 25.8 L52.0 26.9 L51.9 27.9 L51.8 29.0 L51.6 30.0 L51.5 31.0 L51.5 32.0 L51.4 33.0 L51.3 34.0 L51.2 35.0 L51.0 35.9 L50.8 36.9 L50.6 37.9 L50.3 38.9 L50.0 39.8 L49.7 40.7 L49.3 41.7 L48.9 42.6 L48.5 43.5 L48.1 44.4 L47.6 45.2 L47.1 46.1 L46.6 46.9 L46.1 47.8 L45.6 48.5 L45.1 49.3 L44.5 50.1 L44.0 50.8 L43.4 51.5 L42.9 52.2 L42.3 52.8 L41.8 53.5 L41.2 54.1 L40.7 54.6 L40.1 55.2 L39.6 55.7 L39.0 56.2 L38.5 56.6 L37.9 57.0 L37.4 57.4 L36.9 57.8 L36.4 58.1 L35.9 58.4 L35.4 58.7 L34.9 58.9 L34.4 59.1 L33.9 59.2 L33.4 59.3 L33.0 59.4 L32.5 59.5 L32.0 59.5 L31.5 59.5 L31.0 59.4 L30.6 59.3 L30.1 59.2 L29.6 59.1 L29.1 58.9 L28.6 58.7 L28.1 58.4 L27.6 58.1 L27.1 57.8 L26.6 57.4 L26.1 57.0 L25.5 56.6 L25.0 56.2 L24.4 55.7 L23.9 55.2 L23.3 54.6 L22.8 54.1 L22.2 53.5 L21.7 52.8 L21.1 52.2 L20.6 51.5 L20.0 50.8 L19.5 50.1 L18.9 49.3 L18.4 48.5 L17.9 47.8 L17.4 46.9 L16.9 46.1 L16.4 45.3 L15.9 44.4 L15.5 43.5 L15.1 42.6 L14.7 41.7 L14.3 40.7 L14.0 39.8 L13.7 38.9 L13.4 37.9 L13.2 36.9 L13.0 35.9 L12.8 35.0 L12.7 34.0 L12.6 33.0 L12.5 32.0 L12.5 31.0 L12.4 30.0 L12.2 29.0 L12.1 27.9 L12.0 26.9 L11.9 25.8 L12.0 24.8 L12.3 23.8 L12.6 22.9 L13.1 22.0 L13.7 21.3 L13.9 20.3 L14.2 19.4 L14.5 18.5 L14.8 17.6 L15.1 16.7 L15.5 15.9 L15.8 15.1 L16.2 14.2 L16.6 13.5 L17.1 12.7 L17.3 11.6 L17.5 10.6 L17.9 9.6 L18.3 8.7 L18.8 8.0 L19.4 7.4 L20.0 6.9 L20.7 6.6 L21.5 6.4 L22.2 6.3 L22.8 5.8 L23.5 5.4 L24.1 5.0 L24.7 4.6 L25.3 4.2 L26.0 3.9 L26.6 3.6 L27.3 3.3 L27.9 3.1 L28.6 2.9 L29.2 2.3 L29.9 1.7 L30.6 1.3 L31.3 1.0Z" fill="url(#barMdF)" stroke="#94501a" stroke-width="1.8" stroke-linejoin="round"/><path d="M29.5 47.1Q20.6 32.9 16.5 18.6M30.0 46.2Q22.9 29.8 19.4 13.4M30.6 45.6Q25.7 27.5 23.1 9.4M31.3 45.2Q28.7 26.0 27.4 6.9M32.0 45.1Q32.0 25.5 32.0 6.0M32.7 45.2Q35.3 26.0 36.6 6.9M33.4 45.6Q38.3 27.5 40.9 9.4M34.0 46.2Q41.1 29.8 44.6 13.4M34.5 47.1Q43.4 32.9 47.5 18.6" fill="none" stroke="#b9702a" stroke-width="1.7" stroke-linecap="round" opacity=".6"/><ellipse cx="26" cy="20" rx="5.5" ry="3.2" fill="#fff" opacity=".4" transform="rotate(-30 26 20)"/></g></svg>`;   // no emoji is a madeleine (🐚 is a seashell): one drawn to sit among them
 const BAR_MENU = [
   { id:'espresso', e:'☕', p:280, st:'hot' }, { id:'choco', e:'🍫', p:390, st:'hot' }, { id:'tea', e:'🍵', p:340, st:'hot' },
   { id:'soda', e:'🥤', p:360, st:'cold' }, { id:'juice', e:'🧃', p:380, st:'cold' }, { id:'water', e:'💧', p:0, st:'cold' },
   { id:'club', e:'🥪', p:690, st:'food' }, { id:'croque', e:'🧀', p:840, st:'food' }, { id:'burger', e:'🍔', p:980, st:'food' },
   { id:'cookie', e:'🍪', p:350, st:'food' }, { id:'muffin', e:'🧁', p:340, st:'food' }, { id:'painchoc', e:'🥐', p:260, st:'food' },
-  { id:'madeleine', e:'🐚', p:250, st:'food' }, { id:'chips', e:'🥔', p:320, st:'food' }, { id:'sweets', e:'🍬', p:330, st:'food' },
+  { id:'madeleine', e:MADELEINE_ICON, p:250, st:'food' }, { id:'chips', e:'🥔', p:320, st:'food' }, { id:'sweets', e:'🍬', p:330, st:'food' },
 ];
 const CHOCOLATINE_S = 445166;   // the line leaves Charente for Deux-Sèvres at Londigny: south of there, Angoulême, Bordeaux, Toulouse, the menu's pain au chocolat is a chocolatine
 
@@ -6646,15 +6648,23 @@ function barRender(){
   $('barWallet').textContent = `👛 ${money(BAR.wallet)}`;
   const tray = $('barTray'); tray.textContent = '';
   BAR.tray.forEach((id, k) => {
-    const b = document.createElement('button'), n = barName(id); b.type = 'button'; b.className = 'bar-chip'; b.textContent = barItem(id).e;
+    const b = document.createElement('button'), n = barName(id); b.type = 'button'; b.className = 'bar-chip'; b.innerHTML = barItem(id).e;   // an emoji, or the madeleine's drawing
     b.setAttribute('aria-label', n); b.title = n; b.addEventListener('click', () => barEat(k)); tray.append(b);
   });
   $('barTrayHint').textContent = t(BAR.tray.length ? 'bar_tray_hint' : 'bar_empty');
   $('barPocket').hidden = BAR.wallet >= BAR_DEAREST;   // pocket money once the dearest thing is out of reach
+  if (barIsOpen()) barFit();
 }
+function barFit(){   // a name longer than its button can hold (Chocolatine on an iPad) comes down in size until it fits, rather than running out of it
+  for (const n of $('barItems').querySelectorAll('.bar-n')){
+    n.style.fontSize = '';
+    for (let f = parseFloat(getComputedStyle(n).fontSize); n.scrollWidth > n.clientWidth && f > 10; ) n.style.fontSize = `${f = Math.max(10, Math.floor(f * n.clientWidth / n.scrollWidth * 2) / 2)}px`;
+  }
+}
+addEventListener('resize', () => { if (barIsOpen()) barFit(); });
 function barOpen(){
   if (!walking) return;
-  barRender(); $('barMenu').hidden = false; document.body.classList.add('bar-open'); keys.clear(); stickReset(); walkSay(null); barFace();
+  $('barMenu').hidden = false; barRender(); document.body.classList.add('bar-open'); keys.clear(); stickReset(); walkSay(null); barFace();   // shown first: barRender measures the names
   $('barItems').firstElementChild.focus({ preventScroll:true });
 }
 function barClose(){
@@ -7098,9 +7108,9 @@ body.kid .walk-sit{right:10px;bottom:calc(10px + env(safe-area-inset-bottom,0px)
 body.kid.touch .walk-sit{bottom:calc(174px + env(safe-area-inset-bottom,0px))}   /* over the right stick */
 body.kid .walk-leave,body.kid .cab-bar{display:none}   /* the way out is the corner's views */
 body.kid .walk-say{top:12px;max-width:calc(100% - 2 * (var(--kid-side,110px) + 30px));background:rgba(255,255,255,.93);color:#1b2430;border:0;border-radius:16px;box-shadow:0 6px 18px rgba(0,0,0,.25);-webkit-backdrop-filter:none;backdrop-filter:none;font:600 17px/1.3 var(--font-body)}
-body.kid .bar-menu{right:calc(var(--kid-side,110px) + 20px);background:rgba(255,255,255,.97);color:#1b2430;border:0;border-radius:20px;box-shadow:0 8px 24px rgba(0,0,0,.3);padding:16px}
+body.kid .bar-menu{right:calc(var(--kid-side,110px) + 20px);width:min(480px,calc(100% - var(--kid-side,110px) - 36px));background:rgba(255,255,255,.97);color:#1b2430;border:0;border-radius:20px;box-shadow:0 8px 24px rgba(0,0,0,.3);padding:16px}
 body.kid .walk-bar .bar-menu button{border:0;background:#eef2f6;color:#1b2430;box-shadow:none}
-body.kid .walk-bar .bar-menu .bar-item{min-height:64px;border-radius:14px}body.kid .bar-e{font-size:30px}body.kid .bar-n{font-size:15px}body.kid .bar-p{color:#5b6672;font-size:13px}
+body.kid .bar-items{grid-template-columns:repeat(auto-fill,minmax(130px,1fr))}body.kid .walk-bar .bar-menu .bar-item{min-height:64px;border-radius:14px}body.kid .bar-e{font-size:30px}body.kid .bar-n{font-size:15px}body.kid .bar-p{color:#5b6672;font-size:13px}
 body.kid .bar-title{font-size:26px}body.kid .bar-wallet{background:#fff4e6;border-color:#f28c28;color:#1b2430;font-size:15px}body.kid .walk-bar .bar-menu .bar-x{width:44px;height:44px;font-size:20px}
 body.kid .walk-bar .bar-menu .bar-chip{width:52px;height:52px;font-size:28px}body.kid .bar-tray{font-size:15px}body.kid .bar-tray-hint{color:#5b6672}
 body.kid .walk-bar .bar-menu .bar-pocket{background:#f28c28;color:#1b1206;font:700 16px/1 var(--font-display);letter-spacing:.04em;text-transform:uppercase;padding:12px 18px}
@@ -7199,6 +7209,7 @@ body.kid #rbTip{font-size:13px;padding:5px 9px;top:-30px;border-radius:8px}
   .kid-speed{padding:4px 10px}.kid-speed .n{font-size:30px}.kid-next{display:none}
   .kb .lab{display:none}.kb{min-width:60px;height:60px}
   body.kid .rb-st{width:18px}body.kid .rb-st i{width:12px;height:12px}   /* 13 stops 26 px apart: room to tap between two dots */
+  body.kid .bar-menu{padding:10px}body.kid .bar-items{grid-template-columns:repeat(auto-fill,minmax(110px,1fr))}   /* two columns on a phone held upright */
 }
 @media (max-height:520px){   /* phone held sideways: one thin row of controls, the view stays visible */
   .kid-top{top:6px;left:6px;right:calc(var(--kid-side,80px) + 12px);gap:6px}

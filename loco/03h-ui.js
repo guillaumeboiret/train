@@ -564,15 +564,23 @@ function barRender(){
   $('barWallet').textContent = `👛 ${money(BAR.wallet)}`;
   const tray = $('barTray'); tray.textContent = '';
   BAR.tray.forEach((id, k) => {
-    const b = document.createElement('button'), n = barName(id); b.type = 'button'; b.className = 'bar-chip'; b.textContent = barItem(id).e;
+    const b = document.createElement('button'), n = barName(id); b.type = 'button'; b.className = 'bar-chip'; b.innerHTML = barItem(id).e;   // an emoji, or the madeleine's drawing
     b.setAttribute('aria-label', n); b.title = n; b.addEventListener('click', () => barEat(k)); tray.append(b);
   });
   $('barTrayHint').textContent = t(BAR.tray.length ? 'bar_tray_hint' : 'bar_empty');
   $('barPocket').hidden = BAR.wallet >= BAR_DEAREST;   // pocket money once the dearest thing is out of reach
+  if (barIsOpen()) barFit();
 }
+function barFit(){   // a name longer than its button can hold (Chocolatine on an iPad) comes down in size until it fits, rather than running out of it
+  for (const n of $('barItems').querySelectorAll('.bar-n')){
+    n.style.fontSize = '';
+    for (let f = parseFloat(getComputedStyle(n).fontSize); n.scrollWidth > n.clientWidth && f > 10; ) n.style.fontSize = `${f = Math.max(10, Math.floor(f * n.clientWidth / n.scrollWidth * 2) / 2)}px`;
+  }
+}
+addEventListener('resize', () => { if (barIsOpen()) barFit(); });
 function barOpen(){
   if (!walking) return;
-  barRender(); $('barMenu').hidden = false; document.body.classList.add('bar-open'); keys.clear(); stickReset(); walkSay(null); barFace();
+  $('barMenu').hidden = false; barRender(); document.body.classList.add('bar-open'); keys.clear(); stickReset(); walkSay(null); barFace();   // shown first: barRender measures the names
   $('barItems').firstElementChild.focus({ preventScroll:true });
 }
 function barClose(){

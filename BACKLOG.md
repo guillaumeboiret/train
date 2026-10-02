@@ -5,6 +5,12 @@ Nothing leaves this file: a request is added the moment it is made, and a done i
 
 ## Open, in working order
 
+### 0. Now (asked 2026-10-02, from the iPad)
+- [ ] Bar menu: names run out of their buttons, "Chocolatine" and "Madeleines" ("The labels are "dépassent"").
+- [ ] Bar menu: the madeleine icon, a seashell, looks nothing like a madeleine ("le logo de la madelaine ne va pas du tout").
+- [ ] Next stop drives to the next station at the train's own pace, no jump closer first: from Massy, on to Vendôme or Paris depending on the direction. Jumping stays the line bar's job ("Next stop should just plan to go to the next stop, not move closer to the next stop"). Changes the Next stop of 8182e9b.
+- [ ] Next stop, long press: the button stays pressed and the train serves the line by itself, again and again: to the next station, stop, doors open, people get off and on, doors close, on to the next; at either end it turns back ("if I long-press on it, it stays clicked and the train goes to the next station, stops, opens the doors, waits for the people to leave and go in, closes the doors, and goes to the next one").
+
 ### 1. World (asked 2026-10-02)
 - [ ] A real clock to set the time of day.
 - [ ] See the sun.
@@ -16,9 +22,13 @@ Nothing leaves this file: a request is added the moment it is made, and a done i
 - [ ] Games on it: Tetris, Snake and 2048.
 
 ### 3. Cinematic camera, for long trips (asked 2026-10-02)
+- [ ] With the endless Next stop (item 0), a wallpaper for the whole line: the camera turns, goes inside the train, comes back out and follows it ("we could have a wallpaper for the whole line in a very nice way").
 - [ ] A camera mode that changes the point of view by itself: all the points of view, with aesthetic camera moves, "like a cinematic". First asked for streaming on YouTube; clarified the same day: "I don't need you to stream it's just the camera movement for long term travels".
 
-### 4. Other open requests
+### 4. Step off the train at a station (asked 2026-10-02)
+- [ ] The passenger can get off onto the platform and walk there, and the train never leaves without them: no departure until they are back aboard ("I want the user to be able to go outside of the train but the train can't go back without the user inside").
+
+### 5. Other open requests
 - [ ] A "super hero futuriste" button that runs the whole line in 5 minutes (2026-10-02).
 - [ ] Gangway doors (sas) between coaches that open as you walk past (2026-10-02).
 - [ ] Random landscape so the country is not empty (2026-10-02).
@@ -49,7 +59,7 @@ Nothing leaves this file: a request is added the moment it is made, and a done i
 - [x] Found while testing: the landing page said 538 km, the line is 829.5 km: 298a163
 - [x] Explainer page GUI, option A "clear the stage" ("Rethink the global GUI it's a mess"): 7d6ac65
 - [x] Walk car to car as a passenger, sit in a free seat, buy at the bar: 2afa664, 4d162de, a878ce5, 4292e1e
-- [x] Cab: Next stop replaces Stop, choose Toulouse or Paris from the driver's seat: 8182e9b
+- [x] Cab: Next stop replaces Stop, choose Toulouse or Paris from the driver's seat: 8182e9b (its jump closer first dropped on 2026-10-02, item 0)
 - [x] Cab: Next stop button on the deck too: 8182e9b
 - [x] Cab: doors icon instead of the one that looked like pause: 8182e9b
 - [x] Cab: double tap on the left or right edge moves the train 1 km back or on: 8182e9b

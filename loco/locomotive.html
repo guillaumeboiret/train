@@ -207,8 +207,9 @@ body.bar-open :is(.walk-stick,#walkSit,#walkLeave){display:none}
 .bar-wallet{font:600 13px/1 var(--font-mono);padding:7px 10px;border-radius:999px;background:var(--panel-2);border:1px solid var(--line);white-space:nowrap}
 .walk-bar .bar-menu .bar-x{width:36px;height:36px;padding:0;border-radius:50%;font-size:16px;line-height:1;flex:0 0 auto}
 .bar-items{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:6px}
-.walk-bar .bar-menu .bar-item{display:grid;grid-template-columns:auto 1fr;grid-template-rows:auto auto;column-gap:8px;align-items:center;text-align:left;min-height:52px;padding:6px 8px;border-radius:10px}
+.walk-bar .bar-menu .bar-item{display:grid;grid-template-columns:auto minmax(0,1fr);grid-template-rows:auto auto;column-gap:8px;align-items:center;text-align:left;min-height:52px;padding:6px 8px;border-radius:10px}
 .bar-e{grid-row:span 2;font-size:24px;line-height:1}
+.bar-ico{display:block;width:1em;height:1em}.bar-chip .bar-ico{display:inline-block;vertical-align:middle}
 .bar-n{font-size:13px;font-weight:600;line-height:1.15}
 .bar-p{font:12px/1.2 var(--font-mono);color:var(--muted)}
 .bar-item.dear{opacity:.5}
