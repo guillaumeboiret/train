@@ -111,7 +111,10 @@ const ROUTE = (() => {
   };
   const stationU = s => { const f = Math.max(0, Math.min(N - 1.0001, s / DS)), i = Math.floor(f), t = f - i; return SU[i] + (SU[Math.min(N - 1, i + 1)] - SU[i]) * t; };
   // lanes: 0 = ours (left, "voie 2"), 1 = opposite direction (right), 2k/2k+1 further out; 'B' = the other face of the island platform.
-  // At side-platform stations 'B' is our direction's through track and 'C' the other direction's platform track
+  // At side-platform stations 'B' is our direction's through track and 'C' the other direction's platform track.
+  // Montparnasse gives every track a platform: lanes 4 and 6 step out 5.2 m for the island between 2 and 4, lanes 3 and 5 for the one between 1 and 3,
+  // lane 7 twice for the one between 5 and 7 (the islands and lane 6's side platform are in the Paris landmark)
+  const PAR = stations.find(st => st.id === 'par');
   const laneW = (k, s, u) => {
     if (u === undefined) u = stationU(s);
     const o = LADDER[k]; if (o){ const D = ladderD(o, s); return laneW(o.base, s, u) + o.side * (sramp(D) - sramp(D - o.off)); }
@@ -119,8 +122,8 @@ const ROUTE = (() => {
     if (k === 'B') return 2.25 + 5.2 * u;
     if (k === 'C') return 2.25;
     if (k === 3 && SJ && Math.abs(s - SJ.s) < 1000) return 6.75 + 15.65 * u;
-    const side = k % 2 ? 1 : -1;
-    return side * (2.25 + 4.5 * (k >> 1)) + (side > 0 ? 9.65 * u : 0);
+    const side = k % 2 ? 1 : -1, j = k >> 1, isl = PAR && Math.abs(s - PAR.s) < 1000 ? 5.2 * u * (side > 0 ? Math.ceil(j / 2) : Math.floor(j / 2)) : 0;
+    return side * (2.25 + 4.5 * j + isl) + (side > 0 ? 9.65 * u : 0);
   };
   const laneE = (k, s) => {          // how much lane k exists here (fades in/out over 200 m where the track count changes)
     const o = LADDER[k]; if (o) return ladderD(o, s) > o.par ? 1 : 0;   // a ladder track is there once it has left the previous one's diagonal
@@ -254,8 +257,8 @@ const TRENCH = { msy:[8.5, 5, -700, 130] };
 const TRENCH_Z = ROUTE.stations.filter(st => TRENCH[st.id]).map(st => { const T = TRENCH[st.id]; return { a:st.s + T[2], b:st.s + T[3], depth:T[0], F:T[1] }; });
 const trenchAt = s => { for (const z of TRENCH_Z){ const w = Math.min(ROUTE.sstep((s - z.a) / 60), ROUTE.sstep((z.b - s) / 60)); if (w > 0) return { tz:z.depth * w, F:z.F }; } return null; };
 /* slabs and sheds over a station's tracks (x from, to, z from, to in station coordinates): no catenary masts for the tracks under them, the wires hang
-   from the soffit or the roof. Massy's slab also keeps its trench floor bare; Saint-Jean's 1898 shed covers voies 1 to 7 */
-const STATION_DECK = { msy:[-510, -68, -14, 31] }, STATION_SHED = { bdx:[-403, -104, -29.3, 31.8] };
+   from the soffit or the roof. A slab (Massy's, Montparnasse's garden) also keeps the floor under it bare; Saint-Jean's 1898 shed covers voies 1 to 7 */
+const STATION_DECK = { msy:[-510, -68, -14, 31], par:[-366, -8, -62, 62] }, STATION_SHED = { bdx:[-403, -104, -29.3, 31.8] };
 const roofZones = o => ROUTE.stations.filter(st => o[st.id]).map(st => { const r = o[st.id], w0 = ROUTE.laneW(0, st.s, 1); return [st.s + r[0], st.s + r[1], w0 + r[2], w0 + r[3]]; });
 const DECK_Z = roofZones(STATION_DECK), ROOF_Z = DECK_Z.concat(roofZones(STATION_SHED));
 const underDeck = s => DECK_Z.some(z => s > z[0] && s < z[1]);
@@ -418,7 +421,7 @@ function buildChunk(ci){
       const roof = roofAt(sm), sup = roof ? present.filter(ln => ln.w[i] < roof[2] || ln.w[i] > roof[3]) : present;
       if (ROUTE.kindAt(sm) === 2 || !sup.length) continue;
       let a = 1e9, b = -1e9; for (const ln of sup){ a = Math.min(a, ln.w[i]); b = Math.max(b, ln.w[i]); }
-      const back = ROUTE.stations.some(st => st.side < 0 && sm > st.s - 405 && sm < st.s + 5) ? 7.9 : 3.4;   // side platforms: masts at their back edges
+      const back = ROUTE.stations.some(st => (st.side < 0 || st.id === 'par') && sm > st.s - 405 && sm < st.s + 5) ? 7.9 : 3.4;   // side platforms (Montparnasse's outer one too): masts at their back edges
       ROUTE.frameAt(sm, _cf); const wl = a - back, wr = b + back;
       for (const wm of [wl, wr]){ _cp.copy(_cf.p).sub(O).addScaledVector(_cf.r, wm); mastM.push(new THREE.Matrix4().compose(_cp, _cf.q, tmpB.set(1, dc ? 1.1 : 1, 1))); }
       if (dc){   // portal: the crossbeam as lower chord, an upper chord at 7.95 m on masts raised to 8.1 m, Warren lacing between them

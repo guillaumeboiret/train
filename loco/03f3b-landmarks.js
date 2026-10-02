@@ -34,6 +34,33 @@ const landmarks = {};
   });
   const PO = { polygonOffset:true, polygonOffsetFactor:-1, polygonOffsetUnits:-4 };   // panes, arms, signs and window bands just off a face win the depth test
   const YQ = a => new THREE.Quaternion().setFromAxisAngle(Y_UP, a), qB = YQ(Math.PI), qW = YQ(-Math.PI / 2), qE = YQ(Math.PI / 2);   // facing −z, −x, +x
+  /* a big station's other platforms, like ours (the generic island) from x = PX0: [z from, z to, north end, safety line on the z0 face too, stair heads' z].
+     Name boards every 48 m, bOff off the middle, and stair heads between them */
+  const platPM = pmat(0x9a968e, { roughness:0.95 }), platEM = pmat(0xe8e2d0, { roughness:0.9 }), platSM = pmat(0x545b63, { roughness:0.6 }), platGM = pmat(0x9fd0ff, { roughness:0.2, metalness:0.2 });
+  const platforms = (G, PX0, list, bOff = 0) => {
+    const boards = [], stairs = [];
+    for (const [z0, z1, x1, west, zs] of list){
+      const L = x1 - PX0, xc = (PX0 + x1) / 2, zc = (z0 + z1) / 2;
+      G.add(box(L, 0.97, z1 - z0, platPM, xc, 0.065, zc), box(L, 0.02, 0.3, platEM, xc, 0.56, z1 - 0.2));   // slab top at 0.55 m, safety lines 0.2 m in
+      if (west) G.add(box(L, 0.02, 0.3, platEM, xc, 0.56, z0 + 0.2));
+      for (let x = -12; x > PX0 + 10; x -= 48) if (x < x1 - 10) boards.push([x, zc + bOff]);   // name boards as on ours, stair heads between them
+      for (let x = -36; x > PX0 + 10; x -= 48) if (x < x1 - 10) stairs.push([x, zs || zc]);
+    }
+    inst(new THREE.BoxGeometry(4, 1.1, 2.2), platSM, stairs.map(([x, z]) => M4(x, 1.1, z)), G); inst(new THREE.BoxGeometry(3.6, 0.1, 1.9), platGM, stairs.map(([x, z]) => M4(x, 1.7, z)), G);
+    const nb = boards.length, faces = new THREE.InstancedMesh(new THREE.PlaneGeometry(1, 0.7), new THREE.MeshBasicMaterial({ map:nameTexs[0] }), 2 * nb);
+    const frames = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 0.78, 0.05), platSM, nb), bposts = new THREE.InstancedMesh(new THREE.BoxGeometry(0.08, 2.05, 0.08), platSM, 2 * nb);
+    const _v = new THREE.Vector3(), _s = new THREE.Vector3(), _m = new THREE.Matrix4();
+    const fit = w => {   // the boards take their width from the painted name, like ours (nameSigns)
+      boards.forEach(([x, z], i) => {
+        _s.set(w, 1, 1); faces.setMatrixAt(2 * i, _m.compose(_v.set(x, 2.95, z + 0.03), _qI, _s)); faces.setMatrixAt(2 * i + 1, _m.compose(_v.set(x, 2.95, z - 0.03), qB, _s));
+        frames.setMatrixAt(i, _m.compose(_v.set(x, 2.95, z), _qI, _s.set(w + 0.08, 1, 1)));
+        _s.set(1, 1, 1); bposts.setMatrixAt(2 * i, _m.compose(_v.set(x + 0.3 - w / 2, 1.575, z), _qI, _s)); bposts.setMatrixAt(2 * i + 1, _m.compose(_v.set(x + w / 2 - 0.3, 1.575, z), _qI, _s));
+      });
+      for (const im of [faces, frames, bposts]){ im.instanceMatrix.needsUpdate = true; im.boundingSphere = null; }
+    };
+    fit(5.3); nameSigns.push({ fit(){ fit(0.7 * nameTexs[0].userData.aspect); } });
+    G.add(faces, frames, bposts);
+  };
   const prism = (pts, len, m, axis) => {   // a (u, y) profile extruded over len: u = z along x (axis 'x'), u = x along z
     const g = new THREE.ExtrudeGeometry(new THREE.Shape(pts.map(([u, y]) => new THREE.Vector2(axis === 'x' ? -u : u, y))), { depth:len, bevelEnabled:false }).translate(0, 0, -len / 2);
     if (axis === 'x') g.rotateY(Math.PI / 2);
@@ -117,34 +144,13 @@ const landmarks = {};
     // the other six platforms (OSM), like ours (the generic island of voies 4 and 5) from x −420: [z from, z to, north end, safety line on the west face too,
     // stair heads' z]. Platform 1 runs along the hall wall; 8 carries the shed's columns and, outside it, the masts of the portals over voies 8 to 17
     // (its stair heads keep west of them); voies 16, 17 and the two service tracks between 14 and 16 have none. Canopies over 9;11 and 12;14 outside the shed
-    { const pm = pmat(0x9a968e, { roughness:0.95 }), em = pmat(0xe8e2d0, { roughness:0.9 }), sm = pmat(0x545b63, { roughness:0.6 }), cm = pmat(0xb7bdc4, { roughness:0.85 }), glM = pmat(0x9fd0ff, { roughness:0.2, metalness:0.2 });
-      const PX0 = -420, boards = [], stairs = [], posts = [];
-      for (const [z0, z1, x1, west, zs] of [[-29.2, -20.7, 20, false], [-13.8, -6.2, 9, true], [15.85, 22.95, -1, true], [26.35, 31.45, -107, true, 28.05], [38.25, 43.75, -159, true], [50.65, 55.45, -188, true]]){
-        const L = x1 - PX0, xc = (PX0 + x1) / 2, zc = (z0 + z1) / 2;
-        G.add(box(L, 0.97, z1 - z0, pm, xc, 0.065, zc), box(L, 0.02, 0.3, em, xc, 0.56, z1 - 0.2));   // slab top at 0.55 m, safety lines 0.2 m in
-        if (west) G.add(box(L, 0.02, 0.3, em, xc, 0.56, z0 + 0.2));
-        for (let x = -12; x > PX0 + 10; x -= 48) if (x < x1 - 10) boards.push([x, zc]);   // name boards as on ours, stair heads between them
-        for (let x = -36; x > PX0 + 10; x -= 48) if (x < x1 - 10) stairs.push([x, zs || zc]);
-      }
+    { const cm = pmat(0xb7bdc4, { roughness:0.85 }), posts = [];
+      platforms(G, -420, [[-29.2, -20.7, 20, false], [-13.8, -6.2, 9, true], [15.85, 22.95, -1, true], [26.35, 31.45, -107, true, 28.05], [38.25, 43.75, -159, true], [50.65, 55.45, -188, true]]);
       for (const [xa, xb, z0, z1] of [[-405, -168, 38.85, 43.45], [-357, -192, 51.05, 55.15]]){
         G.add(box(xb - xa, 0.12, z1 - z0, cm, (xa + xb) / 2, 4.25, (z0 + z1) / 2));
         for (let x = -6; x > xa + 2; x -= 12) if (x < xb - 2) posts.push(M4(x, 2.4, (z0 + z1) / 2));
       }
-      inst(new THREE.BoxGeometry(0.25, 3.7, 0.25), sm, posts, G);
-      inst(new THREE.BoxGeometry(4, 1.1, 2.2), sm, stairs.map(([x, z]) => M4(x, 1.1, z)), G); inst(new THREE.BoxGeometry(3.6, 0.1, 1.9), glM, stairs.map(([x, z]) => M4(x, 1.7, z)), G);
-      const nb = boards.length, faces = new THREE.InstancedMesh(new THREE.PlaneGeometry(1, 0.7), new THREE.MeshBasicMaterial({ map:nameTexs[0] }), 2 * nb);
-      const frames = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 0.78, 0.05), sm, nb), bposts = new THREE.InstancedMesh(new THREE.BoxGeometry(0.08, 2.05, 0.08), sm, 2 * nb);
-      const _v = new THREE.Vector3(), _s = new THREE.Vector3(), _m = new THREE.Matrix4();
-      const fit = w => {   // the boards take their width from the painted name, like ours (nameSigns)
-        boards.forEach(([x, z], i) => {
-          _s.set(w, 1, 1); faces.setMatrixAt(2 * i, _m.compose(_v.set(x, 2.95, z + 0.03), _qI, _s)); faces.setMatrixAt(2 * i + 1, _m.compose(_v.set(x, 2.95, z - 0.03), qB, _s));
-          frames.setMatrixAt(i, _m.compose(_v.set(x, 2.95, z), _qI, _s.set(w + 0.08, 1, 1)));
-          _s.set(1, 1, 1); bposts.setMatrixAt(2 * i, _m.compose(_v.set(x + 0.3 - w / 2, 1.575, z), _qI, _s)); bposts.setMatrixAt(2 * i + 1, _m.compose(_v.set(x + w / 2 - 0.3, 1.575, z), _qI, _s));
-        });
-        for (const im of [faces, frames, bposts]){ im.instanceMatrix.needsUpdate = true; im.boundingSphere = null; }
-      };
-      fit(5.3); nameSigns.push({ fit(){ fit(0.7 * nameTexs[0].userData.aspect); } });
-      G.add(faces, frames, bposts);
+      inst(new THREE.BoxGeometry(0.25, 3.7, 0.25), platSM, posts, G);
     }
     noCast(G); G.children.forEach(o => { if (o.isInstancedMesh && o.geometry.parameters && o.geometry.parameters.height === Y0) o.castShadow = true; });
   }
@@ -152,16 +158,21 @@ const landmarks = {};
   /* Paris Montparnasse */
   {
     const G = new THREE.Group(); G.visible = false; station.add(G); landmarks.par = G;
+    G.userData.platRoof = false;   // the slab roofs the platforms: no canopies (setPlatformRoof)
     const concM = pmat(0x8d8a84, { roughness:0.95, metalness:0 }), darkM = pmat(0x4b4e52, { roughness:0.9, metalness:0 }), grassM = pmat(0x4f7a3a, { roughness:1, metalness:0 });
     const glassM = pmat(0x9ec5e0, { roughness:0.2, metalness:0.3, transparent:true, opacity:0.55 }), lightM = new THREE.MeshBasicMaterial({ color:0xfff4d6 });
     const DX0 = -366, DX1 = -8, DL = DX1 - DX0, DXC = (DX0 + DX1) / 2, DZ0 = -62, DZ1 = 62, DW = DZ1 - DZ0, DY = 8.6;   // deck: 358 m × 124 m, underside 8.6 m above the rails (OSM: "tunnel" Voie 21 over the last 370 m)
-    const deck = box(DL, 2.4, DW, concM, DXC, DY + 1.2, 0); G.add(deck);
+    const ceilM = pmat(0x77746e, { roughness:0.95, metalness:0, emissive:0x4d4a45 });   // the soffit glows a little: its own lamps light it, not the sky
+    const deck = new THREE.Mesh(new THREE.BoxGeometry(DL, 2.4, DW), [concM, concM, concM, ceilM, concM, concM]); deck.position.set(DXC, DY + 1.2, 0); deck.receiveShadow = true; G.add(deck);
     G.add(box(DL, 0.3, DW - 8, grassM, DXC, DY + 2.55, 0));                                                              // Jardin Atlantique
     G.add(box(DL, 1.2, 0.5, concM, DXC, DY + 3.0, DZ0 + 0.25), box(DL, 1.2, 0.5, concM, DXC, DY + 3.0, DZ1 - 0.25));   // parapets
     G.add(box(DL - 40, 0.35, 6, concM, DXC, DY + 2.75, 0), box(DL - 40, 0.35, 6, concM, DXC, DY + 2.75, -28), box(DL - 40, 0.35, 6, concM, DXC, DY + 2.75, 28));   // garden paths
-    { const cm = []; for (let x = DX0 + 15; x < DX1; x += 30) for (const z of [-30, -18, -6.75, 4.9, 16.4, 25.9, 38, 50]) cm.push(M4(x, DY / 2, z));
-      inst(new THREE.CylinderGeometry(0.5, 0.5, DY, 12), concM, cm, G, true); }                                          // columns between the tracks and on the island
-    { const lm = []; for (const z of [-11, 4.9, 20.9, 34]) lm.push(M4(DXC, DY - 0.15, z)); inst(new THREE.BoxGeometry(DL - 4, 0.12, 0.35), lightM, lm, G); }   // strip lights under the deck
+    { const cm = []; for (let x = DX0 + 15; x < DX1; x += 30) for (const z of [-52, -38, -23.6, -9.35, 4.9, 19, 33.2, 50]) cm.push(M4(x, DY / 2, z));
+      inst(new THREE.CylinderGeometry(0.5, 0.5, DY, 12), concM, cm, G, true); }                                          // columns on the platforms and beyond the outer tracks
+    { const lm = []; for (const z of [-23.6, -9.35, 4.9, 19, 33.2]) lm.push(M4(DXC, DY - 0.15, z)); inst(new THREE.BoxGeometry(DL - 4, 0.12, 0.35), lightM, lm, G); }   // strip lights over the platforms
+    // a platform for every track: islands between lanes 4 and 2, 1 and 3, 5 and 7 (the route spreads those pairs apart) and a side platform along lane 6,
+    // ours being the island between lanes 0 and 'B'. Their boards stand 1.6 m off the middle, clear of the columns, as ours do
+    platforms(G, -400, [[-26.7, -20.45, 0, false], [-12.45, -6.25, 0, true], [15.9, 22.1, 0, true], [30.1, 36.3, 0, true]], 1.6);
     { const tm = [], crownG = new THREE.ConeGeometry(2.2, 5.5, 7).translate(0, 4.5, 0), trunkG = new THREE.CylinderGeometry(0.2, 0.3, 2, 6).translate(0, 1, 0);
       let i = 0; for (let x = DX0 + 20; x < DX1 - 10; x += 22) for (const z of [-50, -38, 40, 52]) tm.push(M4(x + ((i * 7) % 5) - 2, DY + 2.7, z, null, 1.3 + 0.4 * ((i++ * 5) % 3) / 2));
       inst(crownG, pmat(0x3f7a3d, { roughness:1, metalness:0 }), tm, G); inst(trunkG, pmat(0x5a4636, { roughness:1, metalness:0 }), tm, G); }
@@ -187,7 +198,7 @@ const landmarks = {};
       tg.add(cyl(0.5, 26, crownM, 'y', 0, TH + 17, 0, 8));
       tg.add(box(70, 9, 60, concM, 0, 4.5, 0));
     }
-    noCast(G); G.children.forEach(o => { if (o.isInstancedMesh && o.geometry.type === 'CylinderGeometry' && o.geometry.parameters.height === DY) o.castShadow = true; });
+    noCast(G); deck.castShadow = true; G.children.forEach(o => { if (o.isInstancedMesh && o.geometry.type === 'CylinderGeometry' && o.geometry.parameters.height === DY) o.castShadow = true; });
   }
 
   /* Toulouse Matabiau: the 1905 stone building along track A (x −320..−90): two wings under slate mansards, end pavilions, the central pavilion

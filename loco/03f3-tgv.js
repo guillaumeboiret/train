@@ -1056,7 +1056,7 @@ function fitShadow(){
   let x0 = tgv ? (S.sets === 2 || S.coupling !== 0 ? -392 : -195) : -82, x1 = 14, z0 = -14, z1 = 14;
   if (near){
     x0 = Math.min(x0, Math.floor(Math.max(d[0], -600) / 20) * 20); x1 = Math.max(x1, Math.ceil(Math.min(d[1], 600) / 20) * 20);
-    z0 = Math.min(z0, Math.floor(Math.max(d[2], -32) / 2) * 2); z1 = Math.max(z1, Math.ceil(Math.min(d[3], 32) / 2) * 2);
+    z0 = Math.min(z0, Math.floor(Math.max(d[2], -64) / 2) * 2); z1 = Math.max(z1, Math.ceil(Math.min(d[3], 64) / 2) * 2);
   }
   const size = Math.min(tgv || near ? 4096 : 2048, renderer.capabilities.maxTextureSize), key = [x0, x1, z0, z1, size].join();
   if (key !== shadowKey){ setShadowBox(x0, x1, size, z0, z1); shadowKey = key; }
