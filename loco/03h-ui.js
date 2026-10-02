@@ -467,8 +467,9 @@ document.querySelectorAll('#walkPad button[data-move]').forEach(b => {   // held
 });
 $('walkSit').addEventListener('click', () => walkSitNear());
 $('walkLeave').addEventListener('click', () => cabActions.leave());
-/* ---- the bar car's counter (03f3): its menu, a purse of play money (in cents, for this visit only) and a tray of what was bought */
-const BAR = { wallet:2000, tray:[] }, BAR_TRAY = 12, BAR_DEAREST = Math.max(...BAR_MENU.map(m => m.p));
+/* ---- the bar car's counter (03f3): its menu, a purse of play money (in cents, for this visit only) and a tray of what was bought, the
+   last wait of them still being fetched by the barista (the 3D tray shows the others) */
+const BAR = { wallet:2000, tray:[], wait:0 }, BAR_TRAY = 12, BAR_DEAREST = Math.max(...BAR_MENU.map(m => m.p));
 const barIsOpen = () => !$('barMenu').hidden;
 const money = c => (c / 100).toFixed(2).replace('.', S.lang === 'fr' ? ',' : '.') + '€';
 const price = p => p ? money(p) : t('bar_free');
@@ -496,7 +497,7 @@ function barRender(){
 }
 function barOpen(){
   if (!walking) return;
-  barRender(); $('barMenu').hidden = false; document.body.classList.add('bar-open'); keys.clear(); walkSay(null);
+  barRender(); $('barMenu').hidden = false; document.body.classList.add('bar-open'); keys.clear(); walkSay(null); barFace();
   $('barItems').firstElementChild.focus({ preventScroll:true });
 }
 function barClose(){
@@ -508,11 +509,11 @@ function barBuy(id){   // paid from the purse onto the tray; the till rings and 
   const it = barItem(id);
   if (it.p > BAR.wallet){ walkSay('bar_broke'); return; }
   if (BAR.tray.length >= BAR_TRAY){ walkSay('bar_full'); return; }
-  BAR.wallet -= it.p; BAR.tray.push(id); tillDing(); barServe(it.st); walkSay('bar_thanks'); barRender();
+  BAR.wallet -= it.p; BAR.tray.push(id); BAR.wait++; tillDing(); barServe(it.st); walkSay('bar_thanks'); barRender();
 }
 function barEat(k){   // off the tray: eaten or drunk
   const id = BAR.tray[k]; if (!id) return;
-  const st = barItem(id).st; BAR.tray.splice(k, 1); eatSound(st); walkSay(st === 'food' ? 'bar_yum' : 'bar_gulp'); barRender();
+  const st = barItem(id).st; if (k >= BAR.tray.length - BAR.wait) BAR.wait--; BAR.tray.splice(k, 1); eatSound(st); walkSay(st === 'food' ? 'bar_yum' : 'bar_gulp'); barRender();
   const ch = $('barTray').children; (ch[Math.min(k, ch.length - 1)] ?? $('barItems').firstElementChild).focus({ preventScroll:true });
 }
 $('barPocket').addEventListener('click', () => { BAR.wallet += 1000; walkSay('bar_pocket_say'); barRender(); if ($('barPocket').hidden) $('barItems').firstElementChild.focus({ preventScroll:true }); });

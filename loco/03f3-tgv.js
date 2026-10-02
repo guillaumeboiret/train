@@ -576,14 +576,71 @@ const BAR_TEX = {
 barScreenPaint(BAR_TEX.idle, '', 'BAR', ''); barScreenPaint(BAR_TEX.live, '', '0', 'km/h');
 document.fonts && Promise.all([600, 700].map(w => document.fonts.load(`${w} 40px "Barlow Condensed"`))).then(() => { barScreenPaint(BAR_TEX.idle, '', 'BAR', ''); barScr.key = ''; }, () => {});   // a canvas does not fetch a web font by itself: paint again once it is here
 const BAR_GEO = {}, BAR_STAND = 13.33;   // BAR_STAND: the two standing at the -z ledge, either side of that window's middle (buildBar)
+const barBox = (x0, x1, y0, y1, z0, z1) => new THREE.BoxGeometry(x1 - x0, y1 - y0, z1 - z0).translate((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2);
+const barCyl = (r, y0, y1, x, z, seg = 12, r1 = r) => new THREE.CylinderGeometry(r, r1, y1 - y0, seg).translate(x, (y0 + y1) / 2, z);   // upright: r at the top, r1 at the foot
+const barBall = (r, sx, sy, sz, x, y, z) => new THREE.SphereGeometry(r, 10, 6).scale(sx, sy, sz).translate(x, y, z);
+const barDome = (r, sy, x, y, z) => new THREE.SphereGeometry(r, 10, 5, 0, 2 * Math.PI, 0, Math.PI / 2).scale(1, sy, 1).translate(x, y, z);   // a half ball standing on y
+const CUP = 0xf4f2ee, BUN = 0xd9a24e, CHOC = 0x3b2416;
+function paperCup(add, x, y, z, sleeve, lid){   // a takeaway cup with a coloured sleeve: lidded, or open on the drink
+  add(barCyl(0.038, y, y + 0.1, x, z, 14, 0.029), CUP); add(barCyl(0.0358, y + 0.035, y + 0.07, x, z, 14, 0.0327), sleeve);
+  if (lid) add(barCyl(0.04, y + 0.1, y + 0.112, x, z, 14, 0.039), 0x6b3f2a); else add(barCyl(0.0365, y + 0.1, y + 0.102, x, z, 14), 0x8a4f22);
+}
+/* things to eat and drink, standing on y at (x, z), handed to add as [geometry, colour]: the pastry case's cakes, and all the menu sells (BAR_MENU's ids) */
+const BAR_FOOD = {
+  croissant:(add, x, y, z) => add(barBall(0.05, 1.3, 0.55, 0.7, x, y + 0.026, z), 0xd9a24e),
+  painchoc:(add, x, y, z) => add(barBox(x - 0.045, x + 0.045, y, y + 0.04, z - 0.03, z + 0.03), 0xc98a3a),
+  cookie:(add, x, y, z) => add(barCyl(0.035, y, y + 0.012, x, z, 12), 0xc08a4f),
+  madeleine:(add, x, y, z) => add(barBall(0.03, 1.2, 0.5, 0.8, x, y + 0.014, z), 0xe8b75a),
+  muffin:(add, x, y, z) => { add(barCyl(0.032, y, y + 0.04, x, z, 10, 0.026), 0x6b3f2a); add(barDome(0.036, 1, x, y + 0.04, z), 0x7a4a30); },
+  sandwich:(add, x, y, z) => { add(barBox(x - 0.05, x + 0.05, y, y + 0.045, z - 0.035, z + 0.035), 0xe7d2a5); add(barBox(x - 0.052, x + 0.052, y + 0.02, y + 0.026, z - 0.037, z + 0.037), 0x6aa84f); },
+  espresso:(add, x, y, z) => {   // on its saucer, the handle to the right
+    add(barCyl(0.045, y, y + 0.006, x, z, 14), CUP); add(barCyl(0.03, y + 0.006, y + 0.05, x, z, 12, 0.024), CUP);
+    add(barCyl(0.027, y + 0.05, y + 0.052, x, z, 12), CHOC); add(barBox(x + 0.026, x + 0.038, y + 0.02, y + 0.04, z - 0.004, z + 0.004), CUP);
+  },
+  choco:(add, x, y, z) => paperCup(add, x, y, z, 0x8a5a3a, true),
+  tea:(add, x, y, z) => { paperCup(add, x, y, z, 0x43a86a, false); add(barBox(x + 0.036, x + 0.039, y + 0.055, y + 0.08, z - 0.011, z + 0.011), 0xf2c53d); },   // the bag's tag over the rim
+  soda:(add, x, y, z) => { add(barCyl(0.033, y, y + 0.115, x, z, 14), 0xd23a3a); add(barCyl(0.0335, y + 0.05, y + 0.07, x, z, 14), 0xffffff); add(barCyl(0.029, y + 0.115, y + 0.12, x, z, 14, 0.033), 0xc9cdd2); },
+  juice:(add, x, y, z) => {   // a carton with its straw
+    add(barBox(x - 0.032, x + 0.032, y, y + 0.1, z - 0.022, z + 0.022), 0x43c977); add(barBox(x - 0.033, x + 0.033, y + 0.075, y + 0.1, z - 0.023, z + 0.023), 0xffffff);
+    add(barCyl(0.003, y + 0.1, y + 0.145, x + 0.014, z, 6), 0xe0447f);
+  },
+  water:(add, x, y, z) => { add(barCyl(0.035, y, y + 0.09, x, z, 14, 0.027), 0xcfe9f7); add(barCyl(0.033, y + 0.09, y + 0.092, x, z, 14), 0x7cc3ea); },
+  club:(add, x, y, z) => {   // three slices, lettuce and ham between
+    for (let k = 0; k < 3; k++) add(barBox(x - 0.05, x + 0.05, y + 0.024 * k, y + 0.024 * k + 0.016, z - 0.04, z + 0.04), 0xe7d2a5);
+    for (const [k, c] of [[0, 0x6aa84f], [1, 0xe8a0a0]]) add(barBox(x - 0.052, x + 0.052, y + 0.016 + 0.024 * k, y + 0.024 + 0.024 * k, z - 0.042, z + 0.042), c);
+  },
+  croque:(add, x, y, z) => { add(barBox(x - 0.045, x + 0.045, y, y + 0.03, z - 0.045, z + 0.045), 0xe2b56a); add(barBox(x - 0.042, x + 0.042, y + 0.03, y + 0.037, z - 0.042, z + 0.042), 0xf0c24a); },
+  burger:(add, x, y, z) => {
+    add(barCyl(0.042, y, y + 0.018, x, z, 14), BUN); add(barCyl(0.044, y + 0.018, y + 0.034, x, z, 14), 0x5a3a24);
+    add(barBox(x - 0.035, x + 0.035, y + 0.034, y + 0.038, z - 0.035, z + 0.035), 0xf2c53d); add(barCyl(0.045, y + 0.038, y + 0.043, x, z, 14), 0x6aa84f);
+    add(barDome(0.043, 0.65, x, y + 0.043, z), BUN);
+  },
+  chips:(add, x, y, z) => {   // a bag standing up, its top crimped
+    add(barBox(x - 0.045, x + 0.045, y, y + 0.12, z - 0.016, z + 0.016), 0xf2c53d); add(barBox(x - 0.046, x + 0.046, y + 0.075, y + 0.1, z - 0.017, z + 0.017), 0xd23a3a);
+    add(barBox(x - 0.046, x + 0.046, y + 0.12, y + 0.128, z - 0.004, z + 0.004), 0xf2c53d);
+  },
+  sweets:(add, x, y, z) => {   // a striped paper bag, three spilt in front of it
+    add(barBox(x - 0.03, x + 0.03, y, y + 0.07, z - 0.02, z + 0.02), CUP);
+    for (const h of [0.02, 0.045]) add(barBox(x - 0.031, x + 0.031, y + h, y + h + 0.01, z - 0.021, z + 0.021), 0xe0447f);
+    for (const [c, a, b] of [[0xf2c53d, 0.03, 0.03], [0x43c977, -0.035, 0.032], [0x3c8dea, 0, 0.038]]) add(barBall(0.011, 1, 1, 1, x + a, y + 0.011, z + b), c);
+  },
+};
+/* the walker's tray on the counter: what was bought (BAR.tray, 03h) stands on it in three rows of four, the back row first. It is put down
+   by the walker, clear of the till, the card reader and the pastry case, and each thing lands once the barista is back with it (BAR.wait) */
+const barTrayX = x => x < 6.5 ? THREE.MathUtils.clamp(x, 5.05, 6.0) : THREE.MathUtils.clamp(x, 7.01, 8.05);
+function barTrayGeo(ids){   // standing on (0, 0, 0)
+  const p = [], add = (g, c) => p.push([g, c]), T = 0x34383f;
+  add(barBox(-0.23, 0.23, 0, 0.01, -0.15, 0.15), T);
+  for (const s of [-1, 1]){ add(barBox(-0.23, 0.23, 0.01, 0.025, 0.145 * s - 0.005, 0.145 * s + 0.005), T); add(barBox(0.225 * s - 0.005, 0.225 * s + 0.005, 0.01, 0.025, -0.14, 0.14), T); }   // the rims
+  add(barBox(-0.215, 0.215, 0.01, 0.0125, -0.135, 0.135), 0xf1ead8);   // a paper liner
+  ids.forEach((id, k) => BAR_FOOD[id](add, -0.165 + 0.11 * (k % 4), 0.0125, -0.09 + 0.09 * Math.floor(k / 4)));
+  return colGeo(p);
+}
 function barGeo(L){   // per body length, x from the car's -x end: the fixed fittings (solid), what glows, the fridge's door, the screen, the stools [x, z, ...], the two customers' stools
   if (BAR_GEO[L]) return BAR_GEO[L];
   const F = DECK.up, sol = [], glo = [], st = [], add = (g, c) => sol.push([g, c]), glow = (g, c) => glo.push([g, c]);
   const WALNUT = 0x5a4636, STONE = 0xd9d4cc, STEEL = 0xb9bec4, DARK = 0x2a2724, CHROME = 0xc9cdd2, OAK = 0x8a6a4c;
-  const bx = (x0, x1, y0, y1, z0, z1) => new THREE.BoxGeometry(x1 - x0, y1 - y0, z1 - z0).translate((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2);
-  const cy = (r, y0, y1, x, z, seg = 12, r1 = r) => new THREE.CylinderGeometry(r, r1, y1 - y0, seg).translate(x, (y0 + y1) / 2, z);   // upright: r at the top, r1 at the foot
-  const cx = (r, x0, x1, y, z) => new THREE.CylinderGeometry(r, r, x1 - x0, 8).rotateZ(Math.PI / 2).translate((x0 + x1) / 2, y, z);   // along x
-  const ball = (r, sx, sy, sz, x, y, z) => new THREE.SphereGeometry(r, 10, 6).scale(sx, sy, sz).translate(x, y, z);
+  const bx = barBox, cy = barCyl, cx = (r, x0, x1, y, z) => new THREE.CylinderGeometry(r, r, x1 - x0, 8).rotateZ(Math.PI / 2).translate((x0 + x1) / 2, y, z);   // cx: along x
   // the counter: walnut front on a dark plinth, a stone top with a warm light under its lip, a foot rail, end panels back to the wall
   add(bx(4.8, 9.4, F + 0.1, F + 0.9, -0.62, -0.30), WALNUT); add(bx(4.85, 9.35, F, F + 0.1, -0.60, -0.36), DARK);
   add(bx(4.75, 9.45, F + 0.90, F + 0.94, -0.66, -0.22), STONE); glow(bx(4.8, 9.4, F + 0.88, F + 0.895, -0.30, -0.28), 0xffcf8a);
@@ -604,15 +661,7 @@ function barGeo(L){   // per body length, x from the car's -x end: the fixed fit
   glow(bx(8.3, 9.3, F + 0.94, F + 0.97, -0.62, -0.32), 0xfff1d6);
   for (const x of [8.31, 9.29]) for (const z of [-0.61, -0.33]) add(bx(x - 0.01, x + 0.01, F + 0.97, F + 1.22, z - 0.01, z + 0.01), CHROME);
   add(bx(8.3, 9.3, F + 1.22, F + 1.24, -0.62, -0.32), 0xdfe6ea);
-  const P0 = F + 0.97, cake = {
-    croissant:(x, z) => add(ball(0.05, 1.3, 0.55, 0.7, x, P0 + 0.026, z), 0xd9a24e),
-    painchoc:(x, z) => add(bx(x - 0.045, x + 0.045, P0, P0 + 0.04, z - 0.03, z + 0.03), 0xc98a3a),
-    cookie:(x, z) => add(cy(0.035, P0, P0 + 0.012, x, z, 12), 0xc08a4f),
-    madeleine:(x, z) => add(ball(0.03, 1.2, 0.5, 0.8, x, P0 + 0.014, z), 0xe8b75a),
-    muffin:(x, z) => { add(cy(0.032, P0, P0 + 0.04, x, z, 10, 0.026), 0x6b3f2a); add(new THREE.SphereGeometry(0.036, 10, 5, 0, 2 * Math.PI, 0, Math.PI / 2).translate(x, P0 + 0.04, z), 0x7a4a30); },
-    sandwich:(x, z) => { add(bx(x - 0.05, x + 0.05, P0, P0 + 0.045, z - 0.035, z + 0.035), 0xe7d2a5); add(bx(x - 0.052, x + 0.052, P0 + 0.02, P0 + 0.026, z - 0.037, z + 0.037), 0x6aa84f); },
-  };
-  [['croissant', 'painchoc', 'cookie', 'madeleine'], ['muffin', 'sandwich', 'croissant', 'muffin']].forEach((row, r) => row.forEach((k, j) => { for (const d of [-0.05, 0.05]) cake[k](8.42 + 0.24 * j + d, r ? -0.54 : -0.41); }));
+  [['croissant', 'painchoc', 'cookie', 'madeleine'], ['muffin', 'sandwich', 'croissant', 'muffin']].forEach((row, r) => row.forEach((k, j) => { for (const d of [-0.05, 0.05]) BAR_FOOD[k](add, 8.42 + 0.24 * j + d, F + 0.97, r ? -0.54 : -0.41); }));
   // the till, its screen turned to the customer, and the card reader
   add(bx(6.25, 6.55, F + 0.94, F + 0.99, -0.58, -0.40), 0x30343b); add(bx(6.38, 6.42, F + 0.99, F + 1.04, -0.49, -0.45), DARK);
   add(new THREE.BoxGeometry(0.26, 0.17, 0.02).rotateX(-0.35).translate(6.4, F + 1.08, -0.46), DARK);
@@ -681,7 +730,8 @@ function buildBar(c, cm){   // the bar car's fittings and its people: the barist
     Object.assign(p, { ph:0, amp:0, turn:0, goal:p.x });
     paxPut(people, k, c.xr + p.x, p.y, p.z, p.yaw, p.sit, 0, 0, 0);
   });
-  c.bar = { people, st, taken, npc, stand:npc.slice(1, 3).map(p => [p.x, p.z]), t:0, serve:null };   // stand: the two at the ledge, whom the walker does not walk through
+  const tray = new THREE.Mesh(new THREE.BufferGeometry(), cm.bar); tray.visible = false; c.g.add(tray);
+  c.bar = { people, st, taken, npc, stand:npc.slice(1, 3).map(p => [p.x, p.z]), t:0, serve:null, tray, trayKey:'' };   // stand: the two at the ledge, whom the walker does not walk through
 }
 function updateBar(dt){   // our sets' bar cars while drawn: their people, and the screen over the counter (the train's speed)
   let on = false;
@@ -712,9 +762,25 @@ function poseBar(c, dt){   // the barista keeps level with the walker along the 
     paxPut(b.people, k, c.xr + q.x, q.y, q.z, q.yaw, q.sit, 0, 0, q.turn);
   }
   b.people.instanceMatrix.needsUpdate = b.people.geometry.attributes.paxPose.needsUpdate = true;
+  if (b.trayOn){   // the walker's tray: what the barista has brought, once back from fetching it
+    if (BAR.wait && !b.serve && !moving) BAR.wait = 0;
+    const ids = BAR.tray.slice(0, BAR.tray.length - BAR.wait), key = ids.join();
+    if (key !== b.trayKey){ b.trayKey = key; b.tray.geometry.dispose(); b.tray.geometry = barTrayGeo(ids); }
+    b.tray.visible = BAR.tray.length > 0;
+  }
 }
 const BAR_AT = { hot:[5.55, Math.PI / 2], cold:[7.65, Math.PI / 2], food:[8.8, -Math.PI / 2] };   // where the barista fetches each kind of thing, and the way they face there
-function barServe(st){ const c = tgvSets[0].coaches[WK.i]; if (c?.bar && BAR_AT[st]) c.bar.serve = { x:BAR_AT[st][0], face:BAR_AT[st][1], t:1.1 }; }
+function barServe(st){   // the barista fetches what was just bought; the first thing on an empty tray puts the tray down by the walker
+  const c = tgvSets[0].coaches[WK.i], b = c?.bar;
+  if (!b){ BAR.wait = 0; return; }
+  b.serve = { x:BAR_AT[st][0], face:BAR_AT[st][1], t:1.1 };
+  if (BAR.tray.length === 1){ b.trayOn = true; b.tray.position.set(c.xr + barTrayX(WK.x), DECK.up + 0.94, -0.47); }
+}
+function barFace(){   // the menu open at the counter: the eye turns to it and a little down, onto the tray, the barista still in sight
+  const c = tgvSets[0].coaches[WK.i];
+  if (WK.seat >= 0 || WK.stool >= 0 || !c.bar) return;
+  orbit.look(c.g, new THREE.Vector3(c.xr + WK.x, WK.ey + WALK_EYE, WK.z), Math.PI / 2, -0.3); orbit.fp.name = 'walk';
+}
 function barNear(){   // standing at the counter, not turned away from it: Enter (or the button) orders
   if (!WK.on || WK.seat >= 0 || WK.stool >= 0 || WK.y < 1.7 || !tgvSets[0].coaches[WK.i].bar) return false;
   return WK.x > 4.4 && WK.x < 9.8 && -Math.sin(orbit.fp?.yaw ?? 0) < 0.5;
