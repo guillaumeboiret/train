@@ -2130,7 +2130,6 @@ function stampLogo(c, logo, cx, cy, s, x0, y0, sc){
   }
 }
 const LIN = { floor:'#3a3f46', wall:'#d6d1c7', wallUp:'#dcd7ce', rack:'#8f959c', ceil:'#eeebe4', reveal:'#aaa59c', end:'#cbc5ba' };   // coach lining (inside of the shell)
-const PAX_COL = [0x3b5bdb, 0xc23b3b, 0x2f8f5b, 0xe0a030, 0x555c66, 0xd6d0c4, 0x7b3fa0, 0x1f6f8b];   // clothes, shared by the platform crowd and the seated passengers
 
 /* ---- power car body (shared geometry + texture) */
 const NOSE = { D:0.45, y0:1.15, BACK:0.62, OUT:0.16, LIFT:0.1 };   // closed hatch: a rounded snout D ahead of the coupling face (PC_TIP), closing on
@@ -2319,7 +2318,7 @@ const pcHosts = [];                          // {ig, clones:{id:group}} per equi
 const pcShells = { mats:[], meshes:[] };     // their body shells, so the shell opacity control covers every power car
 const trShells = { mats:[], meshes:[] };     // trailer skins (body, ends, gangways, doors): the shell control fades them too and reveals the interiors
 const allCoaches = [], COACH_NEAR = 60;      // every trailer of every set (own, parked, opposing); interiors are drawn within COACH_NEAR m of the camera (further out a head is 3 px)
-const DECK = { lo:0.92, up:2.3 };            // floor heights of the two decks (the windows sit at 1.6..2.2 and 3.0..3.75)
+const DECK = { lo:0.92, up:2.46 };           // floor heights of the two decks (the windows sit at 1.6..2.2 and 3.0..3.75): 1.48 m under the upper floor, room to stand
 const SEAT_VIEW = [9.4, 16.5];               // x from the coach's rear end of the window seats kept free for the viewer, on both decks of every coach: row 7 faces +x, row 14 faces -x (in coach 1 each looks onto a window)
 const SEAT_ROWS = {};
 function seatRows(L){   // per body length, x from the car's -x end: rows [x, facing ±1] 0.9 m apart from x 4.0 to short of L - 0.9, bay the x of the tables
@@ -2339,10 +2338,6 @@ const SEAT_COL = [new THREE.Color(0x7a2233), new THREE.Color(0x24506b)];   // fi
    (seen through the windows or from inside) and while the shell control fades the skin. One group per coach, so the curve code
    carries each coach with its own car. One passenger slot per seat (instanced): seated, empty, or walking between the seat and
    the platform-side door (see the passenger block below). */
-const SKIN = [0xf1c9a5, 0xe0ac7e, 0xc68a5a, 0x9c6a43, 0x6e4a2f, 0xf6d7bd];
-const TROUSERS = [0x2b3140, 0x3b4a6b, 0x1f2328, 0x6b5a45, 0x4a4f57, 0x2f4a3a];
-const trousers = (colB, colH) => TROUSERS[(colB ^ colH) % TROUSERS.length];   // follows the person: derived from the shirt and the skin
-const PAX_BODY_GEO = new THREE.CapsuleGeometry(0.17, 0.35, 2, 6), PAX_HEAD_GEO = new THREE.SphereGeometry(0.12, 7, 5);
 function mergeGeos(geos, skip = []){   // one indexed geometry (position + normal) from several; skip[k]: index ranges [start, end) of geos[k] to leave out
   const pos = [], nrm = [], idx = [];
   geos.forEach((b, k) => {
@@ -2352,22 +2347,160 @@ function mergeGeos(geos, skip = []){   // one indexed geometry (position + norma
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(nrm, 3)); g.setIndex(idx);
   return g;
 }
-const PAX_LEG_GEO = mergeGeos([[0.42, 0.13, 0.28, 0.17, 0.485], [0.12, 0.46, 0.26, 0.33, 0.23], [0.22, 0.07, 0.28, 0.4, 0.035]].map(([w, h, d, x, y]) => new THREE.BoxGeometry(w, h, d).translate(x, y, 0)));   // seated legs facing +x, both in one block: thighs on the cushion, shins, feet. Origin on the floor under the body
+/* People. One figure (about 850 triangles), built standing, facing +x, feet at y 0, 1.45 m tall (the Duplex here is a little
+   lower than the real one, so are its people), posed per instance in the vertex shader: sitting (hips down onto the cushion,
+   thighs forward, shins to the floor), walking (legs and arms swing with the stride phase, the body bobs), the head turned, or
+   bowed over a phone. Each vertex carries its part (paxPart); each instance its colours (paxCol: shirt, trousers, skin, hair as
+   0xRRGGBB), its look (paxLook: height, build, style bits) and its pose (paxPose: sit 0..1, stride phase, stride 0..1, head turn).
+   Parts: 0 torso, 1 neck, 2 backpack, 3 head, 4 hair, 5 long hair, 6 upper arm, 7 forearm, 8 hand, 9 phone, 10 pelvis,
+   11 thigh, 12 shin, 13 shoe. Style bits: 1 long hair, 2 short sleeves, 4 phone, 8 bare shins, 16 backpack, 32 x shoe colour,
+   128 x bag colour. */
+const PAX_SEAT = 0.47;   // the hips' height seated: on the cushion (SEAT_GEO's top is 0.42) through the thighs
+const PAX_SHIRT = [0x3b5bdb, 0xc23b3b, 0x2f8f5b, 0xe0a030, 0x555c66, 0xd6d0c4, 0x7b3fa0, 0x1f6f8b, 0xf2f0ea, 0x22252b, 0x8a2f3c, 0x6b8fb8, 0xb5651d, 0x56733a, 0xe58fa0, 0x2a3a5c];
+const PAX_SKIN = [0xf1c9a5, 0xe0ac7e, 0xc68a5a, 0x9c6a43, 0x6e4a2f, 0xf6d7bd];
+const PAX_HAIR = [0x1c1714, 0x3a2618, 0x5e3b22, 0x8a5a2b, 0xc9a464, 0x9e9a94, 0xdcd8d0, 0x7a2e16];   // 5, 6: grey and white
+const PAX_LEGS = [0x2b3140, 0x3b4a6b, 0x1f2328, 0x6b5a45, 0x4a4f57, 0x2f4a3a, 0xb8a888, 0x5a6d8c];
+const PAX_GEO = (() => {
+  const parts = [], lathe = (pts, seg, sx = 1) => new THREE.LatheGeometry(pts.map(([r, y]) => new THREE.Vector2(r, y)), seg).scale(sx, 1, 1);   // profiles run up from the bottom: normals out
+  const add = (k, g) => parts.push([k, g]);
+  add(0, lathe([[0, 0.8], [0.125, 0.8], [0.135, 0.92], [0.152, 1.06], [0.15, 1.15], [0.12, 1.21], [0.05, 1.235], [0, 1.24]], 8, 0.66));
+  add(1, new THREE.CylinderGeometry(0.036, 0.042, 0.1, 6, 1, true).translate(0, 1.25, 0));
+  add(2, new THREE.BoxGeometry(0.12, 0.3, 0.24).translate(-0.15, 1.02, 0));
+  add(3, new THREE.SphereGeometry(1, 8, 6).scale(0.088, 0.105, 0.078).translate(0.005, 1.345, 0));
+  add(4, new THREE.SphereGeometry(1, 8, 4, 0, 2 * Math.PI, 0, 0.6 * Math.PI).rotateZ(0.65).scale(0.095, 0.113, 0.086).translate(0.005, 1.345, 0));   // a cap tipped back: the forehead clear, the nape covered
+  add(5, new THREE.SphereGeometry(1, 8, 6).scale(0.065, 0.14, 0.09).translate(-0.045, 1.28, 0));   // long hair: down the nape onto the shoulders
+  add(10, lathe([[0, 0.68], [0.11, 0.69], [0.13, 0.76], [0.125, 0.86], [0, 0.86]], 8, 0.7));
+  for (const z of [0.19, -0.19]){
+    add(6, lathe([[0, 0.88], [0.04, 0.89], [0.045, 1.0], [0.05, 1.12], [0.045, 1.18], [0, 1.2]], 6).translate(0, 0, z));
+    add(7, lathe([[0, 0.68], [0.032, 0.69], [0.038, 0.8], [0.042, 0.9], [0, 0.93]], 6).translate(0, 0, z));
+    add(8, new THREE.SphereGeometry(1, 6, 4).scale(0.038, 0.07, 0.028).translate(0, 0.615, z));
+  }
+  add(9, new THREE.BoxGeometry(0.01, 0.14, 0.07).translate(0.03, 0.6, -0.17));   // in the -z hand
+  for (const z of [0.08, -0.08]){
+    add(11, lathe([[0, 0.385], [0.05, 0.395], [0.058, 0.43], [0.072, 0.62], [0.07, 0.72], [0, 0.76]], 6).translate(0, 0, z));
+    add(12, lathe([[0, 0.06], [0.04, 0.065], [0.045, 0.2], [0.055, 0.34], [0.05, 0.41], [0, 0.43]], 6).translate(0, 0, z));
+    add(13, new THREE.BoxGeometry(0.21, 0.065, 0.085).translate(0.055, 0.0325, z));
+  }
+  const pos = [], nrm = [], prt = [], idx = [];
+  for (const [k, g] of parts){
+    const o = pos.length / 3, P = g.getAttribute('position'), N = g.getAttribute('normal');
+    for (let i = 0; i < P.count; i++){ pos.push(P.getX(i), P.getY(i), P.getZ(i)); nrm.push(N.getX(i), N.getY(i), N.getZ(i)); prt.push(k); }
+    const I = g.index.array, same = (a, b) => P.getX(a) === P.getX(b) && P.getY(a) === P.getY(b) && P.getZ(a) === P.getZ(b);
+    for (let t = 0; t < I.length; t += 3){   // a lathe closes on its axis with a ring of zero-area triangles: left out
+      if (same(I[t], I[t + 1]) || same(I[t + 1], I[t + 2]) || same(I[t], I[t + 2])) continue;
+      idx.push(I[t] + o, I[t + 1] + o, I[t + 2] + o);
+    }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(nrm, 3)); g.setAttribute('paxPart', new THREE.Float32BufferAttribute(prt, 1)); g.setIndex(idx);
+  return g;
+})();
+const glf = v => v.toFixed(1);   // an integer colour as a GLSL float (exact below 2^24)
+const PAX_VERT = `
+attribute float paxPart; attribute vec4 paxCol; attribute vec4 paxLook; attribute vec4 paxPose;
+#ifdef PAX_COLOR
+varying vec3 vPaxCol; varying vec4 vPaxFace;
+vec3 paxRGB(float v){ vec3 c = vec3(floor(v / 65536.0), mod(floor(v / 256.0), 256.0), mod(v, 256.0)) / 255.0;
+  return mix(c / 12.92, pow((c + 0.055) / 1.055, vec3(2.4)), step(0.04045, c)); }
+float paxPick(float i, vec4 v){ return i < 0.5 ? v.x : i < 1.5 ? v.y : i < 2.5 ? v.z : v.w; }
+#endif
+vec2 paxRot(vec2 v, float a){ float c = cos(a), s = sin(a); return vec2(c * v.x - s * v.y, s * v.x + c * v.y); }
+float paxBit(float s, float b){ return mod(floor(s / b), 2.0); }
+vec3 paxBend(vec3 p, inout vec3 n){
+  int ip = int(paxPart + 0.5);
+  float hs = paxLook.x, bw = paxLook.y, st = paxLook.z, sit = paxPose.x, ph = paxPose.y, amp = paxPose.z;
+  float side = p.z < 0.0 ? -1.0 : 1.0, phone = paxBit(st, 4.0), held = side < 0.0 ? phone : 0.0;
+#ifdef PAX_COLOR
+  float k = ip == 0 || ip == 6 ? paxCol.x : ip == 10 || ip == 11 ? paxCol.y : ip == 1 || ip == 3 || ip == 8 ? paxCol.z : ip == 4 || ip == 5 ? paxCol.w
+    : ip == 7 ? (paxBit(st, 2.0) > 0.5 ? paxCol.z : paxCol.x) : ip == 12 ? (paxBit(st, 8.0) > 0.5 ? paxCol.z : paxCol.y)
+    : ip == 13 ? paxPick(mod(floor(st / 32.0), 4.0), vec4(${[0x1d1d1f, 0x4a3426, 0xe8e6e1, 0x6b6e73].map(glf)}))
+    : ip == 2 ? paxPick(mod(floor(st / 128.0), 4.0), vec4(${[0x2a2d33, 0x7a3b2e, 0x3d5a80, 0x5c5f3a].map(glf)})) : ${glf(0x151719)};
+  vPaxCol = paxRGB(k);
+  vPaxFace = vec4(p - vec3(0.005, 1.345, 0.0), ip == 3 ? 1.0 : 0.0);
+#endif
+  float hide = ip == 5 ? 1.0 - paxBit(st, 1.0) : ip == 9 ? 1.0 - phone : ip == 2 ? max(1.0 - paxBit(st, 16.0), step(0.5, sit)) : 0.0;
+  p *= vec3(bw, hs, bw); n /= vec3(bw, hs, bw);
+  float hipY = 0.74 * hs, kneeY = 0.41 * hs, shY = 1.15 * hs, elbY = 0.91 * hs, neckY = 1.25 * hs;
+  float sw = sin(ph), fwd = side * sw, through = max(0.0, side * cos(ph));
+  float th = acos(clamp((${PAX_SEAT.toFixed(3)} - 0.985 * kneeY) / (hipY - kneeY), -0.2, 0.7));   // seated: thigh down to a knee that leaves the shin (tipped 0.17) on the floor
+  float thigh = mix(amp * 0.42 * fwd, th, sit), knee = mix(-amp * (0.8 * through + 0.1), 0.17 - th, sit);
+  float shoulder = mix(-amp * 0.35 * fwd * (1.0 - held), 0.12, sit), elbow = mix(amp * (0.2 + 0.25 * max(0.0, -fwd)) * (1.0 - held), 0.95, sit) + held * (1.3 - 0.35 * sit);
+  float inward = -side * mix(0.38 * sit, 0.3, held);   // the forearm swung in about the upper arm: the hands onto the thighs, the phone before the chest
+  float lean = 0.06 * sit - 0.05 * amp, drop = (${PAX_SEAT.toFixed(3)} - hipY) * sit - 0.05 * amp * sw * sw;
+  vec2 q = p.xy, m = n.xy;
+  if (ip >= 11){
+    if (ip >= 12){ q = paxRot(q - vec2(0.0, kneeY), knee) + vec2(0.0, kneeY); m = paxRot(m, knee); }
+    q = paxRot(q - vec2(0.0, hipY), thigh) + vec2(0.0, hipY); m = paxRot(m, thigh);
+  } else if (ip <= 9){
+    if (ip >= 6){
+      if (ip >= 7){
+        q = paxRot(q - vec2(0.0, elbY), elbow) + vec2(0.0, elbY); m = paxRot(m, elbow);
+        float az = side * 0.19 * bw; vec2 t = paxRot(vec2(q.x, p.z - az), inward), u = paxRot(vec2(m.x, n.z), inward);
+        q.x = t.x; p.z = t.y + az; m.x = u.x; n.z = u.y;
+      }
+      q = paxRot(q - vec2(0.0, shY), shoulder) + vec2(0.0, shY); m = paxRot(m, shoulder);
+    } else if (ip >= 3){
+      float nod = -0.4 * phone, turn = paxPose.w * (1.0 - phone);
+      q = paxRot(q - vec2(0.0, neckY), nod) + vec2(0.0, neckY); m = paxRot(m, nod);
+      vec2 t = paxRot(vec2(q.x, p.z), turn), u = paxRot(vec2(m.x, n.z), turn);
+      q.x = t.x; p.z = t.y; m.x = u.x; n.z = u.y;
+    }
+    q = paxRot(q - vec2(0.0, hipY), lean) + vec2(0.0, hipY); m = paxRot(m, lean);
+  }
+  p.xy = q; n.xy = m; p.y += drop;
+  return mix(p, vec3(0.0, hipY + drop, 0.0), hide);   // a part this person has not got folds to a point
+}
+`;
+function paxCompile(sh){   // one function for every people material: one shader program
+  sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\n' + PAX_VERT)
+    .replace('#include <beginnormal_vertex>', 'vec3 objectNormal = vec3(normal);\nvec3 paxP = paxBend(position, objectNormal);')
+    .replace('#include <begin_vertex>', 'vec3 transformed = paxP;');
+  sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vPaxCol; varying vec4 vPaxFace;')
+    .replace('#include <color_fragment>', `#include <color_fragment>
+diffuseColor.rgb *= vPaxCol;
+if (vPaxFace.w > 0.5 && vPaxFace.x > 0.04){ vec2 e = vec2(vPaxFace.y - 0.012, abs(vPaxFace.z) - 0.03); if (dot(e, e) < 0.00012) diffuseColor.rgb *= 0.12; }   // the eyes`);
+}
+function paxDepthCompile(sh){
+  sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\n' + PAX_VERT)
+    .replace('#include <begin_vertex>', 'vec3 paxN = vec3(0.0, 1.0, 0.0);\nvec3 transformed = paxBend(position, paxN);');
+}
+function paxMat(mk){ const m = mk(0xffffff, { roughness:0.8, metalness:0 }); m.defines = { PAX_COLOR:'' }; m.onBeforeCompile = paxCompile; return m; }
+function paxDepthMat(){ const m = new THREE.MeshDepthMaterial({ depthPacking:THREE.RGBADepthPacking }); m.onBeforeCompile = paxDepthCompile; return m; }   // the shadow of the posed figure
+function paxMesh(n, mat){   // room for n people sharing the figure's buffers, none drawn yet
+  const g = new THREE.BufferGeometry();
+  for (const k of ['position', 'normal', 'paxPart']) g.setAttribute(k, PAX_GEO.getAttribute(k));
+  g.setIndex(PAX_GEO.index);
+  for (const k of ['paxCol', 'paxLook', 'paxPose']) g.setAttribute(k, new THREE.InstancedBufferAttribute(new Float32Array(4 * n), 4));
+  const m = new THREE.InstancedMesh(g, mat, n); m.count = 0;
+  return m;
+}
+function paxLookAt(m, k, h){   // instance k of m dressed as person h (a 32-bit hash): the same person every time
+  const C = m.geometry.attributes.paxCol.array, Lk = m.geometry.attributes.paxLook.array, u = hash32(h ^ 0x9e3779b9), v = hash32(u);
+  const skin = h % 6, grey = (h >>> 3) % 100 < 10;
+  C[4 * k] = PAX_SHIRT[(h >>> 10) % 16]; C[4 * k + 1] = PAX_LEGS[(h >>> 14) % 8]; C[4 * k + 2] = PAX_SKIN[skin];
+  C[4 * k + 3] = PAX_HAIR[grey ? 5 + ((h >>> 5) & 1) : skin === 3 || skin === 4 ? (h >>> 7) & 1 : [0, 1, 1, 2, 2, 3, 4, 7][(h >>> 7) % 8]];
+  Lk[4 * k] = 0.94 + ((v >>> 20) % 8) * 0.01; Lk[4 * k + 1] = 0.92 + ((v >>> 24) % 8) * 0.02;
+  Lk[4 * k + 2] = (u % 100 < 42 ? 1 : 0) | ((u >>> 8) % 100 < 25 ? 2 : 0) | ((u >>> 16) % 100 < 22 ? 4 : 0) | (v % 100 < 12 ? 8 : 0) | ((v >>> 8) % 100 < 22 ? 16 : 0) | ((v >>> 16) & 3) << 5 | ((v >>> 18) & 3) << 7;
+}
+function paxPut(m, k, x, y, z, yaw, sit, ph, amp, turn){   // instance k of m at (x, y, z) facing yaw (0: +x), its pose
+  _m4.compose(_p.set(x, y, z), _q.setFromAxisAngle(Y_UP, yaw), _s.setScalar(1)); m.setMatrixAt(k, _m4);
+  const P = m.geometry.attributes.paxPose.array; P[4 * k] = sit; P[4 * k + 1] = ph % (2 * Math.PI); P[4 * k + 2] = amp; P[4 * k + 3] = turn;
+}
 const DECK_GEO = {};
 function deckGeo(L){   // per body length, x from the car's -x end: lower floor + upper floor + stair + tables in one mesh, the lower deck's ceiling (the upper floor's underside) in another
   if (!DECK_GEO[L]){
     const x0 = 3.4, w = L - 3.6, xb = seatRows(L).bay;   // the upper floor is open over the vestibule and the stair
-    const st = new THREE.BoxGeometry(2.19, 0.06, 0.9).rotateZ(Math.atan2(DECK.up - DECK.lo, 1.7)).translate(2.7, (DECK.lo + DECK.up) / 2 - 0.03, -0.9);   // stair: vestibule (x 1.85) up to the upper deck (x 3.55)
+    const st = new THREE.BoxGeometry(Math.hypot(1.7, DECK.up - DECK.lo), 0.06, 0.9).rotateZ(Math.atan2(DECK.up - DECK.lo, 1.7)).translate(2.7, (DECK.lo + DECK.up) / 2 - 0.03, -0.9);   // stair: vestibule (x 1.85) up to the upper deck (x 3.55)
     const tb = [];   // the bay's tables on both decks and sides, on a pedestal: top 0.7 over the floor, clear of the aisle, the feet and the wall
     for (const y of [DECK.lo, DECK.up]) for (const s of [1, -1]) tb.push(new THREE.BoxGeometry(0.4, 0.04, 1.08).translate(xb, y + 0.68, s * 0.84), new THREE.BoxGeometry(0.06, 0.66, 0.06).translate(xb, y + 0.33, s * 0.72));
     DECK_GEO[L] = {
-      floor:mergeGeos([new THREE.BoxGeometry(L - 0.2, 0.06, 2.28).translate(L / 2, DECK.lo - 0.03, 0), new THREE.BoxGeometry(w, 0.08, 2.98).translate(x0 + w / 2, DECK.up, 0), st, ...tb], [null, [18, 24]]),   // the upper floor without its -y face
-      ceil:new THREE.PlaneGeometry(w, 2.98).rotateX(Math.PI / 2).translate(x0 + w / 2, DECK.up - 0.04, 0),
+      floor:mergeGeos([new THREE.BoxGeometry(L - 0.2, 0.06, 2.28).translate(L / 2, DECK.lo - 0.03, 0), new THREE.BoxGeometry(w, 0.06, 2.98).translate(x0 + w / 2, DECK.up - 0.03, 0), st, ...tb], [null, [18, 24]]),   // the upper floor without its -y face
+      ceil:new THREE.PlaneGeometry(w, 2.98).rotateX(Math.PI / 2).translate(x0 + w / 2, DECK.up - 0.06, 0),
     };
   }
   return DECK_GEO[L];
 }
-const Q0 = new THREE.Quaternion(), QB = new THREE.Quaternion(0, 1, 0, 0), _pc = new THREE.Color();   // QB: half a turn about y, for what faces -x
+const Q0 = new THREE.Quaternion(), QB = new THREE.Quaternion(0, 1, 0, 0);   // QB: half a turn about y, for what faces -x
 const hash32 = i => { i = Math.imul(i ^ (i >>> 16), 0x45d9f3b); i = Math.imul(i ^ (i >>> 16), 0x45d9f3b); return (i ^ (i >>> 16)) >>> 0; };
 function buildCoach(parent, cm, xr, L, carNo){
   const g = new THREE.Group(); g.visible = false; parent.add(g);
@@ -2379,15 +2512,16 @@ function buildCoach(parent, cm, xr, L, carNo){
     seat.push(xr + x, y, z); deck.push(d); face.push(f);
   }
   const n = deck.length, cls = carNo % 10 <= 3 ? 0 : 1;                                 // cars 1..3 (11..13) are first class
-  const seats = new THREE.InstancedMesh(SEAT_GEO, cm.seat, n), bodies = new THREE.InstancedMesh(PAX_BODY_GEO, cm.body, n), heads = new THREE.InstancedMesh(PAX_HEAD_GEO, cm.head, n), legs = new THREE.InstancedMesh(PAX_LEG_GEO, cm.legs, n);
-  const c = { g, id:carNo, xr, L, n, seat:new Float32Array(seat), deck:new Uint8Array(deck), face:new Int8Array(face), occ:new Uint8Array(n), view, colB:new Uint32Array(n), colH:new Uint32Array(n),
-              bodies, heads, legs, paths:[], walk:[], crowd:[[], []], dirty:false, colDirty:false };
+  const seats = new THREE.InstancedMesh(SEAT_GEO, cm.seat, n), people = paxMesh(n, cm.people);
+  // people: one instance per person in the coach, packed at the front (inst[seat] -> instance, slot[instance] -> seat) so only they are drawn; look[seat]: who sits there
+  const c = { g, id:carNo, xr, L, n, seat:new Float32Array(seat), deck:new Uint8Array(deck), face:new Int8Array(face), occ:new Uint8Array(n), view,
+              look:new Uint32Array(n), inst:new Int16Array(n).fill(-1), slot:new Int16Array(n), people, paths:[], walk:[], crowd:[[], []], dirty:false, colDirty:false };
   for (let i = 0; i < n; i++){
     _m4.compose(_p.set(seat[3 * i], seat[3 * i + 1], seat[3 * i + 2]), face[i] > 0 ? Q0 : QB, _s.setScalar(1)); seats.setMatrixAt(i, _m4); seats.setColorAt(i, SEAT_COL[cls]);
   }
-  const sphere = new THREE.Sphere(new THREE.Vector3(xr + L / 2, 2.5, 0), L / 2 + 1.5);   // people only move inside the coach and its doorway: one fixed bound for every instanced mesh
-  for (const m of [seats, bodies, heads, legs]) m.boundingSphere = sphere;
-  for (const m of [fl, ce, seats, bodies, heads, legs]) g.add(m);   // no shadows inside: the saloon is lit by its own lights (emissive lining and ceiling)
+  const sphere = new THREE.Sphere(new THREE.Vector3(xr + L / 2, 2.5, 0), L / 2 + 1.5);   // people only move inside the coach and its doorway: one fixed bound for both instanced meshes
+  for (const m of [seats, people]) m.boundingSphere = sphere;
+  for (const m of [fl, ce, seats, people]) g.add(m);   // no shadows inside: the saloon is lit by its own lights (emissive lining and ceiling)
   paxSeed(c);
   return c;
 }
@@ -2597,7 +2731,7 @@ function buildSet(opts){
   const skin = m => { if (internals) trShells.meshes.push(m); return m; };   // what the shell control fades: body, ends, gangways, doors (the underframe stays); the other trains stay opaque
   if (internals) trShells.mats.push(...Object.values(bodyM), capM, bellowsM, doorM, glassM);
   set.coaches = [];
-  const coachM = { floor:mk(0x3a3f46, { roughness:0.9 }), ceil:mk(0xe6e2da, { roughness:0.9, emissive:0xe6e2da, emissiveIntensity:0.45 }), seat:mk(0xffffff, { roughness:0.85 }), body:mk(0xffffff, { roughness:0.8 }), head:mk(0xffffff, { roughness:0.7 }), legs:mk(0xffffff, { roughness:0.85 }) };
+  const coachM = { floor:mk(0x3a3f46, { roughness:0.9 }), ceil:mk(0xe6e2da, { roughness:0.9, emissive:0xe6e2da, emissiveIntensity:0.45 }), seat:mk(0xffffff, { roughness:0.85 }), people:paxMat(mk) };
   const trailerRear = [];
   TGV.TRAILERS.forEach(([xr, L], i) => {
     const g = new THREE.Group(); g.position.x = xr;
@@ -2773,26 +2907,30 @@ function letterTex(ch){
    (its -x half), lane 1 the lower deck. At the terminus everyone gets off and the train fills again; the doors wait for the
    last passenger (a close request is deferred until then, not refused). */
 const POOL_N = 3072;
-const pool = {
-  body:new THREE.InstancedMesh(new THREE.CapsuleGeometry(0.19, 0.55, 2, 6), pmat(0xffffff, { roughness:0.8 }), POOL_N),
-  head:new THREE.InstancedMesh(new THREE.SphereGeometry(0.13, 7, 5), pmat(0xffffff, { roughness:0.7 }), POOL_N),
-  a:new Array(POOL_N).fill(null), lo:0, hi:-1, dirty:false, colDirty:false,
-};
+const pool = { mesh:paxMesh(POOL_N, paxMat(pmat)), a:new Array(POOL_N).fill(null), lo:0, hi:-1, dirty:false, colDirty:false };   // slot j: agent a[j], or a hole (folded to nothing) below hi
 {
-  _m4.makeScale(0, 0, 0); _pc.setRGB(1, 1, 1);
-  for (let j = 0; j < POOL_N; j++){ pool.body.setMatrixAt(j, _m4); pool.head.setMatrixAt(j, _m4); pool.body.setColorAt(j, _pc); pool.head.setColorAt(j, _pc); }
-  pool.body.castShadow = true; pool.body.frustumCulled = pool.head.frustumCulled = false; pool.body.count = pool.head.count = 0;
-  platG.add(pool.body, pool.head);
+  _m4.makeScale(0, 0, 0);
+  for (let j = 0; j < POOL_N; j++) pool.mesh.setMatrixAt(j, _m4);
+  pool.mesh.customDepthMaterial = paxDepthMat(); pool.mesh.castShadow = true; pool.mesh.frustumCulled = false;
+  platG.add(pool.mesh);
 }
 const _pw = new THREE.Vector3(), _pw2 = new THREE.Vector3();
 const PX = { phase:'idle', t:0, plan:'mid', h:0.55, visited:null, hold:false, closeWhenDone:false, crowdSt:null, rebuild:true, list:[] };
+const STRIDE = 5.6;   // stride phase per metre walked: a step of 0.56 m, so the feet do not slide
 
 function mkPath(P){ const C = [0]; for (let k = 3; k < P.length; k += 3) C.push(C[C.length - 1] + Math.hypot(P[k] - P[k - 3], P[k + 1] - P[k - 2], P[k + 2] - P[k - 1])); return { P, C, len:C[C.length - 1] }; }
+let _seg = 0;   // the segment the last pathAt landed on
 function pathAt(p, s, out){   // point at arc length s along a polyline path
   const C = p.C, P = p.P; let k = 1; while (k < C.length - 1 && C[k] < s) k++;
   const u = C[k] > C[k - 1] ? Math.min(1, Math.max(0, (s - C[k - 1]) / (C[k] - C[k - 1]))) : 1, i = 3 * (k - 1);
+  _seg = k - 1;
   return out.set(P[i] + (P[i + 3] - P[i]) * u, P[i + 1] + (P[i + 4] - P[i + 1]) * u, P[i + 2] + (P[i + 5] - P[i + 2]) * u);
 }
+function segYaw(p, dir, yaw){   // the way someone on that segment faces (dir -1: walking the path backwards); a vertical step keeps yaw
+  const P = p.P, i = 3 * _seg, dx = (P[i + 3] - P[i]) * dir, dz = (P[i + 5] - P[i + 2]) * dir;
+  return dx * dx + dz * dz > 1e-8 ? Math.atan2(-dz, dx) : yaw;
+}
+function turnTo(a, b, step){ let d = b - a; d -= Math.round(d / (2 * Math.PI)) * 2 * Math.PI; return Math.abs(d) <= step ? b : a + Math.sign(d) * step; }   // the short way round
 function seatPath(c, i){   // seat -> step out (the way the seat faces) -> aisle -> (upper deck: stair down) -> doorway on the platform side, set-local
   const sd = platSide, key = sd < 0 ? i + c.n : i;
   if (c.paths[key]) return c.paths[key];
@@ -2801,28 +2939,43 @@ function seatPath(c, i){   // seat -> step out (the way the seat faces) -> aisle
     ? [x, y, z, o, y, z, o, y, 0, xr + 3.55, up, 0, xr + 3.55, up, -0.9, xr + 1.85, lo, -0.9, xr + 1.35, lo, sd > 0 ? -0.4 : -0.9, xr + 1.35, lo, 1.25 * sd]   // along the aisle to the stair head before turning into it, clear of the first row
     : [x, y, z, o, y, z, o, y, 0, xr + 2.2, lo, 0, xr + 1.95, lo, 0.35 * sd, xr + 1.95, lo, 1.25 * sd]);
 }
-function poseSeat(c, i, on){
-  const f = c.face[i], x = c.seat[3 * i] + 0.04 * f, y = c.seat[3 * i + 1], z = c.seat[3 * i + 2], k = on ? 1 : 0, q = f > 0 ? Q0 : QB;
-  _m4.compose(_p.set(x, y + 0.72, z), q, _s.setScalar(k)); c.bodies.setMatrixAt(i, _m4);
-  _m4.compose(_p.set(x, y + 1.12, z), q, _s.setScalar(k)); c.heads.setMatrixAt(i, _m4);
-  _m4.compose(_p.set(x, y, z), q, _s.setScalar(k)); c.legs.setMatrixAt(i, _m4);
+function paxIn(c, i){   // the instance of seat i's person, taken at the end of the drawn range the first time
+  let k = c.inst[i];
+  if (k < 0){ k = c.inst[i] = c.people.count++; c.slot[k] = i; paxLookAt(c.people, k, c.look[i]); c.colDirty = true; }
+  return k;
+}
+function paxOut(c, i){   // seat i's person leaves the coach: the last drawn instance moves into the gap
+  const k = c.inst[i]; if (k < 0) return;
+  const m = c.people, last = --m.count;
+  if (k !== last){
+    m.instanceMatrix.array.copyWithin(16 * k, 16 * last, 16 * last + 16);
+    for (const a of ['paxCol', 'paxLook', 'paxPose']) m.geometry.attributes[a].array.copyWithin(4 * k, 4 * last, 4 * last + 4);
+    const j = c.slot[last]; c.slot[k] = j; c.inst[j] = k;
+  }
+  c.inst[i] = -1; c.dirty = c.colDirty = true;
+}
+function paxSetLook(c, i, h){ c.look[i] = h; if (c.inst[i] >= 0){ paxLookAt(c.people, c.inst[i], h); c.colDirty = true; } }
+function poseSeat(c, i, on){   // seated (facing the way the seat does, the head turned a little), or gone
+  if (!on){ paxOut(c, i); return; }
+  const f = c.face[i];
+  paxPut(c.people, paxIn(c, i), c.seat[3 * i] + 0.01 * f, c.seat[3 * i + 1], c.seat[3 * i + 2], f > 0 ? 0 : Math.PI, 1, 0, 0, ((c.look[i] >>> 27) % 9 - 4) * 0.12);
   c.dirty = true;
 }
-function poseWalker(c, w){   // walking in the coach: stands up over the first step out of the seat, then walks upright
-  const p = w.p, u = Math.min(1, w.s / p.C[1]), x0 = c.seat[3 * w.i] + 0.04 * c.face[w.i], y0 = c.seat[3 * w.i + 1], z0 = c.seat[3 * w.i + 2];
-  pathAt(p, w.s, _pw); const bob = u >= 1 ? Math.abs(Math.sin(w.ph)) * 0.04 : 0;
-  _m4.compose(_p.set(x0 + (_pw.x - x0) * u, y0 + 0.72 + (_pw.y + 0.465 + bob - y0 - 0.72) * u, z0 + (_pw.z - z0) * u), Q0, _s.set(1 + 0.12 * u, 1 + 0.35 * u, 1 + 0.12 * u)); c.bodies.setMatrixAt(w.i, _m4);
-  _m4.compose(_p.set(x0 + (_pw.x - x0) * u, y0 + 1.12 + (_pw.y + 1.05 + bob - y0 - 1.12) * u, z0 + (_pw.z - z0) * u), Q0, _s.setScalar(1 + 0.08 * u)); c.heads.setMatrixAt(w.i, _m4);
-  _m4.makeScale(0, 0, 0); c.legs.setMatrixAt(w.i, _m4);   // the capsule stretched to standing height carries the legs
+function poseWalker(c, w, dt){   // walking in the coach: stands up over the first step out of the seat (still facing its way), then turns down the aisle
+  const p = w.p, u = Math.min(1, w.s / p.C[1]), f = c.face[w.i];
+  pathAt(p, w.s, _pw);
+  w.yaw = turnTo(w.yaw, u < 1 ? (f > 0 ? 0 : Math.PI) : segYaw(p, w.dir, w.yaw), dt * 7);
+  w.amp = approach(w.amp, w.moving ? u : 0, dt * 5);
+  paxPut(c.people, paxIn(c, w.i), _pw.x + 0.01 * f * (1 - u), _pw.y, _pw.z, w.yaw, 1 - THREE.MathUtils.smoothstep(u, 0, 1), w.ph, w.amp, 0);
   c.dirty = true;
 }
 function paxSeed(c){   // the passengers a coach starts with: 30% of the seats, the same people every time
+  c.people.count = 0; c.inst.fill(-1);
   for (let i = 0; i < c.n; i++){
-    const h = hash32(c.id * 1000 + i); c.colB[i] = PAX_COL[h % PAX_COL.length]; c.colH[i] = SKIN[(h >>> 8) % SKIN.length];
-    c.bodies.setColorAt(i, _pc.setHex(c.colB[i])); c.heads.setColorAt(i, _pc.setHex(c.colH[i])); c.legs.setColorAt(i, _pc.setHex(trousers(c.colB[i], c.colH[i])));
+    c.look[i] = hash32(c.id * 1000 + i);
     c.occ[i] = !c.view.includes(i) && hash32(c.id * 7919 + i) % 100 < 30 ? 1 : 0; poseSeat(c, i, c.occ[i] === 1);   // occ: 0 free, 1 seated, 2 getting off, 3 taken by someone getting on
   }
-  c.colDirty = true;
+  c.dirty = c.colDirty = true;
 }
 function freeSeat(c, deck){   // a random free seat on that deck, or -1 (never the viewer's)
   let n = 0, pick = -1;
@@ -2830,24 +2983,25 @@ function freeSeat(c, deck){   // a random free seat on that deck, or -1 (never t
   return pick;
 }
 
-// platform pool: agents {j, st: wait|board|back|alight, x,y,z, home hx,hz, path, s, v, ph, colours, c, lane, e, seat}
-function poseAgent(a, bob){
-  _m4.compose(_p.set(a.x, a.y + 0.465 + bob, a.z), Q0, _s.setScalar(1)); pool.body.setMatrixAt(a.j, _m4);
-  _m4.compose(_p.set(a.x, a.y + 1.05 + bob, a.z), Q0, _s.setScalar(1)); pool.head.setMatrixAt(a.j, _m4);
+// platform pool: agents {j, st: wait|board|back|alight, x,y,z, home hx,hz, path, s, v, ph, look, yaw, face (waiting), amp, turn, c, lane, e, seat}
+function poseAgent(a, dt){   // facing down the path (or, standing, the way it waits), the stride easing in and out
+  a.yaw = turnTo(a.yaw, a.path ? segYaw(a.path, 1, a.yaw) : a.face, dt * 7); a.amp = approach(a.amp, a.path ? 1 : 0, dt * 4);
+  paxPut(pool.mesh, a.j, a.x, a.y, a.z, a.yaw, 0, a.ph, a.amp, a.turn * (1 - a.amp));
   pool.dirty = true;
 }
-function poolSpawn(x, y, z, st, colB, colH){
+function poolSpawn(x, y, z, st, look){   // waiting ones face the train (-z, platform-local), give or take 20°, and look about
   let j = pool.lo; while (j < POOL_N && pool.a[j]) j++;
   if (j >= POOL_N) return null;
-  const a = { j, st, x, y, z, hx:x, hz:z, path:null, s:0, v:1.15 + Math.random() * 0.3, ph:Math.random() * 6, colB, colH, c:null, lane:0, e:null, seat:-1 };
+  const face = Math.PI / 2 + (Math.random() - 0.5) * 0.7;
+  const a = { j, st, x, y, z, hx:x, hz:z, path:null, s:0, v:1.15 + Math.random() * 0.3, ph:Math.random() * 6, look, yaw:face, face, amp:0, turn:(Math.random() - 0.5) * 0.8, c:null, lane:0, e:null, seat:-1 };
   pool.a[j] = a; pool.lo = j + 1; pool.hi = Math.max(pool.hi, j);
-  pool.body.setColorAt(j, _pc.setHex(colB)); pool.head.setColorAt(j, _pc.setHex(colH)); pool.colDirty = true;
+  paxLookAt(pool.mesh, j, look); pool.colDirty = true;
   poseAgent(a, 0);
   return a;
 }
 function poolFree(a){
   pool.a[a.j] = null; pool.lo = Math.min(pool.lo, a.j); a.st = 'gone'; a.path = null;
-  _m4.makeScale(0, 0, 0); pool.body.setMatrixAt(a.j, _m4); pool.head.setMatrixAt(a.j, _m4); pool.dirty = true;
+  _m4.makeScale(0, 0, 0); pool.mesh.setMatrixAt(a.j, _m4); pool.dirty = true;
   while (pool.hi >= 0 && !pool.a[pool.hi]) pool.hi--;
 }
 function poolClear(){ for (let j = 0; j <= pool.hi; j++) if (pool.a[j]) poolFree(pool.a[j]); pool.lo = 0; }
@@ -2867,8 +3021,8 @@ function buildCrowd(st){   // people waiting on the platform, in two files besid
     const want = plan === 'terminus' ? 0.35 * c.n : plan === 'origin' ? Math.max(3, 0.43 * c.n - seated) : Math.max(0, 0.4 * c.n - 0.75 * seated);   // the coach leaves a third to two fifths full
     const per = Math.min(21, Math.round(want / 2)), nd = c.xr + 1.65 + (k ? TGV.SET2_X : 0) - TGV.PLAT_FRONT;
     for (let l = 0; l < 2; l++) for (let j = 0; j < per; j++){
-      const h = hash32((Math.random() * 1e9) | 0), col = Math.floor(j / 3);
-      const a = poolSpawn(nd + (l ? 1 : -1) * (1.0 + 0.55 * col) + (Math.random() - 0.5) * 0.2, 0.55, [2.45, 2.95, 3.45][j % 3] + (Math.random() - 0.5) * 0.1, 'wait', PAX_COL[h % PAX_COL.length], SKIN[(h >>> 8) % SKIN.length]);
+      const col = Math.floor(j / 3);
+      const a = poolSpawn(nd + (l ? 1 : -1) * (1.0 + 0.55 * col) + (Math.random() - 0.5) * 0.2, 0.55, [2.45, 2.95, 3.45][j % 3] + (Math.random() - 0.5) * 0.1, 'wait', hash32((Math.random() * 1e9) | 0));
       if (a){ a.c = c; a.lane = l; c.crowd[l].push(a); }
     }
   } });
@@ -2886,7 +3040,7 @@ function paxActivate(){   // doors open at a standstill: who gets off, who is wa
     if (Math.abs(T[0].z - 1.25) > 0.4 || T[0].x > -1 || T[0].x < -Lp + 1) continue;   // this doorway is not along the platform
     const e = { c, T, L:[0, 1].map(() => ({ outs:[], wait:[], last:-9 , full:false })), boardT:-1, boarding:0, done:false };
     for (let i = 0; i < c.n; i++) if (c.occ[i] === 1 && Math.random() < share){
-      c.occ[i] = 2; e.L[c.deck[i] ? 0 : 1].outs.push({ i, p:seatPath(c, i), s:0, v:1.25 * (0.9 + 0.2 * Math.random()), ph:Math.random() * 6, rel:0 });
+      c.occ[i] = 2; e.L[c.deck[i] ? 0 : 1].outs.push({ i, p:seatPath(c, i), s:0, v:1.25 * (0.9 + 0.2 * Math.random()), ph:Math.random() * 6, rel:0, yaw:c.face[i] > 0 ? 0 : Math.PI, amp:0, dir:1, moving:false });
     }
     e.L.forEach((ln, l) => {
       ln.outs.sort((a, b) => a.p.len - b.p.len);
@@ -2921,13 +3075,13 @@ function paxExchange(dt){
       for (const w of ln.outs){
         if (t < w.rel) continue;                                     // still seated
         const s = Math.min(w.p.len, w.s + w.v * dt, Math.max(w.s, w.p.len - (ahead + 0.45)));
-        if (s !== w.s){ w.s = s; w.ph += dt * 9; poseWalker(c, w); }
+        w.moving = s > w.s + 1e-6; w.ph += (s - w.s) * STRIDE; w.s = s; poseWalker(c, w, dt);   // queued ones stand still and settle
         ahead = w.p.len - w.s;
       }
       const w0 = ln.outs[0];
-      if (w0 && w0.s >= w0.p.len && open && t - ln.last >= h){   // step out onto the platform
-        const a = poolSpawn(e.T[l].x, e.T[l].y, e.T[l].z, 'alight', c.colB[w0.i], c.colH[w0.i]);
-        if (a) agentGo(a, 'alight', alightPath(e, l));
+      if (w0 && w0.s >= w0.p.len && open && t - ln.last >= h){   // step out onto the platform (+z, platform-local), still in stride
+        const a = poolSpawn(e.T[l].x, e.T[l].y, e.T[l].z, 'alight', c.look[w0.i]);
+        if (a){ Object.assign(a, { yaw:-Math.PI / 2, amp:1, ph:w0.ph }); agentGo(a, 'alight', alightPath(e, l)); }
         c.occ[w0.i] = 0; poseSeat(c, w0.i, false); ln.outs.shift(); ln.last = t;
       }
       outs += ln.outs.length;
@@ -2951,7 +3105,7 @@ function paxExchange(dt){
 }
 function paxAbort(){   // doors closing or the train moving: whoever is inside goes back to a seat, the platform steps back
   for (const e of PX.list) for (const ln of e.L){
-    for (const w of ln.outs){ if (w.s <= 0){ e.c.occ[w.i] = 1; poseSeat(e.c, w.i, true); } else { e.c.occ[w.i] = 3; e.c.walk.push(w); } }
+    for (const w of ln.outs){ if (w.s <= 0){ e.c.occ[w.i] = 1; poseSeat(e.c, w.i, true); } else { e.c.occ[w.i] = 3; w.dir = -1; e.c.walk.push(w); } }
     ln.outs.length = 0;
   }
   for (let j = 0; j <= pool.hi; j++){
@@ -2962,31 +3116,33 @@ function paxAbort(){   // doors closing or the train moving: whoever is inside g
 }
 function enterCoach(a){   // a boarding agent reaches the doorway: the coach slot takes over and walks to the seat
   const e = a.e, c = e.c, i = a.seat;
-  c.colB[i] = a.colB; c.colH[i] = a.colH; c.bodies.setColorAt(i, _pc.setHex(a.colB)); c.heads.setColorAt(i, _pc.setHex(a.colH)); c.legs.setColorAt(i, _pc.setHex(trousers(a.colB, a.colH))); c.colDirty = true;
-  const p = seatPath(c, i), w = { i, p, s:p.len, v:a.v, ph:a.ph };
-  c.walk.push(w); poseWalker(c, w);
+  paxSetLook(c, i, a.look);
+  const p = seatPath(c, i), w = { i, p, s:p.len, v:a.v, ph:a.ph, yaw:platSide > 0 ? Math.PI / 2 : -Math.PI / 2, amp:a.amp, dir:-1, moving:true };   // in through the doorway: -z on the +z side
+  c.walk.push(w); poseWalker(c, w, 0);
   e.boarding--;
   const q = c.crowd[a.lane], k = q.indexOf(a); if (k >= 0) q.splice(k, 1);
   poolFree(a);
 }
 function walkCoaches(dt){   // people walking in to their seat (or back to it)
   for (const set of tgvSets) for (const c of set.coaches) for (let k = c.walk.length - 1; k >= 0; k--){
-    const w = c.walk[k]; w.s -= w.v * dt; w.ph += dt * 9;
-    if (w.s <= 0){ c.occ[w.i] = 1; poseSeat(c, w.i, true); c.walk.splice(k, 1); } else poseWalker(c, w);
+    const w = c.walk[k], s = Math.max(0, w.s - w.v * dt); w.ph += (w.s - s) * STRIDE; w.s = s; w.moving = true;
+    if (s <= 0){ c.occ[w.i] = 1; poseSeat(c, w.i, true); c.walk.splice(k, 1); } else poseWalker(c, w, dt);
   }
 }
 function walkPool(dt){
   for (let j = 0; j <= pool.hi; j++){
-    const a = pool.a[j]; if (!a || !a.path) continue;
-    a.s = Math.min(a.path.len, a.s + a.v * dt); a.ph += dt * 9;
-    pathAt(a.path, a.s, _pw2); a.x = _pw2.x; a.y = _pw2.y; a.z = _pw2.z;
-    if (a.s >= a.path.len){
-      a.path = null;
-      if (a.st === 'alight'){ poolFree(a); continue; }
-      if (a.st === 'board'){ enterCoach(a); continue; }
-      a.st = 'wait';
-    }
-    poseAgent(a, a.path ? Math.abs(Math.sin(a.ph)) * 0.05 : 0);
+    const a = pool.a[j]; if (!a) continue;
+    if (a.path){
+      const s = Math.min(a.path.len, a.s + a.v * dt); a.ph += (s - a.s) * STRIDE; a.s = s;
+      pathAt(a.path, s, _pw2); a.x = _pw2.x; a.y = _pw2.y; a.z = _pw2.z;
+      if (s >= a.path.len){
+        a.path = null;
+        if (a.st === 'alight'){ poolFree(a); continue; }
+        if (a.st === 'board'){ enterCoach(a); continue; }
+        a.st = 'wait';
+      }
+    } else if (a.amp === 0 && a.yaw === a.face) continue;   // standing, settled: nothing to redraw
+    poseAgent(a, dt);
   }
 }
 function updatePax(dt){
@@ -2996,13 +3152,15 @@ function updatePax(dt){
   if (PX.phase === 'idle' && S.doors && S.speed < 0.05 && S.coupling >= 0) paxActivate();
   if (PX.phase === 'exchange') paxExchange(dt);
   walkPool(dt); walkCoaches(dt);
-  pool.body.count = pool.head.count = pool.hi + 1;
-  if (pool.dirty && pool.hi >= 0) for (const m of [pool.body, pool.head]){ const a = m.instanceMatrix; a.clearUpdateRanges(); a.addUpdateRange(0, (pool.hi + 1) * 16); a.needsUpdate = true; }   // upload the live part only
-  pool.dirty = false;
-  if (pool.colDirty){ pool.body.instanceColor.needsUpdate = pool.head.instanceColor.needsUpdate = true; pool.colDirty = false; }
+  const m = pool.mesh, n = pool.hi + 1, A = m.geometry.attributes; m.count = n;
+  const upload = (a, w) => { a.clearUpdateRanges(); a.addUpdateRange(0, n * w); a.needsUpdate = true; };   // the live part only
+  if (pool.dirty && n){ upload(m.instanceMatrix, 16); upload(A.paxPose, 4); }
+  if (pool.colDirty && n){ upload(A.paxCol, 4); upload(A.paxLook, 4); }
+  pool.dirty = pool.colDirty = false;
   for (const set of tgvSets) for (const c of set.coaches){
-    if (c.dirty){ c.bodies.instanceMatrix.needsUpdate = c.heads.instanceMatrix.needsUpdate = c.legs.instanceMatrix.needsUpdate = true; c.dirty = false; }
-    if (c.colDirty){ c.bodies.instanceColor.needsUpdate = c.heads.instanceColor.needsUpdate = c.legs.instanceColor.needsUpdate = true; c.colDirty = false; }
+    const B = c.people.geometry.attributes;
+    if (c.dirty){ c.people.instanceMatrix.needsUpdate = B.paxPose.needsUpdate = true; c.dirty = false; }
+    if (c.colDirty){ B.paxCol.needsUpdate = B.paxLook.needsUpdate = true; c.colDirty = false; }
   }
 }
 function paxHolding(){ return PX.phase === 'exchange' && PX.hold; }
@@ -3071,7 +3229,7 @@ function fitShadow(){
 /* ---- per-frame update (tgv mode only) + mode switch hook */
 const tgvDriver = parts.cab.group.getObjectByName('driver');
 function setTgvVisible(on){
-  tgvTrain.visible = on; pool.body.visible = pool.head.visible = on;
+  tgvTrain.visible = on; pool.mesh.visible = on;
   parts.cab.group.getObjectByName('cabLoco').visible = !on; parts.cab.group.getObjectByName('cabTgv').visible = on;   // the lead car's cab: loco desk or TGV desk with its driver
   if (!on){ platVariant[1].visible = true; platVariant[2].visible = false; return; }
   paxResolve();
