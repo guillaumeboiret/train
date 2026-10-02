@@ -230,6 +230,16 @@ body.bar-open :is(.walk-stick,#walkSit,#walkLeave){display:none}
 /* while the train runs and nobody touches the page the overlays fade away (ui-idle, set by the page's script); any move, tap or key brings them back */
 :is(.dock,.infocard,.gauges,.hud,.compass,#labels,.cab-bar,.cab-deck,.walk-bar){transition:opacity .2s}
 body.ui-idle :is(.dock,.infocard,.gauges,.hud,.compass,#labels,.cab-bar,.cab-deck,.walk-bar){opacity:0;visibility:hidden;pointer-events:none;transition:opacity .8s,visibility 0s .8s}
+/* no GUI (the topbar's button, the playground's under its compass, or G): only the trip on screen. The corner's button, Esc or G bring the controls back; that button and the pointer step aside while nobody moves */
+.ng-ico{width:18px;height:18px;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+#btnNoGui{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+body.nogui .topbar{display:none}
+body.nogui .stage>:not(#c3d,#guiBack){display:none!important}
+#guiBack{display:none;position:absolute;top:max(12px,env(safe-area-inset-top,0px));right:max(12px,env(safe-area-inset-right,0px));width:44px;height:44px;padding:0;border:0;border-radius:50%;place-items:center;background:rgba(16,20,26,.55);color:#fff;cursor:pointer;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);transition:opacity .3s}
+#guiBack .ng-ico{width:22px;height:22px}
+body.nogui #guiBack{display:grid}
+body.nogui.ng-calm #guiBack{opacity:0;pointer-events:none;transition:opacity .8s}
+body.nogui.ng-calm #c3d{cursor:none}
 .btn.horn{width:100%;font-weight:600}
 .btn.horn.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
 @media (max-width:1100px){ .g{min-width:84px} }
@@ -283,6 +293,7 @@ body.ui-idle :is(.dock,.infocard,.gauges,.hud,.compass,#labels,.cab-bar,.cab-dec
   .brand{display:none}
   .topbar .btn.link{font-size:0;padding:5px 7px}   /* the switch game: its icon only, its name kept for screen readers */
   .topbar .btn.link::before{content:"🎮";content:"🎮" / "";font-size:16px;line-height:1}
+  #btnNoGui{padding:5px 7px}#btnNoGui span{display:none}   /* its icon only */
   .seg button{padding:5px 8px;font-size:12px}
 }
 @media (prefers-reduced-motion: reduce){

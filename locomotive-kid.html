@@ -230,6 +230,16 @@ body.bar-open :is(.walk-stick,#walkSit,#walkLeave){display:none}
 /* while the train runs and nobody touches the page the overlays fade away (ui-idle, set by the page's script); any move, tap or key brings them back */
 :is(.dock,.infocard,.gauges,.hud,.compass,#labels,.cab-bar,.cab-deck,.walk-bar){transition:opacity .2s}
 body.ui-idle :is(.dock,.infocard,.gauges,.hud,.compass,#labels,.cab-bar,.cab-deck,.walk-bar){opacity:0;visibility:hidden;pointer-events:none;transition:opacity .8s,visibility 0s .8s}
+/* no GUI (the topbar's button, the playground's under its compass, or G): only the trip on screen. The corner's button, Esc or G bring the controls back; that button and the pointer step aside while nobody moves */
+.ng-ico{width:18px;height:18px;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+#btnNoGui{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+body.nogui .topbar{display:none}
+body.nogui .stage>:not(#c3d,#guiBack){display:none!important}
+#guiBack{display:none;position:absolute;top:max(12px,env(safe-area-inset-top,0px));right:max(12px,env(safe-area-inset-right,0px));width:44px;height:44px;padding:0;border:0;border-radius:50%;place-items:center;background:rgba(16,20,26,.55);color:#fff;cursor:pointer;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);transition:opacity .3s}
+#guiBack .ng-ico{width:22px;height:22px}
+body.nogui #guiBack{display:grid}
+body.nogui.ng-calm #guiBack{opacity:0;pointer-events:none;transition:opacity .8s}
+body.nogui.ng-calm #c3d{cursor:none}
 .btn.horn{width:100%;font-weight:600}
 .btn.horn.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
 @media (max-width:1100px){ .g{min-width:84px} }
@@ -283,6 +293,7 @@ body.ui-idle :is(.dock,.infocard,.gauges,.hud,.compass,#labels,.cab-bar,.cab-dec
   .brand{display:none}
   .topbar .btn.link{font-size:0;padding:5px 7px}   /* the switch game: its icon only, its name kept for screen readers */
   .topbar .btn.link::before{content:"🎮";content:"🎮" / "";font-size:16px;line-height:1}
+  #btnNoGui{padding:5px 7px}#btnNoGui span{display:none}   /* its icon only */
   .seg button{padding:5px 8px;font-size:12px}
 }
 @media (prefers-reduced-motion: reduce){
@@ -299,6 +310,7 @@ body.ui-idle :is(.dock,.infocard,.gauges,.hud,.compass,#labels,.cab-bar,.cab-dec
       <button type="button" data-mode="tgv" aria-pressed="false" data-i18n="mode_tgv">TGV</button>
     </div>
     <div class="spacer"></div>
+    <button type="button" class="btn" id="btnNoGui" aria-pressed="false" aria-label="Masquer les commandes" data-i18n-aria="nogui" data-i18n-title="nogui_t"><svg class="ng-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></svg><span data-i18n="nogui">Masquer les commandes</span></button>
     <a class="btn link" href="https://claude.ai/artifact/YTRJvuYiFZpzyjxXD6vqQR" target="_blank" rel="noopener" data-i18n="game">Jouer aux aiguillages ↗</a>
     <div class="seg" id="langSeg" role="group" aria-label="Langue" data-i18n-aria="aria_lang">
       <button type="button" data-lang="fr" aria-pressed="true">FR</button>
@@ -540,6 +552,7 @@ body.ui-idle :is(.dock,.infocard,.gauges,.hud,.compass,#labels,.cab-bar,.cab-dec
         <button type="button" class="bar-pocket" id="barPocket" data-i18n="bar_pocket" hidden>Argent de poche +10€</button>
       </div>
     </div>
+    <button type="button" id="guiBack" aria-label="Afficher les commandes (G)" title="Afficher les commandes (G)" data-i18n-aria="gui_back" data-i18n-title="gui_back"><svg class="ng-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4v5H4M15 4v5h5M20 15h-5v5M4 15h5v5"/></svg></button>
   </main>
 </div>
 <script type="module">
@@ -574,6 +587,7 @@ const T = {
     ctl_doors:"Portes côté quai", doors_open:"Ouvertes", doors_closed:"Fermées", doors_pax:"Échange voyageurs…", doors_hint:"Déverrouillées à l'arrêt seulement. Traction interdite portes ouvertes.",
     ctl_station:"Arrêt en gare (pilote auto)", station_go:"Aller au quai", station_running:"Approche…", station_at:"À quai", station_service:"🔁 En boucle", station_hint:"Freine et arrête la rame au repère du quai.",
     coupling:"Accostage…", uncoupling:"Séparation…", lamp_doors:"Portes", info_hide:"Masquer la fiche", info_show:"Afficher la fiche", f_roof:"Ligne de toiture 25 kV",
+    nogui:"Masquer les commandes", nogui_t:"Rien que le voyage à l'écran (G). Échap, G ou le bouton du coin ramènent les commandes.", gui_back:"Afficher les commandes (G)",
     cam_train:"Rame entière", cam_rearroof:"Motrice arrière", cam_coupler:"Attelage", cam_station:"Gare", cam_door:"Portes", cam_pax:"Passager", cam_driver:"Poste de conduite", cab_ui:"Afficher ou masquer les commandes", cab_leave:"Quitter la cabine",
     walk_sit:"S'asseoir", walk_stand:"Se lever", walk_leave:"Arrêter de marcher", walk_taken:"Place occupée", walk_noseat:"Pas de place libre ici", walk_far:"Trop loin", walk_car:"Voiture", walk_first:"1re classe", walk_hint:"ZQSD ou flèches: marcher (Maj: courir). Glisser dans la vue, ou deux doigts sur le trackpad: regarder. Clic sur un siège libre, ou E: s'asseoir, se lever.", walk_hint_touch:"Joystick gauche: marcher. Joystick droit: regarder. Toucher un siège libre pour s'asseoir.", cab_lever:"Manipulateur traction-freinage", cab_lever_tip:"Vers le haut, la traction et la vitesse visée. Vers le bas, le frein. Touches ↑ et ↓.", scr_brake:"Frein", scr_power:"Traction", scr_engine:"Moteur", scr_doors:"Portes", scr_panto_dn:"Panto baissé", btn_horn:"Klaxon", btn_panto:"Panto", btn_doors:"Portes", btn_next:"Prochain arrêt", dir_tls:"Vers Toulouse", dir_par:"Vers Paris", cab_stopped:"Arrêtez d'abord le train", cab_end:"Terminus : changez de sens", service_on:"🔁 Toute la ligne, en boucle", service_off:"Boucle arrêtée", service_last:"Boucle arrêtée : la prochaine gare est la dernière", next_hold:"Appui long : toute la ligne, en boucle",
     walk_bar:"Bar", bar_title:"Le bar", bar_order:"Commander", bar_close:"Fermer le menu", bar_wallet:"Porte-monnaie", bar_tray:"Mon plateau", bar_tray_hint:"Choisis-en un pour le déguster.", bar_empty:"Rien pour l'instant.", bar_pocket:"Argent de poche +10€", bar_pocket_say:"Et 10€ de plus !", bar_broke:"Pas assez de sous", bar_thanks:"Voilà ! Merci.", bar_yum:"Miam !", bar_gulp:"Glou glou !", bar_free:"Gratuit", bar_full:"Plateau plein, goûte d'abord !", bar_speed:"Vitesse du train",
@@ -611,6 +625,7 @@ const T = {
     ctl_doors:"Platform-side doors", doors_open:"Open", doors_closed:"Closed", doors_pax:"Passengers boarding…", doors_hint:"Unlocked at standstill only. No traction while open.",
     ctl_station:"Station stop (autopilot)", station_go:"Go to platform", station_running:"Approaching…", station_at:"At platform", station_service:"🔁 On a loop", station_hint:"Brakes and stops the set at the platform mark.",
     coupling:"Coupling…", uncoupling:"Uncoupling…", lamp_doors:"Doors", info_hide:"Hide card", info_show:"Show card", f_roof:"25 kV roof line",
+    nogui:"Hide controls", nogui_t:"Only the trip on screen (G). Esc, G or the corner button bring the controls back.", gui_back:"Show the controls (G)",
     cam_train:"Whole train", cam_rearroof:"Rear power car", cam_coupler:"Coupling", cam_station:"Station", cam_door:"Doors", cam_pax:"Passenger", cam_driver:"Driver's seat", cab_ui:"Show or hide the controls", cab_leave:"Leave the cab",
     walk_sit:"Sit down", walk_stand:"Stand up", walk_leave:"Stop walking", walk_taken:"Seat taken", walk_noseat:"No free seat here", walk_far:"Too far", walk_car:"Car", walk_first:"First class", walk_hint:"WASD or arrows: walk (Shift: run). Drag the view, or swipe two fingers on the trackpad: look around. Click a free seat, or E: sit down, stand up.", walk_hint_touch:"Left stick: walk. Right stick: look around. Tap a free seat to sit.", cab_lever:"Power and brake lever", cab_lever_tip:"Up for power and the speed to hold, down to brake. Keys ↑ and ↓.", scr_brake:"Brake", scr_power:"Power", scr_engine:"Engine", scr_doors:"Doors", scr_panto_dn:"Panto down", btn_horn:"Horn", btn_panto:"Panto", btn_doors:"Doors", btn_next:"Next stop", dir_tls:"To Toulouse", dir_par:"To Paris", cab_stopped:"Stop the train first", cab_end:"End of the line: change direction", service_on:"🔁 The whole line, again and again", service_off:"Loop stopped", service_last:"Loop stopped: the next station is the last", next_hold:"Hold: the whole line, again and again",
     walk_bar:"Bar", bar_title:"The bar", bar_order:"Order", bar_close:"Close the menu", bar_wallet:"Wallet", bar_tray:"My tray", bar_tray_hint:"Pick one to enjoy it.", bar_empty:"Nothing yet.", bar_pocket:"Pocket money +10€", bar_pocket_say:"Here's 10€ more!", bar_broke:"Not enough money", bar_thanks:"Here you go! Thanks.", bar_yum:"Yum!", bar_gulp:"Gulp!", bar_free:"Free", bar_full:"Tray full, enjoy something first!", bar_speed:"Train speed",
@@ -6546,6 +6561,7 @@ $('langSeg').addEventListener('click', e => { const b = e.target.closest('button
 /* ---- picking */
 const ray = new THREE.Raycaster(), ptr = new THREE.Vector2();
 orbit.onClick = e => {
+  if (noGui){ wakeTap = false; ngWake(); return; }   // no GUI: a tap only brings back the way back
   if (inCab){ wakeTap = false; cabTap(e); return; }   // nothing to pick from the driver's seat: its view's edges jump along the line
   if (wakeTap){ wakeTap = false; return; }   // that tap only brought the controls back
   const r = canvas.getBoundingClientRect();
@@ -6599,7 +6615,7 @@ const cabActions = {   // what each desk button does, and the way out of the cab
 };
 const shown = o => { for (; o; o = o.parent) if (!o.visible) return false; return true; };
 orbit.onPress = e => {   // in the driver's place a press on a desk button works it; anywhere else it turns the head
-  if (orbit.fp?.name !== 'driver' || e.button !== 0) return false;
+  if (noGui || orbit.fp?.name !== 'driver' || e.button !== 0) return false;
   const r = canvas.getBoundingClientRect();
   ptr.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
   ray.setFromCamera(ptr, camera);
@@ -7122,6 +7138,7 @@ document.body.classList.toggle('touch', matchMedia('(pointer: coarse)').matches)
 function wakeUi(e){
   if (e.type === 'pointermove' && e.pointerType === 'mouse' && !e.movementX && !e.movementY) return;   // the browser re-checking what lies under a still mouse
   const B = document.body.classList, was = B.contains('ui-idle');
+  if (noGui) ngWake();
   if (e.pointerType) lastPtr = e.pointerType;
   if (e.type === 'pointerdown' && e.pointerType) document.body.classList.toggle('touch', e.pointerType !== 'mouse');   // the sticks for a finger, the mouse look for a mouse
   if (e.type === 'pointerdown') wakeTap = was && e.pointerType !== 'mouse';   // a finger on the bare view only wakes the page, it picks nothing
@@ -7132,13 +7149,37 @@ for (const ev of ['pointermove', 'pointerdown', 'keydown', 'wheel']) window.addE
 function readFor(txt){ idleT = Math.min(idleT, -txt.split(/\s+/).length / READ_WPS); if (document.body.classList.contains('ui-idle')) document.body.classList.remove('ui-idle'); }
 function updateIdle(dt){
   const B = document.body.classList;
-  if (B.contains('kid') || B.contains('bar-open')) return;   // the bar's menu stays up while open
+  if (noGui || B.contains('kid') || B.contains('bar-open')) return;   // the bar's menu stays up while open
   idleT += dt;
   if (Math.abs(S.speed) < 0.3){ idleT = Math.min(idleT, 0); if (B.contains('ui-idle')) B.remove('ui-idle'); return; }   // a train at rest brings them back
   if (idleT < IDLE_S || B.contains('ui-idle')) return;
   if (lastPtr === 'mouse' && document.querySelector(':is(.dock,.infocard,.hud,.gauges,.cab-bar,.cab-deck>*,.walk-bar>*):hover')){ idleT = 0; return; }   // the mouse rests on them: someone is reading
   B.add('ui-idle');
 }
+/* ---- no GUI ("a no-GUI mode button that hides the GUI to only see the travel"): every control away, only the trip on screen. The topbar's
+   button (the playground's, under its compass) or G hides them; the corner's button, Esc or G bring them back. That button steps aside
+   while nobody moves; a tap on the bare view only brings it back: nothing is picked or pressed, the view still turns and zooms */
+const NG_CALM_MS = 2500;
+let noGui = false, ngTm = 0;
+function ngWake(){
+  const B = document.body.classList; B.remove('ng-calm'); clearTimeout(ngTm);
+  const calm = () => { if ($('guiBack').matches(':hover')) ngTm = setTimeout(calm, 1000); else B.add('ng-calm'); };
+  ngTm = setTimeout(calm, NG_CALM_MS);
+}
+function setNoGui(on){
+  noGui = on; document.body.classList.toggle('nogui', on);
+  document.querySelectorAll('#btnNoGui,#kidNoGui').forEach(b => b.setAttribute('aria-pressed', String(on)));
+  if (on){ document.activeElement?.blur?.(); ngWake(); }
+  else { clearTimeout(ngTm); document.body.classList.remove('ng-calm', 'ui-idle'); idleT = Math.min(idleT, 0); }
+}
+$('btnNoGui').addEventListener('click', () => setNoGui(true));
+$('guiBack').addEventListener('click', () => setNoGui(false));
+window.addEventListener('keydown', e => {   // ahead of the page's keys: this Esc does not also end the passenger's walk
+  if (e.metaKey || e.ctrlKey || e.altKey || e.target.matches('input,textarea,select')) return;
+  if (e.key.toLowerCase() !== 'g' && !(noGui && e.key === 'Escape')) return;
+  e.preventDefault(); e.stopPropagation();
+  if (!e.repeat) setNoGui(!noGui);
+}, true);
 let frameHook = null;   // the kid build hangs its own rules here
 function frame(dt){
   simulate(dt); serviceTick(); animate(Math.min(dt * S.timeScale, 0.25)); updateFlows(dt); updateWeather(dt); panKeys(dt); if (frameHook) frameHook(dt);
@@ -7237,6 +7278,9 @@ body.kid .kid-side .compass{position:relative;top:auto;right:auto}
 body.kid #cabUi{width:56px;height:56px;padding:0;border:0;border-radius:50%;background:rgba(255,255,255,.93);color:#1b2430;font-size:28px;line-height:1;box-shadow:0 4px 12px rgba(0,0,0,.25)}
 body.kid #cabUi[aria-pressed="true"]{background:#f28c28}
 body.kid:not(.in-cab) #cabUi{display:none}
+body.kid #kidNoGui{width:56px;height:56px;padding:0;border:0;border-radius:50%;display:grid;place-items:center;background:rgba(255,255,255,.93);color:#1b2430;box-shadow:0 4px 12px rgba(0,0,0,.25)}
+body.kid #kidNoGui .ng-ico{width:26px;height:26px;stroke-width:2.4}
+body.kid #guiBack{width:56px;height:56px;top:max(10px,env(safe-area-inset-top,0px));right:max(10px,env(safe-area-inset-right,0px))}body.kid #guiBack .ng-ico{width:28px;height:28px}
 body.kid .cab-deck{inset:10px calc(var(--kid-side,110px) + 20px) 10px 10px;gap:10px}body.kid .cab-line{align-self:stretch;width:auto;background:rgba(255,255,255,.93);border:0;border-radius:22px;box-shadow:0 6px 18px rgba(0,0,0,.25);padding:12px 22px 2px;-webkit-backdrop-filter:none;backdrop-filter:none}
 body.kid .cab-row .seg{border:0;border-radius:14px;background:#e8edf3}body.kid .cab-row button{padding:8px 16px;font:700 17px/1 var(--font-body);color:#1b2430}body.kid .cab-row button[aria-pressed="true"]{background:#2f9e44;color:#fff}
 body.kid .cab-say{background:rgba(255,255,255,.93);color:#1b2430;border:0;border-radius:16px;box-shadow:0 6px 18px rgba(0,0,0,.25);-webkit-backdrop-filter:none;backdrop-filter:none;font:700 19px/1.3 var(--font-body)}body.kid .cab-say.l{left:116px}
@@ -7304,7 +7348,7 @@ body.kid #rbTip{font-size:13px;padding:5px 9px;top:-30px;border-radius:8px}
 @media (max-height:520px){   /* phone held sideways: one thin row of controls, the view stays visible */
   .kid-top{top:6px;left:6px;right:calc(var(--kid-side,80px) + 12px);gap:6px}
   .kid-side{top:6px;right:6px;gap:6px}.kid-views,.kid-angles{padding:4px;gap:2px}.kid-angles{right:calc(100% + 6px)}.kid-angles .kt{padding:5px 12px 5px 8px}.kid-angles .kt .ico{font-size:22px}
-  body.kid #cabUi{width:46px;height:46px;font-size:23px}
+  body.kid #cabUi{width:46px;height:46px;font-size:23px}body.kid #kidNoGui,body.kid #guiBack{width:46px;height:46px}
   .kt{min-width:46px;padding:3px 6px}.kt .ico{font-size:22px}.kt .lab{display:none}
   .kid-speed{padding:2px 12px 3px;min-width:0}.kid-speed .n{font-size:26px}.kid-speed .n small{font-size:12px}.kid-next{display:block;font-size:11px;margin-top:0}
   .kid-gear{width:36px;height:36px;font-size:17px}.kid-menu{top:48px;right:calc(var(--kid-side,80px) + 12px)}
@@ -7378,10 +7422,12 @@ $('c3d').parentElement.insertAdjacentHTML('beforeend', `<div id="kid">
       <button type="button" class="kt" data-cam="far" aria-pressed="false"><span class="ico">🏞️</span><span class="lab" data-kid="o_far"></span></button>
       <span class="tgv-only"><button type="button" class="kt" data-cam="door" aria-pressed="false"><span class="ico">🚪</span><span class="lab" data-kid="o_door"></span></button></span>
     </div>
+    <button type="button" id="kidNoGui" aria-pressed="false" aria-label="Masquer les commandes" data-i18n-aria="nogui" data-i18n-title="nogui_t"><svg class="ng-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></svg></button>
   </div>
 </div>`);
 $('kidRoute').appendChild($('routeBar'));   // the line with its station dots keeps its own click, drag and teleport handlers
-$('kidSide').append($('cabUi'), $('compass'));   // under the views: the cab's 🎛️ (shown there only) and the compass
+$('kidSide').append($('cabUi'), $('compass'), $('kidNoGui'));   // under the views: the cab's 🎛️ (shown there only), the compass, the no GUI button
+$('kidNoGui').addEventListener('click', () => setNoGui(true));
 new ResizeObserver(() => document.body.style.setProperty('--kid-side', $('kidSide').offsetWidth + 'px')).observe($('kidSide'));   // the other panels keep clear of the column
 
 /* ---- helpers */

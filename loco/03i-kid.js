@@ -82,6 +82,9 @@ body.kid .kid-side .compass{position:relative;top:auto;right:auto}
 body.kid #cabUi{width:56px;height:56px;padding:0;border:0;border-radius:50%;background:rgba(255,255,255,.93);color:#1b2430;font-size:28px;line-height:1;box-shadow:0 4px 12px rgba(0,0,0,.25)}
 body.kid #cabUi[aria-pressed="true"]{background:#f28c28}
 body.kid:not(.in-cab) #cabUi{display:none}
+body.kid #kidNoGui{width:56px;height:56px;padding:0;border:0;border-radius:50%;display:grid;place-items:center;background:rgba(255,255,255,.93);color:#1b2430;box-shadow:0 4px 12px rgba(0,0,0,.25)}
+body.kid #kidNoGui .ng-ico{width:26px;height:26px;stroke-width:2.4}
+body.kid #guiBack{width:56px;height:56px;top:max(10px,env(safe-area-inset-top,0px));right:max(10px,env(safe-area-inset-right,0px))}body.kid #guiBack .ng-ico{width:28px;height:28px}
 body.kid .cab-deck{inset:10px calc(var(--kid-side,110px) + 20px) 10px 10px;gap:10px}body.kid .cab-line{align-self:stretch;width:auto;background:rgba(255,255,255,.93);border:0;border-radius:22px;box-shadow:0 6px 18px rgba(0,0,0,.25);padding:12px 22px 2px;-webkit-backdrop-filter:none;backdrop-filter:none}
 body.kid .cab-row .seg{border:0;border-radius:14px;background:#e8edf3}body.kid .cab-row button{padding:8px 16px;font:700 17px/1 var(--font-body);color:#1b2430}body.kid .cab-row button[aria-pressed="true"]{background:#2f9e44;color:#fff}
 body.kid .cab-say{background:rgba(255,255,255,.93);color:#1b2430;border:0;border-radius:16px;box-shadow:0 6px 18px rgba(0,0,0,.25);-webkit-backdrop-filter:none;backdrop-filter:none;font:700 19px/1.3 var(--font-body)}body.kid .cab-say.l{left:116px}
@@ -149,7 +152,7 @@ body.kid #rbTip{font-size:13px;padding:5px 9px;top:-30px;border-radius:8px}
 @media (max-height:520px){   /* phone held sideways: one thin row of controls, the view stays visible */
   .kid-top{top:6px;left:6px;right:calc(var(--kid-side,80px) + 12px);gap:6px}
   .kid-side{top:6px;right:6px;gap:6px}.kid-views,.kid-angles{padding:4px;gap:2px}.kid-angles{right:calc(100% + 6px)}.kid-angles .kt{padding:5px 12px 5px 8px}.kid-angles .kt .ico{font-size:22px}
-  body.kid #cabUi{width:46px;height:46px;font-size:23px}
+  body.kid #cabUi{width:46px;height:46px;font-size:23px}body.kid #kidNoGui,body.kid #guiBack{width:46px;height:46px}
   .kt{min-width:46px;padding:3px 6px}.kt .ico{font-size:22px}.kt .lab{display:none}
   .kid-speed{padding:2px 12px 3px;min-width:0}.kid-speed .n{font-size:26px}.kid-speed .n small{font-size:12px}.kid-next{display:block;font-size:11px;margin-top:0}
   .kid-gear{width:36px;height:36px;font-size:17px}.kid-menu{top:48px;right:calc(var(--kid-side,80px) + 12px)}
@@ -223,10 +226,12 @@ $('c3d').parentElement.insertAdjacentHTML('beforeend', `<div id="kid">
       <button type="button" class="kt" data-cam="far" aria-pressed="false"><span class="ico">🏞️</span><span class="lab" data-kid="o_far"></span></button>
       <span class="tgv-only"><button type="button" class="kt" data-cam="door" aria-pressed="false"><span class="ico">🚪</span><span class="lab" data-kid="o_door"></span></button></span>
     </div>
+    <button type="button" id="kidNoGui" aria-pressed="false" aria-label="Masquer les commandes" data-i18n-aria="nogui" data-i18n-title="nogui_t"><svg class="ng-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></svg></button>
   </div>
 </div>`);
 $('kidRoute').appendChild($('routeBar'));   // the line with its station dots keeps its own click, drag and teleport handlers
-$('kidSide').append($('cabUi'), $('compass'));   // under the views: the cab's 🎛️ (shown there only) and the compass
+$('kidSide').append($('cabUi'), $('compass'), $('kidNoGui'));   // under the views: the cab's 🎛️ (shown there only), the compass, the no GUI button
+$('kidNoGui').addEventListener('click', () => setNoGui(true));
 new ResizeObserver(() => document.body.style.setProperty('--kid-side', $('kidSide').offsetWidth + 'px')).observe($('kidSide'));   // the other panels keep clear of the column
 
 /* ---- helpers */

@@ -409,6 +409,7 @@ $('langSeg').addEventListener('click', e => { const b = e.target.closest('button
 /* ---- picking */
 const ray = new THREE.Raycaster(), ptr = new THREE.Vector2();
 orbit.onClick = e => {
+  if (noGui){ wakeTap = false; ngWake(); return; }   // no GUI: a tap only brings back the way back
   if (inCab){ wakeTap = false; cabTap(e); return; }   // nothing to pick from the driver's seat: its view's edges jump along the line
   if (wakeTap){ wakeTap = false; return; }   // that tap only brought the controls back
   const r = canvas.getBoundingClientRect();
@@ -462,7 +463,7 @@ const cabActions = {   // what each desk button does, and the way out of the cab
 };
 const shown = o => { for (; o; o = o.parent) if (!o.visible) return false; return true; };
 orbit.onPress = e => {   // in the driver's place a press on a desk button works it; anywhere else it turns the head
-  if (orbit.fp?.name !== 'driver' || e.button !== 0) return false;
+  if (noGui || orbit.fp?.name !== 'driver' || e.button !== 0) return false;
   const r = canvas.getBoundingClientRect();
   ptr.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
   ray.setFromCamera(ptr, camera);
@@ -985,6 +986,7 @@ document.body.classList.toggle('touch', matchMedia('(pointer: coarse)').matches)
 function wakeUi(e){
   if (e.type === 'pointermove' && e.pointerType === 'mouse' && !e.movementX && !e.movementY) return;   // the browser re-checking what lies under a still mouse
   const B = document.body.classList, was = B.contains('ui-idle');
+  if (noGui) ngWake();
   if (e.pointerType) lastPtr = e.pointerType;
   if (e.type === 'pointerdown' && e.pointerType) document.body.classList.toggle('touch', e.pointerType !== 'mouse');   // the sticks for a finger, the mouse look for a mouse
   if (e.type === 'pointerdown') wakeTap = was && e.pointerType !== 'mouse';   // a finger on the bare view only wakes the page, it picks nothing
@@ -995,13 +997,37 @@ for (const ev of ['pointermove', 'pointerdown', 'keydown', 'wheel']) window.addE
 function readFor(txt){ idleT = Math.min(idleT, -txt.split(/\s+/).length / READ_WPS); if (document.body.classList.contains('ui-idle')) document.body.classList.remove('ui-idle'); }
 function updateIdle(dt){
   const B = document.body.classList;
-  if (B.contains('kid') || B.contains('bar-open')) return;   // the bar's menu stays up while open
+  if (noGui || B.contains('kid') || B.contains('bar-open')) return;   // the bar's menu stays up while open
   idleT += dt;
   if (Math.abs(S.speed) < 0.3){ idleT = Math.min(idleT, 0); if (B.contains('ui-idle')) B.remove('ui-idle'); return; }   // a train at rest brings them back
   if (idleT < IDLE_S || B.contains('ui-idle')) return;
   if (lastPtr === 'mouse' && document.querySelector(':is(.dock,.infocard,.hud,.gauges,.cab-bar,.cab-deck>*,.walk-bar>*):hover')){ idleT = 0; return; }   // the mouse rests on them: someone is reading
   B.add('ui-idle');
 }
+/* ---- no GUI ("a no-GUI mode button that hides the GUI to only see the travel"): every control away, only the trip on screen. The topbar's
+   button (the playground's, under its compass) or G hides them; the corner's button, Esc or G bring them back. That button steps aside
+   while nobody moves; a tap on the bare view only brings it back: nothing is picked or pressed, the view still turns and zooms */
+const NG_CALM_MS = 2500;
+let noGui = false, ngTm = 0;
+function ngWake(){
+  const B = document.body.classList; B.remove('ng-calm'); clearTimeout(ngTm);
+  const calm = () => { if ($('guiBack').matches(':hover')) ngTm = setTimeout(calm, 1000); else B.add('ng-calm'); };
+  ngTm = setTimeout(calm, NG_CALM_MS);
+}
+function setNoGui(on){
+  noGui = on; document.body.classList.toggle('nogui', on);
+  document.querySelectorAll('#btnNoGui,#kidNoGui').forEach(b => b.setAttribute('aria-pressed', String(on)));
+  if (on){ document.activeElement?.blur?.(); ngWake(); }
+  else { clearTimeout(ngTm); document.body.classList.remove('ng-calm', 'ui-idle'); idleT = Math.min(idleT, 0); }
+}
+$('btnNoGui').addEventListener('click', () => setNoGui(true));
+$('guiBack').addEventListener('click', () => setNoGui(false));
+window.addEventListener('keydown', e => {   // ahead of the page's keys: this Esc does not also end the passenger's walk
+  if (e.metaKey || e.ctrlKey || e.altKey || e.target.matches('input,textarea,select')) return;
+  if (e.key.toLowerCase() !== 'g' && !(noGui && e.key === 'Escape')) return;
+  e.preventDefault(); e.stopPropagation();
+  if (!e.repeat) setNoGui(!noGui);
+}, true);
 let frameHook = null;   // the kid build hangs its own rules here
 function frame(dt){
   simulate(dt); serviceTick(); animate(Math.min(dt * S.timeScale, 0.25)); updateFlows(dt); updateWeather(dt); panKeys(dt); if (frameHook) frameHook(dt);
