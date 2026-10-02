@@ -5,16 +5,26 @@ Nothing leaves this file: a request is added the moment it is made, and a done i
 
 ## Open, in working order
 
+### 0. Now (asked 2026-10-02)
+- [ ] Back to Passenger after the driver's seat or outside: stay where the passenger was, not back in the coach 1 seat ("I should stay where I was before"). The coach 1 seat stays the very first start.
+- [ ] Passenger mode on the Mac: the mouse can't get back to the buttons ("When I'm in passanger mode I can't get my mouse back to click on buttons").
+- [ ] Bar: "Chocolatine" while the train is in chocolatine country, "Pain au chocolat" everywhere else.
+- [ ] Bar: madeleines on the menu ("you can remove one item if you don't have enough space").
+
 ### 1. World (asked 2026-10-02)
 - [ ] A real clock to set the time of day.
 - [ ] See the sun.
 - [ ] Lights on the train at night and in tunnels.
 - [ ] A weather system, set by hand or on a schedule.
 
-### 2. Cinematic camera, for long trips (asked 2026-10-02)
+### 2. The passenger's iPhone (asked 2026-10-02)
+- [ ] Take out an iPhone and look at it ("I want to be able to look at my iPhone").
+- [ ] Games on it: Tetris, Snake and 2048.
+
+### 3. Cinematic camera, for long trips (asked 2026-10-02)
 - [ ] A camera mode that changes the point of view by itself: all the points of view, with aesthetic camera moves, "like a cinematic". First asked for streaming on YouTube; clarified the same day: "I don't need you to stream it's just the camera movement for long term travels".
 
-### 3. Other open requests
+### 4. Other open requests
 - [ ] A "super hero futuriste" button that runs the whole line in 5 minutes (2026-10-02).
 - [ ] Gangway doors (sas) between coaches that open as you walk past (2026-10-02).
 - [ ] Random landscape so the country is not empty (2026-10-02).
@@ -122,7 +132,7 @@ Nothing leaves this file: a request is added the moment it is made, and a done i
 - [x] Teleport anywhere on the line, the train keeps running
 - [x] Time ×16
 - [x] Power cars built like the first, with the electricity visible
-- [x] Weather that changes (a full weather system is open, item 2)
+- [x] Weather that changes (a full weather system is open, item 1)
 - [x] Bordeaux and Paris in detail on arrival (more in 4ba2688, 9393408)
 - [x] Full speed in manual, no speed limits
 - [x] Zoom all the way into the train
