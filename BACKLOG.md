@@ -5,25 +5,16 @@ Nothing leaves this file: a request is added the moment it is made, and a done i
 
 ## Open, in working order
 
-### 1. Kid page, played on an iPad (asked 2026-10-02)
-- [ ] Rename the page. /conducteur/ is French and names the driver, while this page is the game (travellers, the bar). New address /playground/, old links redirect.
-- [ ] Switch driver ⇄ passenger in one tap, with a button that is always in the same place.
-- [ ] Pick a view directly, no "next, next, next" cycling. The view button never moves.
-- [ ] Drop the two seated views. The passenger view is the walk mode, starting seated.
-- [ ] The passenger always starts seated on the upper deck of the first coach.
-- [ ] Game controls when walking. iPad: left joystick moves, right joystick looks. Mac: WASD or arrows move, mouse or trackpad looks, like an FPS.
-- [ ] Upper deck stairwell: a visible barrier along the open void beside the stairs.
-
-### 2. World (asked 2026-10-02)
+### 1. World (asked 2026-10-02)
 - [ ] A real clock to set the time of day.
 - [ ] See the sun.
 - [ ] Lights on the train at night and in tunnels.
 - [ ] A weather system, set by hand or on a schedule.
 
-### 3. Cinematic camera, for streaming (asked 2026-10-02)
+### 2. Cinematic camera, for streaming (asked 2026-10-02)
 - [ ] A camera mode that changes the point of view by itself, so the content can be streamed on YouTube: all the points of view, with aesthetic camera moves, "like a cinematic".
 
-### 4. Other open requests
+### 3. Other open requests
 - [ ] A "super hero futuriste" button that runs the whole line in 5 minutes (2026-10-02).
 - [ ] Gangway doors (sas) between coaches that open as you walk past (2026-10-02).
 - [ ] Random landscape so the country is not empty (2026-10-02).
@@ -40,6 +31,14 @@ Nothing leaves this file: a request is added the moment it is made, and a done i
 ## Done
 
 ### 2026-10-02
+- [x] Kid page renamed /playground/ (Jouer au train, Train playground), /conducteur/ redirects: 1c84e3f
+- [x] Kid page: driver ⇄ passenger in one tap, from a views column that never moves (top right): 1c84e3f
+- [x] Kid page: pick a view directly, no more "next, next, next"; a second tap on Outside opens its angles: 1c84e3f
+- [x] The two seated views dropped, on both pages; Passenger is the walk mode, starting seated: 1c84e3f
+- [x] The passenger always starts seated on the upper deck of the first coach, facing the way the train runs: 1c84e3f
+- [x] Game controls when walking. iPad: left stick walks, right stick looks. Mac: WASD or arrows walk, a click hands the mouse or trackpad to the look (Esc frees it), E sits: 1c84e3f
+- [x] Upper deck stairwell: a rail along the open void beside the stairs: 1c84e3f
+- [x] Found while testing: the landing page said 538 km, the line is 829.5 km: 298a163
 - [x] Explainer page GUI, option A "clear the stage" ("Rethink the global GUI it's a mess"): 7d6ac65
 - [x] Walk car to car as a passenger, sit in a free seat, buy at the bar: 2afa664, 4d162de, a878ce5, 4292e1e
 - [x] Cab: Next stop replaces Stop, choose Toulouse or Paris from the driver's seat: 8182e9b
@@ -84,7 +83,7 @@ Nothing leaves this file: a request is added the moment it is made, and a done i
 - [x] A view beside the first door when the doors open: 57951a2
 - [x] Driver's seat: no driver in view, live screens and 3D desk buttons: 5016946
 - [x] TGV inOui livery, no windows on the power cars: 98712f2
-- [x] Window seats on both decks, look around from the seat: acf5bf6 (being replaced by the walk mode, open item 1)
+- [x] Window seats on both decks, look around from the seat: acf5bf6 (replaced on 2026-10-02 by the passenger's walk, which starts seated: 1c84e3f)
 - [x] Seated, the eye is fixed to the car and the landscape does the moving: acf5bf6
 - [x] Windows sealed into the wall, cab windshield edges no longer cut oddly: 00d7bfd
 - [x] Softer sound that comes from where the engine is: 9b473dd
