@@ -215,5 +215,13 @@
       <button type="button" id="cabUi" aria-pressed="false" aria-label="Afficher ou masquer les commandes" title="Afficher ou masquer les commandes" data-i18n-aria="cab_ui" data-i18n-title="cab_ui">🎛️</button>
       <button type="button" id="cabLeave" aria-label="Quitter la cabine" title="Quitter la cabine" data-i18n-aria="cab_leave" data-i18n-title="cab_leave">✕</button>
     </div>
+    <div class="cab-deck" id="cabDeck">
+      <div class="cab-line" id="cabLine"></div>
+      <div class="cab-lever" title="Vers le haut, la traction et la vitesse visée. Vers le bas, le frein. Touches ↑ et ↓." data-i18n-title="cab_lever_tip">
+        <span class="cl-end" data-i18n="scr_power">Traction</span>
+        <div class="cl-track" id="clTrack" role="slider" tabindex="0" aria-orientation="vertical" aria-valuemin="-8" aria-valuemax="8" aria-valuenow="0" aria-label="Manipulateur traction-freinage" data-i18n-aria="cab_lever"><b id="clKnob"><span id="clVal">0</span></b></div>
+        <span class="cl-end" data-i18n="scr_brake">Frein</span>
+      </div>
+    </div>
   </main>
 </div>

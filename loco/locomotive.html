@@ -155,9 +155,24 @@ body:not([data-mode="tgv"]) .tgv-only{display:none}
 body.in-cab:not(.cab-ui) :is(.dock,.infocard,.gauges,.hud,.compass,#labels){display:none}
 body.in-cab .cab-bar{display:flex}
 @media (min-width:841px){ body.in-cab .gauges{top:68px} body.in-cab :is(.hud,.compass){top:140px} }   /* the cab's two buttons keep the top right corner */
+/* the cab's own controls while the page's are put away: the line bar over the windshield, the power/brake lever at the driver's left hand */
+.cab-deck{display:none}
+body.in-cab:not(.cab-ui) .cab-deck{display:block}
+.cab-line{position:absolute;top:12px;left:50%;transform:translateX(-50%);width:min(680px,calc(100% - 240px));background:var(--panel);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid var(--line);border-radius:8px;padding:10px 12px 2px}
+.cab-line #routeBar{margin-top:0}
+.cab-lever{position:absolute;left:12px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;align-items:center;gap:8px;padding:10px 8px;background:var(--panel);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid var(--line);border-radius:10px;-webkit-user-select:none;user-select:none}
+.cl-end{font-size:10px;letter-spacing:.08em;text-transform:uppercase;font-weight:600;color:var(--ok)}
+.cl-end:last-child{color:var(--bad)}
+.cl-track{position:relative;width:52px;height:min(240px,36vh);margin:9px 0;cursor:ns-resize;touch-action:none;border-radius:4px}
+.cl-track:focus-visible{outline:2px solid var(--accent);outline-offset:6px}
+.cl-track::before{content:"";position:absolute;left:50%;top:-6px;bottom:-6px;width:8px;transform:translateX(-50%);border-radius:4px;background:linear-gradient(var(--ok),var(--panel-2) 50%,var(--bad))}
+.cl-track i{position:absolute;left:12px;right:12px;height:1px;background:var(--muted)}
+.cl-track i.z{left:4px;right:4px;height:2px;margin-top:-1px;background:var(--ink)}
+#clKnob{position:absolute;left:0;right:0;top:50%;height:20px;transform:translateY(-50%);border-radius:5px;background:var(--panel-solid);border:2px solid var(--accent);box-shadow:0 2px 6px rgba(0,0,0,.35);transition:top .12s}
+#clVal{position:absolute;left:calc(100% + 18px);top:50%;transform:translateY(-50%);background:var(--accent);color:var(--accent-ink);font:600 11px/1 var(--font-mono);padding:4px 6px;border-radius:4px;white-space:nowrap;pointer-events:none}
 /* while the train runs and nobody touches the page the overlays fade away (ui-idle, set by the page's script); any move, tap or key brings them back */
-:is(.dock,.infocard,.gauges,.hud,.compass,#labels,.cab-bar){transition:opacity .2s}
-body.ui-idle :is(.dock,.infocard,.gauges,.hud,.compass,#labels,.cab-bar){opacity:0;visibility:hidden;pointer-events:none;transition:opacity .8s,visibility 0s .8s}
+:is(.dock,.infocard,.gauges,.hud,.compass,#labels,.cab-bar,.cab-deck){transition:opacity .2s}
+body.ui-idle :is(.dock,.infocard,.gauges,.hud,.compass,#labels,.cab-bar,.cab-deck){opacity:0;visibility:hidden;pointer-events:none;transition:opacity .8s,visibility 0s .8s}
 .btn.horn{width:100%;font-weight:600}
 .btn.horn.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
 @media (max-width:840px){
@@ -171,6 +186,8 @@ body.ui-idle :is(.dock,.infocard,.gauges,.hud,.compass,#labels,.cab-bar){opacity
   .infocard.collapsed{right:auto;max-width:calc(100% - 88px);padding:6px 8px 6px 12px}
   .compass{top:12px;right:12px;width:48px;height:48px}
   .cab-bar{flex-direction:column}body.in-cab .compass{display:none}
+  .cab-line{left:12px;right:68px;width:auto;transform:none}
+  .cab-lever{top:72px;transform:none;max-height:calc(100% - 84px)}.cl-track{min-height:72px}   /* the line bar spans the width here: the lever starts under it, its track giving way on a short screen */
   .infocard h2{font-size:19px}
   .infocard p{font-size:13px;margin-top:6px}
   .gauges{top:auto;bottom:calc(44% + 8px);left:8px;right:8px;grid-auto-flow:row;grid-template-columns:repeat(5,1fr);gap:4px}
@@ -187,6 +204,6 @@ body.ui-idle :is(.dock,.infocard,.gauges,.hud,.compass,#labels,.cab-bar){opacity
   .seg button{padding:5px 8px;font-size:12px}
 }
 @media (prefers-reduced-motion: reduce){
-  .switch input,.switch input::after,.dot,.g .bar i{transition:none}
+  .switch input,.switch input::after,.dot,.g .bar i,#clKnob{transition:none}
 }
 </style>

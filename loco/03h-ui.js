@@ -228,6 +228,7 @@ window.addEventListener('keydown', e => {
   if (e.key === 'ArrowRight'){ stopAuto(); goStep(stepIdx + 1); }
   else if (e.key === 'ArrowLeft'){ stopAuto(); goStep(stepIdx - 1); }
   else if (e.key === 'Escape'){ if (inCab) cabActions.leave(); else select(null); }
+  else if (inCab && (e.key === 'ArrowUp' || e.key === 'ArrowDown')){ e.preventDefault(); cabLever.step(e.key === 'ArrowUp' ? 1 : -1); }   // the driver's lever
 });
 
 /* ---- controls */
@@ -237,7 +238,7 @@ function syncControls(){
   $('rgThrottle').value = S.notch; $('throttleVal').textContent = `${S.notch} · ${Math.round(S.vMaxEff * S.notch / 8 * 3.6)} km/h`;
   $('trackSeg').querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(+b.dataset.track === trk.to)));
   $('timeSeg').querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(+b.dataset.time === S.timeScale)));
-  $('rgBrake').value = S.brake; $('brakeVal').textContent = S.brake;
+  $('rgBrake').value = S.brake; $('brakeVal').textContent = S.brake; cabLever.sync();
   $('dirSeg').querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(+b.dataset.dir === S.dir)));
   $('btnStart').disabled = !(S.battery && S.engine === 'off');
   $('btnStop').disabled = !(S.engine === 'running' || S.engine === 'cranking');
@@ -390,6 +391,14 @@ const cabActions = {   // what each desk button does, and the way out of the cab
   panto(){ $('swPanto').click(); },
   doors(){ $('swDoors').click(); },
   stop(){ manual(); S.notch = 0; S.brake = 8; syncControls(); },   // emergency: power off, full brake
+  lever(v){   // the combined lever: up powers (each notch a speed to hold), down brakes; pushed up it readies a cold train and closes its doors
+    manual();
+    if (v > 0){
+      if (S.mode === 'diesel') ensureRunning(); else ensureLive();
+      if (S.doors){ if (paxHolding()) PX.closeWhenDone = true; else S.doors = false; }   // the last passengers through first, as the doors switch does
+    }
+    S.notch = Math.max(0, v); S.brake = Math.max(0, -v); syncControls();
+  },
   leave(){ flyPreset(stepV(STEPS[S.mode][stepIdx]).cam); },   // back to the guide's view
 };
 const shown = o => { for (; o; o = o.parent) if (!o.visible) return false; return true; };
@@ -411,9 +420,44 @@ function keepDriver(){   // in the driver's place the page's controls step aside
   if (on !== inCab){ inCab = on; document.body.classList.toggle('in-cab', on); showCabUi(false); }
   if (on && orbit.fp.obj !== driverSeat()) flyPreset('driver');
 }
-function showCabUi(on){ document.body.classList.toggle('cab-ui', on); $('cabUi').setAttribute('aria-pressed', String(on)); }
+let rbHome = null;   // where the line bar lives with the page's controls (the HUD, or the kid page's bottom panel) while it sits over the windshield
+function showCabUi(on){
+  document.body.classList.toggle('cab-ui', on); $('cabUi').setAttribute('aria-pressed', String(on));
+  const rb = $('routeBar');
+  if (inCab && !on){ if (!rbHome){ rbHome = [rb.parentElement, rb.nextSibling]; $('cabLine').appendChild(rb); } }
+  else if (rbHome){ rbHome[0].insertBefore(rb, rbHome[1]); rbHome = null; }
+}
 $('cabUi').addEventListener('click', () => showCabUi(!document.body.classList.contains('cab-ui')));
 $('cabLeave').addEventListener('click', () => cabActions.leave());
+const cabLever = (() => {   // the HTML lever: drag or tap along it, or ↑ ↓; it follows the train when the autopilot or the page's controls move it
+  const tr = $('clTrack'), knob = $('clKnob'), val = $('clVal'), L = { min:-8, max:8 };   // the kid build makes it 0 to 8, its own lever's range
+  const at = v => `${((L.max - v) / (L.max - L.min) * 100).toFixed(2)}%`;   // the top is full power
+  L.build = () => {
+    tr.querySelectorAll('i').forEach(i => i.remove());
+    for (let v = L.min; v <= L.max; v++){ const i = document.createElement('i'); i.style.top = at(v); if (!v && L.min < 0) i.className = 'z'; tr.prepend(i); }
+    tr.setAttribute('aria-valuemin', L.min); L.sync();
+  };
+  L.pos = () => L.min < 0 && S.brake > 0 ? -S.brake : S.notch;
+  L.sync = () => {
+    const v = L.pos(); knob.style.top = at(v);
+    val.textContent = v > 0 ? `${Math.round(S.vMaxEff * v / 8 * 3.6)} km/h` : v < 0 ? `${t('scr_brake')} ${-v}` : '0';
+    tr.setAttribute('aria-valuenow', v); tr.setAttribute('aria-valuetext', val.textContent);
+  };
+  const set = v => { v = clamp(Math.round(v), L.min, L.max); if (v !== L.pos()) cabActions.lever(v); L.sync(); };
+  L.step = d => set(L.pos() + d);
+  const fromY = e => { const r = tr.getBoundingClientRect(); return L.max - clamp((e.clientY - r.top) / r.height, 0, 1) * (L.max - L.min); };
+  let drag = false;
+  tr.addEventListener('pointerdown', e => { if (e.button) return; drag = true; tr.setPointerCapture(e.pointerId); set(fromY(e)); });
+  tr.addEventListener('pointermove', e => { if (drag) set(fromY(e)); });
+  for (const ev of ['pointerup', 'pointercancel']) tr.addEventListener(ev, () => { drag = false; });
+  tr.addEventListener('keydown', e => {   // its own keys only: the page's arrows would step the guide away from the cab
+    const d = { ArrowUp:1, ArrowRight:1, PageUp:4, ArrowDown:-1, ArrowLeft:-1, PageDown:-4 }[e.key];
+    if (d) L.step(d); else if (e.key === 'Home') set(L.min); else if (e.key === 'End') set(L.max); else return;
+    e.preventDefault(); e.stopPropagation();
+  });
+  return L;
+})();
+cabLever.build();
 let cabT = 1;   // seconds since the screens were last drawn
 const _cabP = new THREE.Vector3();
 function updateCab(dt){
@@ -540,14 +584,14 @@ function updateHud(){
   $('hudNext').textContent = st ? `${st.name} · ${d < 950 ? `${Math.round(d)} m` : `${(d / 1000).toFixed(d < 10000 ? 1 : 0)} km`}` : t('hud_end');
   const k = ROUTE.kindAt(s); $('hudKind').textContent = k ? t(KIND_KEY[k]) : '';
   $('rbTrain').style.left = `${(RB.f(s) * 100).toFixed(2)}%`;
-  $('throttleVal').textContent = `${S.notch} · ${Math.round(S.vMaxEff * S.notch / 8 * 3.6)} km/h`;
+  $('throttleVal').textContent = `${S.notch} · ${Math.round(S.vMaxEff * S.notch / 8 * 3.6)} km/h`; cabLever.sync();
 }
 function tailLen(){ return S.mode === 'tgv' ? (S.sets === 2 || S.coupling !== 0 ? 382.5 - Math.min(0, S.set2Off) : 185.4) : 82; }
 /* teleport along the line; the train keeps its speed unless asked to stop */
 function jumpTo(s, stop = false){
   manual(); S.autoStop = false; S.autoDoors = false; S.coupling = 0;
   S.dist = clamp(s, 8 + tailLen(), ROUTE.L - 15.5);
-  if (stop){ S.speed = 0; S.notch = 0; S.brake = 0; }
+  if (stop){ S.speed = 0; S.notch = 0; S.brake = 0; S.throttleN = 0; }   // no effort left over to nudge it off the mark
   S.stopS = S.dist; trk.from = trk.to; trk.s0 = -1e9; paxResolve(); voltSnap();
   S.atStation = S.speed < 0.05 && Math.abs(stationOffset()) < 2; if (!S.atStation) S.doors = false;
   for (const o of opp){ o.active = false; o.group.visible = false; }
@@ -709,7 +753,7 @@ function updateIdle(dt){
   idleT += dt;
   if (Math.abs(S.speed) < 0.3){ idleT = Math.min(idleT, 0); if (B.contains('ui-idle')) B.remove('ui-idle'); return; }   // a train at rest brings them back
   if (idleT < IDLE_S || B.contains('ui-idle')) return;
-  if (lastPtr === 'mouse' && document.querySelector(':is(.dock,.infocard,.hud,.gauges,.cab-bar):hover')){ idleT = 0; return; }   // the mouse rests on them: someone is reading
+  if (lastPtr === 'mouse' && document.querySelector(':is(.dock,.infocard,.hud,.gauges,.cab-bar,.cab-deck>*):hover')){ idleT = 0; return; }   // the mouse rests on them: someone is reading
   B.add('ui-idle');
 }
 let frameHook = null;   // the kid build hangs its own rules here
@@ -725,4 +769,4 @@ resize();
 setShell(0.18); setCut('none'); setExplode(0);
 setMode('diesel');
 requestAnimationFrame(loop);
-window.locoDebug = { CAB, driverSeat, cabActions, S, simulate, animate, updateFlows, updateGauges, orbit, renderer, scene, camera, goStep, setMode, setCut, setExplode, setShell, select, parts, TGV, tgvSets, station, updateTgv, syncControls, tick:window.tick, ROUTE, horn, chunks, requestTrack, trk, opp, parked, cars, curveLocal, updateHud, jumpToStation, jumpTo, setWeather, pcHosts, pcShells, flowObjs, landmarks, flyPreset, SND, PX, pool, paxResolve, paxHolding, allCoaches, world };
+window.locoDebug = { CAB, driverSeat, cabActions, cabLever, S, simulate, animate, updateFlows, updateGauges, orbit, renderer, scene, camera, goStep, setMode, setCut, setExplode, setShell, select, parts, TGV, tgvSets, station, updateTgv, syncControls, tick:window.tick, ROUTE, horn, chunks, requestTrack, trk, opp, parked, cars, curveLocal, updateHud, jumpToStation, jumpTo, setWeather, pcHosts, pcShells, flowObjs, landmarks, flyPreset, SND, PX, pool, paxResolve, paxHolding, allCoaches, world };
