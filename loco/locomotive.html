@@ -193,8 +193,6 @@ body.walking :is(.dock,.infocard,.gauges,.hud,.compass,#labels){display:none}
 body.touch .walk-stick{display:block}
 .walk-sit{position:absolute;right:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));height:52px;padding:0 22px;border-radius:26px;font-weight:600;font-size:15px}
 body.touch .walk-sit{bottom:calc(156px + env(safe-area-inset-bottom,0px))}   /* over the right stick */
-.walk-cross{display:none;position:absolute;left:50%;top:50%;width:22px;height:22px;margin:-11px 0 0 -11px;pointer-events:none;background:linear-gradient(#fff,#fff) center/2px 100% no-repeat,linear-gradient(#fff,#fff) center/100% 2px no-repeat;filter:drop-shadow(0 0 1.5px rgba(0,0,0,.9))}
-body.walk-lock .walk-cross{display:block}
 .walk-leave{position:absolute;top:12px;right:12px;width:44px;height:44px;padding:0;border-radius:50%;font-size:20px;line-height:1}
 .walk-say{position:absolute;top:14px;left:50%;transform:translateX(-50%);max-width:min(560px,calc(100% - 140px));background:var(--panel);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid var(--line);border-radius:8px;padding:8px 14px;font-size:13.5px;text-align:center;pointer-events:none}
 .walk-say[hidden]{display:none}

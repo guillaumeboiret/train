@@ -1557,7 +1557,7 @@ function driverView(){   // first person in the driver's place, the page's contr
 /* ---- walking through set 1 in first person (CAMS.walk): up the stair at a car's rear end, over the bridge and through the upper-deck
    gangway into the next car, either way, and into any free seat (occ 4 while taken). The walker stands at x from the rear end of car
    WK.i, on floor y, at z across, inside the boxes of that car's floor plan (walkZones). keepWalker (03h) drives it every frame */
-const WK = { on:false, i:0, x:0, y:0, z:0, ey:0, seat:-1, stool:-1, hold:false };   // ey: the eye's floor, eased up and down the stair; stool: the bar car's stool sat on; hold: forward still held from before sitting
+const WK = { on:false, back:false, i:0, x:0, y:0, z:0, ey:0, yaw:0, pitch:0, seat:-1, stool:-1, hold:false };   // back: walked before, Passenger again resumes there; ey: the eye's floor, eased up and down the stair; yaw, pitch: the look, kept each frame (03h) for coming back; stool: the bar car's stool sat on; hold: forward still held from before sitting
 const WALK_EYE = 1.33, WALK_R = 0.35, WALK_REACH = 2.2;   // eye over the floor; room kept from anyone walking in the car; how far a seat can be taken from
 const _wk = new THREE.Vector3(), _wk2 = new THREE.Vector3(), _wkQ = new THREE.Quaternion(), _wkQ2 = new THREE.Quaternion();
 const WALK_Z = {};
@@ -1689,17 +1689,20 @@ function walkPick(ray){   // a tap on a seat of the walker's car (not through th
   else if (c.occ[i] !== 0) walkSay('walk_taken');
   else walkSit(i);
 }
-function walkFree(){   // out of the walk: the seat (or the stool) is free again
-  const c = tgvSets[0].coaches[WK.i];
-  if (WK.seat >= 0) c.occ[WK.seat] = 0;
-  if (WK.stool >= 0) c.bar.taken[WK.stool] = 0;
-  WK.seat = WK.stool = -1; WK.on = false;
-}
-function walkView(){   // the passenger: seated by the window on coach 1's upper deck, facing the way the train runs (a seat no traveller takes); already walking: stay put
+function walkAway(){ WK.on = false; WK.back = true; }   // off to another view: the spot, the look and the seat or stool (still occ 4, taken 4: nobody sits there) wait for the passenger
+function walkView(){   // the passenger: first seated by the window on coach 1's upper deck, facing the way the train runs (a seat no traveller takes); back from another view, where they were, looking the same way; already walking: stay put
   if (S.mode !== 'tgv' || WK.on) return null;
-  const c = tgvSets[0].coaches[0];
-  Object.assign(WK, { on:true, i:0, seat:-1, stool:-1 });
-  walkSit(c.view[2 + (S.dir < 0 ? 1 : 0)]);   // walkSit takes the view there itself: nothing left for flyPreset to do
+  if (!WK.back){
+    Object.assign(WK, { on:true, i:0, seat:-1, stool:-1 });
+    walkSit(tgvSets[0].coaches[0].view[2 + (S.dir < 0 ? 1 : 0)]);   // walkSit takes the view there itself: nothing left for flyPreset to do
+    return null;
+  }
+  const c = tgvSets[0].coaches[WK.i], { yaw, pitch } = WK;
+  WK.on = true;
+  if (WK.seat >= 0) walkSit(WK.seat);
+  else if (WK.stool >= 0) walkSitStool(WK.stool);
+  else { WK.ey = WK.y; orbit.look(c.g, new THREE.Vector3(c.xr + WK.x, WK.y + WALK_EYE, WK.z), yaw, pitch); orbit.fp.name = 'walk'; }
+  Object.assign(orbit.fp, { yaw, pitch });
   return null;
 }
 

@@ -239,18 +239,18 @@ class Orbit {
     this.tTarget = this.target.clone(); this.tSph = this.sph.clone();
     this.autoRotate = false; this.moved = 0;
     this.ptrs = new Map(); this.lastPinch = 0; this.lastMid = null;
-    this.onClick = null; this.onPress = null;   // onPress(e) returns true when it took the press (a cab button), so the view does not turn
+    this.onClick = null; this.onPress = null; this.onWheel = null;   // onPress(e) returns true when it took the press (a cab button), so the view does not turn; onWheel(e), when it took the wheel (walking: it looks), so it does not zoom
     this.fp = null; this.fpZoom = 1; this.fov = cam.fov;   // first person {obj, eye, yaw, pitch, t, from, fromQ}; fov: the orbit's own lens
     dom.addEventListener('pointerdown', e => this.down(e));
     dom.addEventListener('pointermove', e => this.move(e));
     dom.addEventListener('pointerup', e => this.up(e));
     dom.addEventListener('pointercancel', e => this.up(e));
-    dom.addEventListener('wheel', e => { e.preventDefault(); this.zoom(Math.exp(e.deltaY * 0.0012)); }, { passive:false });
+    dom.addEventListener('wheel', e => { e.preventDefault(); if (!this.onWheel?.(e)) this.zoom(Math.exp(e.deltaY * 0.0012)); }, { passive:false });
     dom.addEventListener('contextmenu', e => e.preventDefault());
   }
   down(e){
     if (this.onPress?.(e)) return;
-    if (!document.pointerLockElement) this.dom.setPointerCapture(e.pointerId);   // the mouse locked to the view (walking, 03h) takes no capture: it would throw
+    this.dom.setPointerCapture(e.pointerId);
     this.ptrs.set(e.pointerId, { x:e.clientX, y:e.clientY, b:e.button, shift:e.shiftKey });
     this.moved = 0; this.dom.classList.add('dragging');
     if (this.ptrs.size === 2){ const [a, b] = [...this.ptrs.values()]; this.lastPinch = Math.hypot(a.x - b.x, a.y - b.y); this.lastMid = { x:(a.x + b.x) / 2, y:(a.y + b.y) / 2 }; }

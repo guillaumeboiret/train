@@ -193,8 +193,6 @@ body.walking :is(.dock,.infocard,.gauges,.hud,.compass,#labels){display:none}
 body.touch .walk-stick{display:block}
 .walk-sit{position:absolute;right:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));height:52px;padding:0 22px;border-radius:26px;font-weight:600;font-size:15px}
 body.touch .walk-sit{bottom:calc(156px + env(safe-area-inset-bottom,0px))}   /* over the right stick */
-.walk-cross{display:none;position:absolute;left:50%;top:50%;width:22px;height:22px;margin:-11px 0 0 -11px;pointer-events:none;background:linear-gradient(#fff,#fff) center/2px 100% no-repeat,linear-gradient(#fff,#fff) center/100% 2px no-repeat;filter:drop-shadow(0 0 1.5px rgba(0,0,0,.9))}
-body.walk-lock .walk-cross{display:block}
 .walk-leave{position:absolute;top:12px;right:12px;width:44px;height:44px;padding:0;border-radius:50%;font-size:20px;line-height:1}
 .walk-say{position:absolute;top:14px;left:50%;transform:translateX(-50%);max-width:min(560px,calc(100% - 140px));background:var(--panel);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid var(--line);border-radius:8px;padding:8px 14px;font-size:13.5px;text-align:center;pointer-events:none}
 .walk-say[hidden]{display:none}
@@ -527,7 +525,6 @@ body.ui-idle :is(.dock,.infocard,.gauges,.hud,.compass,#labels,.cab-bar,.cab-dec
       <div class="walk-say" id="walkSay" role="status" aria-live="polite" hidden></div>
       <div class="walk-stick" id="walkMove" data-stick="move" aria-hidden="true"><b>👣</b></div>
       <div class="walk-stick r" id="walkLook" data-stick="look" aria-hidden="true"><b>👀</b></div>
-      <div class="walk-cross" aria-hidden="true"></div>
       <button type="button" class="walk-sit" id="walkSit" data-i18n="walk_sit">S'asseoir</button>
       <button type="button" class="walk-leave" id="walkLeave" aria-label="Arrêter de marcher" title="Arrêter de marcher" data-i18n-aria="walk_leave" data-i18n-title="walk_leave">✕</button>
       <div class="bar-menu" id="barMenu" role="dialog" aria-labelledby="barTitle" hidden>
@@ -572,7 +569,7 @@ const T = {
     ctl_station:"Arrêt en gare (pilote auto)", station_go:"Aller au quai", station_running:"Approche…", station_at:"À quai", station_hint:"Freine et arrête la rame au repère du quai.",
     coupling:"Accostage…", uncoupling:"Séparation…", lamp_doors:"Portes", info_hide:"Masquer la fiche", info_show:"Afficher la fiche", f_roof:"Ligne de toiture 25 kV",
     cam_train:"Rame entière", cam_rearroof:"Motrice arrière", cam_coupler:"Attelage", cam_station:"Gare", cam_door:"Portes", cam_pax:"Passager", cam_driver:"Poste de conduite", cab_ui:"Afficher ou masquer les commandes", cab_leave:"Quitter la cabine",
-    walk_sit:"S'asseoir", walk_stand:"Se lever", walk_leave:"Arrêter de marcher", walk_taken:"Place occupée", walk_noseat:"Pas de place libre ici", walk_far:"Trop loin", walk_car:"Voiture", walk_first:"1re classe", walk_hint:"ZQSD ou flèches: marcher (Maj: courir). Cliquer dans la vue, puis la souris regarde (Échap la libère). Clic sur un siège libre, ou E: s'asseoir, se lever.", walk_hint_touch:"Joystick gauche: marcher. Joystick droit: regarder. Toucher un siège libre pour s'asseoir.", cab_lever:"Manipulateur traction-freinage", cab_lever_tip:"Vers le haut, la traction et la vitesse visée. Vers le bas, le frein. Touches ↑ et ↓.", scr_brake:"Frein", scr_power:"Traction", scr_engine:"Moteur", scr_doors:"Portes", scr_panto_dn:"Panto baissé", btn_horn:"Klaxon", btn_panto:"Panto", btn_doors:"Portes", btn_next:"Prochain arrêt", dir_tls:"Vers Toulouse", dir_par:"Vers Paris", cab_stopped:"Arrêtez d'abord le train", cab_end:"Terminus : changez de sens",
+    walk_sit:"S'asseoir", walk_stand:"Se lever", walk_leave:"Arrêter de marcher", walk_taken:"Place occupée", walk_noseat:"Pas de place libre ici", walk_far:"Trop loin", walk_car:"Voiture", walk_first:"1re classe", walk_hint:"ZQSD ou flèches: marcher (Maj: courir). Glisser dans la vue, ou deux doigts sur le trackpad: regarder. Clic sur un siège libre, ou E: s'asseoir, se lever.", walk_hint_touch:"Joystick gauche: marcher. Joystick droit: regarder. Toucher un siège libre pour s'asseoir.", cab_lever:"Manipulateur traction-freinage", cab_lever_tip:"Vers le haut, la traction et la vitesse visée. Vers le bas, le frein. Touches ↑ et ↓.", scr_brake:"Frein", scr_power:"Traction", scr_engine:"Moteur", scr_doors:"Portes", scr_panto_dn:"Panto baissé", btn_horn:"Klaxon", btn_panto:"Panto", btn_doors:"Portes", btn_next:"Prochain arrêt", dir_tls:"Vers Toulouse", dir_par:"Vers Paris", cab_stopped:"Arrêtez d'abord le train", cab_end:"Terminus : changez de sens",
     walk_bar:"Bar", bar_title:"Le bar", bar_order:"Commander", bar_close:"Fermer le menu", bar_wallet:"Porte-monnaie", bar_tray:"Mon plateau", bar_tray_hint:"Choisis-en un pour le déguster.", bar_empty:"Rien pour l'instant.", bar_pocket:"Argent de poche +10€", bar_pocket_say:"Et 10€ de plus !", bar_broke:"Pas assez de sous", bar_thanks:"Voilà ! Merci.", bar_yum:"Miam !", bar_gulp:"Glou glou !", bar_free:"Gratuit", bar_full:"Plateau plein, goûte d'abord !", bar_speed:"Vitesse du train",
     bar_i_espresso:"Café", bar_i_choco:"Chocolat chaud", bar_i_tea:"Thé", bar_i_soda:"Soda", bar_i_juice:"Jus de pomme", bar_i_water:"Verre d'eau", bar_i_club:"Club sandwich", bar_i_croque:"Croque-monsieur", bar_i_burger:"Burger", bar_i_cookie:"Cookie", bar_i_muffin:"Muffin", bar_i_painchoc:"Pain au chocolat", bar_i_chips:"Chips", bar_i_sweets:"Bonbons",
     ctl_track:"Voie", track_hint:"Changement par une communication 400 m devant la rame.", track_busy:"Communication déjà engagée, attendez.", track_occupied:"Voie occupée par un train en face.", track_2:"Voie 2 (sens Paris)", track_1:"Voie 1 (sens Toulouse)",
@@ -609,7 +606,7 @@ const T = {
     ctl_station:"Station stop (autopilot)", station_go:"Go to platform", station_running:"Approaching…", station_at:"At platform", station_hint:"Brakes and stops the set at the platform mark.",
     coupling:"Coupling…", uncoupling:"Uncoupling…", lamp_doors:"Doors", info_hide:"Hide card", info_show:"Show card", f_roof:"25 kV roof line",
     cam_train:"Whole train", cam_rearroof:"Rear power car", cam_coupler:"Coupling", cam_station:"Station", cam_door:"Doors", cam_pax:"Passenger", cam_driver:"Driver's seat", cab_ui:"Show or hide the controls", cab_leave:"Leave the cab",
-    walk_sit:"Sit down", walk_stand:"Stand up", walk_leave:"Stop walking", walk_taken:"Seat taken", walk_noseat:"No free seat here", walk_far:"Too far", walk_car:"Car", walk_first:"First class", walk_hint:"WASD or arrows: walk (Shift: run). Click the view, then the mouse looks around (Esc frees it). Click a free seat, or E: sit down, stand up.", walk_hint_touch:"Left stick: walk. Right stick: look around. Tap a free seat to sit.", cab_lever:"Power and brake lever", cab_lever_tip:"Up for power and the speed to hold, down to brake. Keys ↑ and ↓.", scr_brake:"Brake", scr_power:"Power", scr_engine:"Engine", scr_doors:"Doors", scr_panto_dn:"Panto down", btn_horn:"Horn", btn_panto:"Panto", btn_doors:"Doors", btn_next:"Next stop", dir_tls:"To Toulouse", dir_par:"To Paris", cab_stopped:"Stop the train first", cab_end:"End of the line: change direction",
+    walk_sit:"Sit down", walk_stand:"Stand up", walk_leave:"Stop walking", walk_taken:"Seat taken", walk_noseat:"No free seat here", walk_far:"Too far", walk_car:"Car", walk_first:"First class", walk_hint:"WASD or arrows: walk (Shift: run). Drag the view, or swipe two fingers on the trackpad: look around. Click a free seat, or E: sit down, stand up.", walk_hint_touch:"Left stick: walk. Right stick: look around. Tap a free seat to sit.", cab_lever:"Power and brake lever", cab_lever_tip:"Up for power and the speed to hold, down to brake. Keys ↑ and ↓.", scr_brake:"Brake", scr_power:"Power", scr_engine:"Engine", scr_doors:"Doors", scr_panto_dn:"Panto down", btn_horn:"Horn", btn_panto:"Panto", btn_doors:"Doors", btn_next:"Next stop", dir_tls:"To Toulouse", dir_par:"To Paris", cab_stopped:"Stop the train first", cab_end:"End of the line: change direction",
     walk_bar:"Bar", bar_title:"The bar", bar_order:"Order", bar_close:"Close the menu", bar_wallet:"Wallet", bar_tray:"My tray", bar_tray_hint:"Pick one to enjoy it.", bar_empty:"Nothing yet.", bar_pocket:"Pocket money +10€", bar_pocket_say:"Here's 10€ more!", bar_broke:"Not enough money", bar_thanks:"Here you go! Thanks.", bar_yum:"Yum!", bar_gulp:"Gulp!", bar_free:"Free", bar_full:"Tray full, enjoy something first!", bar_speed:"Train speed",
     bar_i_espresso:"Espresso", bar_i_choco:"Hot chocolate", bar_i_tea:"Tea", bar_i_soda:"Soda", bar_i_juice:"Apple juice", bar_i_water:"Glass of water", bar_i_club:"Club sandwich", bar_i_croque:"Croque-monsieur", bar_i_burger:"Burger", bar_i_cookie:"Cookie", bar_i_muffin:"Muffin", bar_i_painchoc:"Pain au chocolat", bar_i_chips:"Crisps", bar_i_sweets:"Sweets",
     ctl_track:"Track", track_hint:"Changes over a crossover 400 m ahead of the train.", track_busy:"Crossover already in use, wait.", track_occupied:"Track occupied by an oncoming train.", track_2:"Track 2 (to Paris)", track_1:"Track 1 (to Toulouse)",
@@ -1074,18 +1071,18 @@ class Orbit {
     this.tTarget = this.target.clone(); this.tSph = this.sph.clone();
     this.autoRotate = false; this.moved = 0;
     this.ptrs = new Map(); this.lastPinch = 0; this.lastMid = null;
-    this.onClick = null; this.onPress = null;   // onPress(e) returns true when it took the press (a cab button), so the view does not turn
+    this.onClick = null; this.onPress = null; this.onWheel = null;   // onPress(e) returns true when it took the press (a cab button), so the view does not turn; onWheel(e), when it took the wheel (walking: it looks), so it does not zoom
     this.fp = null; this.fpZoom = 1; this.fov = cam.fov;   // first person {obj, eye, yaw, pitch, t, from, fromQ}; fov: the orbit's own lens
     dom.addEventListener('pointerdown', e => this.down(e));
     dom.addEventListener('pointermove', e => this.move(e));
     dom.addEventListener('pointerup', e => this.up(e));
     dom.addEventListener('pointercancel', e => this.up(e));
-    dom.addEventListener('wheel', e => { e.preventDefault(); this.zoom(Math.exp(e.deltaY * 0.0012)); }, { passive:false });
+    dom.addEventListener('wheel', e => { e.preventDefault(); if (!this.onWheel?.(e)) this.zoom(Math.exp(e.deltaY * 0.0012)); }, { passive:false });
     dom.addEventListener('contextmenu', e => e.preventDefault());
   }
   down(e){
     if (this.onPress?.(e)) return;
-    if (!document.pointerLockElement) this.dom.setPointerCapture(e.pointerId);   // the mouse locked to the view (walking, 03h) takes no capture: it would throw
+    this.dom.setPointerCapture(e.pointerId);
     this.ptrs.set(e.pointerId, { x:e.clientX, y:e.clientY, b:e.button, shift:e.shiftKey });
     this.moved = 0; this.dom.classList.add('dragging');
     if (this.ptrs.size === 2){ const [a, b] = [...this.ptrs.values()]; this.lastPinch = Math.hypot(a.x - b.x, a.y - b.y); this.lastMid = { x:(a.x + b.x) / 2, y:(a.y + b.y) / 2 }; }
@@ -3674,7 +3671,7 @@ function driverView(){   // first person in the driver's place, the page's contr
 /* ---- walking through set 1 in first person (CAMS.walk): up the stair at a car's rear end, over the bridge and through the upper-deck
    gangway into the next car, either way, and into any free seat (occ 4 while taken). The walker stands at x from the rear end of car
    WK.i, on floor y, at z across, inside the boxes of that car's floor plan (walkZones). keepWalker (03h) drives it every frame */
-const WK = { on:false, i:0, x:0, y:0, z:0, ey:0, seat:-1, stool:-1, hold:false };   // ey: the eye's floor, eased up and down the stair; stool: the bar car's stool sat on; hold: forward still held from before sitting
+const WK = { on:false, back:false, i:0, x:0, y:0, z:0, ey:0, yaw:0, pitch:0, seat:-1, stool:-1, hold:false };   // back: walked before, Passenger again resumes there; ey: the eye's floor, eased up and down the stair; yaw, pitch: the look, kept each frame (03h) for coming back; stool: the bar car's stool sat on; hold: forward still held from before sitting
 const WALK_EYE = 1.33, WALK_R = 0.35, WALK_REACH = 2.2;   // eye over the floor; room kept from anyone walking in the car; how far a seat can be taken from
 const _wk = new THREE.Vector3(), _wk2 = new THREE.Vector3(), _wkQ = new THREE.Quaternion(), _wkQ2 = new THREE.Quaternion();
 const WALK_Z = {};
@@ -3806,17 +3803,20 @@ function walkPick(ray){   // a tap on a seat of the walker's car (not through th
   else if (c.occ[i] !== 0) walkSay('walk_taken');
   else walkSit(i);
 }
-function walkFree(){   // out of the walk: the seat (or the stool) is free again
-  const c = tgvSets[0].coaches[WK.i];
-  if (WK.seat >= 0) c.occ[WK.seat] = 0;
-  if (WK.stool >= 0) c.bar.taken[WK.stool] = 0;
-  WK.seat = WK.stool = -1; WK.on = false;
-}
-function walkView(){   // the passenger: seated by the window on coach 1's upper deck, facing the way the train runs (a seat no traveller takes); already walking: stay put
+function walkAway(){ WK.on = false; WK.back = true; }   // off to another view: the spot, the look and the seat or stool (still occ 4, taken 4: nobody sits there) wait for the passenger
+function walkView(){   // the passenger: first seated by the window on coach 1's upper deck, facing the way the train runs (a seat no traveller takes); back from another view, where they were, looking the same way; already walking: stay put
   if (S.mode !== 'tgv' || WK.on) return null;
-  const c = tgvSets[0].coaches[0];
-  Object.assign(WK, { on:true, i:0, seat:-1, stool:-1 });
-  walkSit(c.view[2 + (S.dir < 0 ? 1 : 0)]);   // walkSit takes the view there itself: nothing left for flyPreset to do
+  if (!WK.back){
+    Object.assign(WK, { on:true, i:0, seat:-1, stool:-1 });
+    walkSit(tgvSets[0].coaches[0].view[2 + (S.dir < 0 ? 1 : 0)]);   // walkSit takes the view there itself: nothing left for flyPreset to do
+    return null;
+  }
+  const c = tgvSets[0].coaches[WK.i], { yaw, pitch } = WK;
+  WK.on = true;
+  if (WK.seat >= 0) walkSit(WK.seat);
+  else if (WK.stool >= 0) walkSitStool(WK.stool);
+  else { WK.ey = WK.y; orbit.look(c.g, new THREE.Vector3(c.xr + WK.x, WK.y + WALK_EYE, WK.z), yaw, pitch); orbit.fp.name = 'walk'; }
+  Object.assign(orbit.fp, { yaw, pitch });
   return null;
 }
 
@@ -6307,9 +6307,9 @@ $('nextStep').addEventListener('click', () => { stopAuto(); goStep(stepIdx + 1);
 $('autoPlay').addEventListener('click', () => autoOn ? stopAuto() : startAuto());
 window.addEventListener('keydown', e => {
   if (e.target.matches('input,textarea,select')) return;
-  if (walking){   // WASD or the arrows walk (the keys below); E or Enter sits down, stands up or orders at the bar; Esc closes the bar's menu or stops walking, once the mouse is free (taken by the view, Esc only frees it)
+  if (walking){   // WASD or the arrows walk (the keys below); E or Enter sits down, stands up or orders at the bar; Esc closes the bar's menu or stops walking
     const sitKey = e.code === 'KeyE' || e.key === 'Enter' && !e.target.closest('button,a');
-    if (e.key === 'Escape'){ if (walkLocked() || performance.now() - lockOffT < 300) return; if (barIsOpen()) barClose(); else cabActions.leave(); }
+    if (e.key === 'Escape'){ if (barIsOpen()) barClose(); else cabActions.leave(); }
     else if (sitKey && e.repeat) e.preventDefault();   // held: not once more
     else if (sitKey && !barIsOpen()){ e.preventDefault(); walkSitNear(); }
     return;
@@ -6459,10 +6459,8 @@ const ray = new THREE.Raycaster(), ptr = new THREE.Vector2();
 orbit.onClick = e => {
   if (inCab){ wakeTap = false; cabTap(e); return; }   // nothing to pick from the driver's seat: its view's edges jump along the line
   if (wakeTap){ wakeTap = false; return; }   // that tap only brought the controls back
-  if (walking && !lockAtDown && walkLocked()) return;   // that click took the mouse for the view, it picks nothing
   const r = canvas.getBoundingClientRect();
-  if (lockAtDown) ptr.set(0, 0);   // the mouse taken: what the crosshair, in the middle, points at
-  else ptr.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+  ptr.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
   ray.setFromCamera(ptr, camera);
   if (walking){ if (barIsOpen()) barClose(); else walkPick(ray); return; }   // walking: a tap on a free seat sits there (the bar's menu open: a tap beside it puts it away)
   const catG = [...chunks.values()].map(c => c.cat);
@@ -6583,7 +6581,7 @@ function keepWalker(dt){
   if (on !== walking){
     walking = on; document.body.classList.toggle('walking', on);
     if (on){ document.activeElement?.blur?.(); walkSay(document.body.classList.contains('touch') ? 'walk_hint_touch' : 'walk_hint', 0, 8000); }   // off the Passenger button: Enter now sits
-    else { barClose(); walkFree(); walkSay(null); keys.clear(); stickReset(); walkUnlock(); }
+    else { barClose(); walkAway(); walkSay(null); keys.clear(); stickReset(); }
   }
   if (!on) return;
   const open = barIsOpen(), k = m => !open && keys.has(m) ? 1 : 0, mv = STICK.move, lk = STICK.look;   // the bar's menu open: the keys are the menu's
@@ -6591,6 +6589,7 @@ function keepWalker(dt){
   if (mv.on && !open){ f = -mv.y; s = mv.x; v = 2; }
   if (lk.on && !open) orbit.turn(-lk.x * 2 * dt, -lk.y * 1.2 * dt);
   walkMove(dt, f, s, v);
+  WK.yaw = orbit.fp.yaw; WK.pitch = orbit.fp.pitch;   // the look, for coming back to it (walkView)
   if (f || s || mv.on || lk.on) idleT = Math.min(idleT, 0);   // walking or looking round: the controls stay up
   const sit = barNear() ? 'bar_order' : WK.seat >= 0 || WK.stool >= 0 ? 'walk_stand' : 'walk_sit', b = $('walkSit');
   if (b.dataset.i18n !== sit){ b.dataset.i18n = sit; b.textContent = t(sit); }
@@ -6614,23 +6613,12 @@ document.querySelectorAll('.walk-stick').forEach(el => {   // the knob follows t
 });
 function stickUp(st){ st.on = false; st.id = -1; st.x = st.y = 0; st.el.classList.remove('on'); st.el.firstElementChild.style.transform = ''; }
 function stickReset(){ for (const st of Object.values(STICK)) stickUp(st); }
-let lockAtDown = false, lockOffT = 0;   // the mouse was the view's when the click began; when it was last freed
-const walkLocked = () => document.pointerLockElement === canvas;
-function walkUnlock(){ if (walkLocked()) document.exitPointerLock(); }
-canvas.addEventListener('pointerdown', e => {   // walking, a click on the view hands it the mouse: the pointer hides and every move turns the head, as in a game
-  lockAtDown = walkLocked();
-  if (lockAtDown || !walking || e.pointerType !== 'mouse' || e.button !== 0 || barIsOpen()) return;
-  try { canvas.requestPointerLock()?.catch?.(() => {}); } catch {}   // refused (too soon after Esc, or not allowed here): the click picks at the pointer as before
-});
-document.addEventListener('pointerlockchange', () => {
-  const on = walkLocked(); document.body.classList.toggle('walk-lock', on);
-  if (!on) lockOffT = performance.now();
-});
-document.addEventListener('mousemove', e => {
-  if (!walking || !walkLocked() || !orbit.fp) return;
-  const k = orbit.cam.fov * Math.PI / 180 / Math.max(1, canvas.clientHeight), mx = e.movementX || 0, my = e.movementY || 0;
-  orbit.turn(-mx * k, -my * k); orbit.moved += Math.abs(mx) + Math.abs(my);   // a click that turned the head is no pick
-});
+orbit.onWheel = e => {   // walking, two fingers swiped on a trackpad turn the head as a drag does, the view following them (a pinch still zooms); the mouse stays free for the buttons
+  if (!walking || e.ctrlKey || !orbit.fp) return false;
+  const k = orbit.cam.fov * Math.PI / 180 / Math.max(1, canvas.clientHeight) * (e.deltaMode === 1 ? 16 : 1);
+  orbit.turn(-e.deltaX * k, -e.deltaY * k);
+  return true;
+};
 $('walkSit').addEventListener('click', () => walkSitNear());
 $('walkLeave').addEventListener('click', () => cabActions.leave());
 /* ---- the bar car's counter (03f3): its menu, a purse of play money (in cents, for this visit only) and a tray of what was bought, the
@@ -6663,7 +6651,7 @@ function barRender(){
 }
 function barOpen(){
   if (!walking) return;
-  barRender(); $('barMenu').hidden = false; document.body.classList.add('bar-open'); keys.clear(); stickReset(); walkUnlock(); walkSay(null); barFace();
+  barRender(); $('barMenu').hidden = false; document.body.classList.add('bar-open'); keys.clear(); stickReset(); walkSay(null); barFace();
   $('barItems').firstElementChild.focus({ preventScroll:true });
 }
 function barClose(){
@@ -7061,5 +7049,5 @@ resize();
 setShell(0.18); setCut('none'); setExplode(0);
 setMode('diesel');
 requestAnimationFrame(loop);
-window.locoDebug = { BAR, BAR_MENU, barOpen, barClose, barBuy, barEat, barNear, barIsOpen, walkSitStool, updateBar, CAB, driverSeat, cabActions, cabLever, S, simulate, animate, updateFlows, updateGauges, orbit, renderer, scene, camera, goStep, setMode, setCut, setExplode, setShell, select, parts, TGV, tgvSets, station, updateTgv, syncControls, tick:window.tick, ROUTE, horn, chunks, requestTrack, trk, opp, parked, cars, curveLocal, updateHud, jumpToStation, jumpTo, setWeather, pcHosts, pcShells, flowObjs, landmarks, flyPreset, SND, PX, pool, paxResolve, paxHolding, allCoaches, world, keys, WK, walkMove, walkSitNear, walkPick, walkStand, walkZones, STICK, walkLocked };
+window.locoDebug = { BAR, BAR_MENU, barOpen, barClose, barBuy, barEat, barNear, barIsOpen, walkSitStool, updateBar, CAB, driverSeat, cabActions, cabLever, S, simulate, animate, updateFlows, updateGauges, orbit, renderer, scene, camera, goStep, setMode, setCut, setExplode, setShell, select, parts, TGV, tgvSets, station, updateTgv, syncControls, tick:window.tick, ROUTE, horn, chunks, requestTrack, trk, opp, parked, cars, curveLocal, updateHud, jumpToStation, jumpTo, setWeather, pcHosts, pcShells, flowObjs, landmarks, flyPreset, SND, PX, pool, paxResolve, paxHolding, allCoaches, world, keys, WK, walkMove, walkSitNear, walkPick, walkStand, walkZones, STICK, walkView };
 </script>
