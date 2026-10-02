@@ -5,12 +5,6 @@ Nothing leaves this file: a request is added the moment it is made, and a done i
 
 ## Open, in working order
 
-### 0. Now (asked 2026-10-02)
-- [ ] Back to Passenger after the driver's seat or outside: stay where the passenger was, not back in the coach 1 seat ("I should stay where I was before"). The coach 1 seat stays the very first start.
-- [ ] Passenger mode on the Mac: the mouse can't get back to the buttons ("When I'm in passanger mode I can't get my mouse back to click on buttons").
-- [ ] Bar: "Chocolatine" while the train is in chocolatine country, "Pain au chocolat" everywhere else.
-- [ ] Bar: madeleines on the menu ("you can remove one item if you don't have enough space").
-
 ### 1. World (asked 2026-10-02)
 - [ ] A real clock to set the time of day.
 - [ ] See the sun.
@@ -41,6 +35,10 @@ Nothing leaves this file: a request is added the moment it is made, and a done i
 ## Done
 
 ### 2026-10-02
+- [x] Bar: "Chocolatine" from Toulouse to where the line leaves Charente (km 445.2, Londigny), "Pain au chocolat" north of it, the open menu following: b01c789
+- [x] Bar: madeleines on the menu, 2.50€. 15 items still fit on the Mac and the iPad, nothing removed: b01c789
+- [x] Back to Passenger after the driver's seat or outside: where the passenger was, looking the same way, seated or not ("I should stay where I was before"). The coach 1 seat stays the very first start: ad8466a
+- [x] Passenger mode on the Mac: the mouse stays free for the buttons. Drag or swipe two fingers to look, Esc leaves ("I can't get my mouse back to click on buttons"): ad8466a
 - [x] Kid page renamed /playground/ (Jouer au train, Train playground), /conducteur/ redirects: 1c84e3f
 - [x] Kid page: driver ⇄ passenger in one tap, from a views column that never moves (top right): 1c84e3f
 - [x] Kid page: pick a view directly, no more "next, next, next"; a second tap on Outside opens its angles: 1c84e3f
