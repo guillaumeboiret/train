@@ -770,7 +770,7 @@ function updateOpposing(dt){
     const a = o.s + TGV.TIP_F * o.dir, b = o.s + TGV.TIP_R * o.dir, lo = Math.min(a, b), hi = Math.max(a, b);
     const away = o.v < 0.1 || (lo > camS) === (o.dir > 0);   // standing, or running away from the camera
     if ((Math.max(lo - camS, camS - hi) > gone && away) || Math.abs(o.s - camS) > reach + 1000){ o.active = false; o.group.visible = false; continue; }
-    for (const ax of o.ax) ax.rotation.z -= (o.v / WHEEL_R) * dt;
+    for (const ax of o.ax) ax.rotation.z -= (o.v / (ax.userData.r || WHEEL_R)) * dt;
     for (const c of o.cars){ const s = o.s + c.xc * o.dir; poseWorld(c.pv, s, ROUTE.laneW(o.lane, s), o.dir < 0); }
   }
 }

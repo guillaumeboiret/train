@@ -202,7 +202,7 @@ function animate(dt){
     if (S.pantoF !== lastPanto || S.pantoDcF !== lastPantoDc){ setPanto(S.pantoF); lastPanto = S.pantoF; lastPantoDc = S.pantoDcF; }
   }
   const w = (S.speed / WHEEL_R) * S.dir;
-  for (const ax of axles) ax.rotation.z -= w * dt;
+  for (const ax of axles) ax.rotation.z -= (S.speed * S.dir / (ax.userData.r || WHEEL_R)) * dt;   // each at its own wheels' radius (a trailer's are smaller)
   for (const r of motorRotors) r.rotation.z += w * 3.67 * dt;
   updateRoute(dt);
   for (const f of roofFans){

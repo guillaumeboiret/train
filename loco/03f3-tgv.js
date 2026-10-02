@@ -73,16 +73,42 @@ function zAtY(pts, y){
   for (let i = 0; i < h; i++){ const [z0, y0] = pts[i], [z1, y1] = pts[i + 1]; if (y >= y0 && y <= y1) return z0 + (z1 - z0) * ((y - y0) / Math.max(1e-6, y1 - y0)); }
   return y < pts[0][1] ? pts[0][0] : pts[h][0];
 }
-/* plug-door leaf that follows the body section between y0 and y1 on side s (±1); extruded w along x, centred on x = 0 */
-function doorLeafGeo(pts, s, y0, y1, w, out = 0.012, thick = 0.06){
-  const N = 10, sh = new THREE.Shape(), ys = [];
-  for (let k = 0; k <= N; k++) ys.push(y0 + (y1 - y0) * k / N);
-  ys.forEach((y, k) => { const x = s * (zAtY(pts, y) + out); k ? sh.lineTo(x, y) : sh.moveTo(x, y); });
-  for (let k = N; k >= 0; k--) sh.lineTo(s * (zAtY(pts, ys[k]) + out - thick), ys[k]);
-  sh.closePath();
-  const g = new THREE.ExtrudeGeometry(sh, { depth:w, bevelEnabled:false });
-  g.rotateY(-Math.PI / 2); g.translate(w / 2, 0, 0);   // local extrusion (+z) → world x, centred
-  return g;
+/* plug-door leaf that follows the body section between y0 and y1 on side s (±1), w wide along x and centred on x = 0, its outer face
+   `out` proud of the skin and `thick` deep, with a window through it (win: half width, bottom, top). Its faces bend at the ring
+   heights, as the skin does. Groups: 0 the outer face and the edges round the leaf, 1 the inner face, 2 the window's reveals.
+   pane: the window's glass, halfway through the leaf and 1 cm into the reveals all round, facing out */
+function doorLeafGeo(pts, s, y0, y1, w, [wx, wy0, wy1], out = 0.012, thick = 0.06){
+  const rows = (a, b, cut = []) => [a, b, ...cut, ...pts.slice(1, RING_N / 2).map(q => q[1]).filter(y => y > a && y < b)].sort((p, q) => p - q).filter((y, k, l) => !k || y - l[k - 1] > 1e-4);
+  const at = (x, y, d) => [x, y, s * (zAtY(pts, y) + out - d)], ya = rows(y0, y1, [wy0, wy1]), yw = ya.filter(y => y >= wy0 && y <= wy1), xs = [-w / 2, -wx, wx, w / 2], D = [0, thick];
+  const N = (x, y, z) => new THREE.Vector3(x, y, z), hole = (x, y) => Math.abs(x) < wx && y > wy0 && y < wy1, a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3();
+  const build = sheets => {   // [group, A, B, f(a, b) -> point, the way it faces, cells to leave out]: a grid of quads over A x B per sheet
+    const pos = [], idx = [[], [], []], g = new THREE.BufferGeometry();
+    for (const [k, A, B, f, n, skip] of sheets){
+      const o = pos.length / 3, v = (i, j) => o + i * B.length + j;
+      for (const p of A) for (const q of B) pos.push(...f(p, q));
+      for (let i = 0; i + 1 < A.length; i++) for (let j = 0; j + 1 < B.length; j++){
+        if (skip && skip((A[i] + A[i + 1]) / 2, (B[j] + B[j + 1]) / 2)) continue;
+        const q = [v(i, j), v(i + 1, j), v(i + 1, j + 1), v(i, j + 1)];
+        a.fromArray(pos, 3 * q[0]); b.fromArray(pos, 3 * q[1]).sub(a); c.fromArray(pos, 3 * q[2]).sub(a);
+        if (b.cross(c).dot(n) < 0) q.reverse();
+        idx[k].push(q[0], q[1], q[2], q[0], q[2], q[3]);
+      }
+    }
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx.flat());
+    let start = 0; idx.forEach((l, k) => { if (l.length) g.addGroup(start, l.length, k); start += l.length; });
+    g.computeVertexNormals();
+    return g;
+  };
+  return {
+    leaf:build([
+      [0, xs, ya, (x, y) => at(x, y, 0), N(0, 0, s), hole], [1, xs, ya, (x, y) => at(x, y, thick), N(0, 0, -s), hole],
+      [0, [-w / 2, w / 2], D, (x, d) => at(x, y1, d), N(0, 1, 0)], [0, [-w / 2, w / 2], D, (x, d) => at(x, y0, d), N(0, -1, 0)],
+      [0, ya, D, (y, d) => at(-w / 2, y, d), N(-1, 0, 0)], [0, ya, D, (y, d) => at(w / 2, y, d), N(1, 0, 0)],
+      [2, yw, D, (y, d) => at(-wx, y, d), N(1, 0, 0)], [2, yw, D, (y, d) => at(wx, y, d), N(-1, 0, 0)],
+      [2, [-wx, wx], D, (x, d) => at(x, wy0, d), N(0, 1, 0)], [2, [-wx, wx], D, (x, d) => at(x, wy1, d), N(0, -1, 0)],
+    ]),
+    pane:build([[0, [-wx - 0.01, wx + 0.01], rows(wy0 - 0.01, wy1 + 0.01), (x, y) => at(x, y, thick / 2), N(0, 0, s)]]),
+  };
 }
 const LIV = {   // TGV inOui (Duplex 2N2): off-white power cars with a black mask and a Carmillon stripe, silver and anthracite coaches
   white:'#ecebe6', black:'#18191c', band:'#3e4043', rib:'#26282a', ribLit:'#6f7276', grille:'#1d1f22', blade:'#8d8f8e', skirt:'#3a3c3d', grey:'#9a9b99', roof:'#a6a9ab', seam:'#8f9398',
@@ -481,18 +507,19 @@ function paxPut(m, k, x, y, z, yaw, sit, ph, amp, turn){   // instance k of m at
   const P = m.geometry.attributes.paxPose.array; P[4 * k] = sit; P[4 * k + 1] = ph % (2 * Math.PI); P[4 * k + 2] = amp; P[4 * k + 3] = turn;
 }
 const DECK_GEO = {};
-function deckGeo(L, bar = false){   // per body length, x from the car's -x end: lower floor + upper floor + stair + tables (not in the bar car) in one mesh, the lower deck's ceiling (the upper floor's underside) in another
+function deckGeo(L, bar = false){   // per body length, x from the car's -x end: lower floor + upper floor + stair + tables (not in the bar car) in one mesh; in another, lit like a ceiling, what the lower deck sees overhead (the undersides of the upper floor, the bridge and the stair) and the bridge's parapets (in the floor's grey they showed black from the vestibule)
   const key = L + (bar ? 'b' : '');
   if (!DECK_GEO[key]){
     const x0 = 3.4, w = L - 3.43, xb = seatRows(L).bay;   // the upper floor runs to the front gangway and is open over the vestibule and the stair, but for a bridge from it to the rear gangway
-    const br = [new THREE.BoxGeometry(x0 - 0.03, 0.06, 0.9).translate(x0 / 2 + 0.015, DECK.up - 0.03, 0)];   // the bridge, between parapets
-    for (const s of [1, -1]) br.push(new THREE.BoxGeometry(x0 - 0.03, 0.9, 0.03).translate(x0 / 2 + 0.015, DECK.up + 0.45, s * 0.46));
-    const st = new THREE.BoxGeometry(Math.hypot(1.7, DECK.up - DECK.lo), 0.06, 0.9).rotateZ(Math.atan2(DECK.up - DECK.lo, 1.7)).translate(2.7, (DECK.lo + DECK.up) / 2 - 0.03, -0.9);   // stair: vestibule (x 1.85) up to the upper deck (x 3.55)
+    const br = new THREE.BoxGeometry(x0 - 0.03, 0.06, 0.9).translate(x0 / 2 + 0.015, DECK.up - 0.03, 0);   // the bridge, between parapets
+    const par = [1, -1].map(s => new THREE.BoxGeometry(x0 - 0.03, 0.9, 0.03).translate(x0 / 2 + 0.015, DECK.up + 0.45, s * 0.46));
+    const sl = Math.hypot(1.7, DECK.up - DECK.lo), stair = g => g.rotateZ(Math.atan2(DECK.up - DECK.lo, 1.7)).translate(2.7, (DECK.lo + DECK.up) / 2 - 0.03, -0.9);   // stair: vestibule (x 1.85) up to the upper deck (x 3.55)
     const tb = [];   // the bay's tables on both decks and sides, on a pedestal: top 0.7 over the floor, clear of the aisle, the feet and the wall
     if (!bar) for (const y of [DECK.lo, DECK.up]) for (const s of [1, -1]) tb.push(new THREE.BoxGeometry(0.4, 0.04, 1.08).translate(xb, y + 0.68, s * 0.84), new THREE.BoxGeometry(0.06, 0.66, 0.06).translate(xb, y + 0.33, s * 0.72));
     DECK_GEO[key] = {
-      floor:mergeGeos([new THREE.BoxGeometry(L - 0.2, 0.06, 2.28).translate(L / 2, DECK.lo - 0.03, 0), new THREE.BoxGeometry(w, 0.06, 2.98).translate(x0 + w / 2, DECK.up - 0.03, 0), ...br, st, ...tb], [null, [18, 24], [18, 24]]),   // the upper floor and the bridge without their -y faces
-      ceil:mergeGeos([new THREE.PlaneGeometry(w, 2.98).rotateX(Math.PI / 2).translate(x0 + w / 2, DECK.up - 0.06, 0), new THREE.PlaneGeometry(x0 - 0.03, 0.9).rotateX(Math.PI / 2).translate(x0 / 2 + 0.015, DECK.up - 0.06, 0)]),
+      floor:mergeGeos([new THREE.BoxGeometry(L - 0.2, 0.06, 2.28).translate(L / 2, DECK.lo - 0.03, 0), new THREE.BoxGeometry(w, 0.06, 2.98).translate(x0 + w / 2, DECK.up - 0.03, 0), br, stair(new THREE.BoxGeometry(sl, 0.06, 0.9)), ...tb], [null, [18, 24], [18, 24], [18, 24]]),   // the upper floor, the bridge and the stair without their -y faces
+      ceil:mergeGeos([new THREE.PlaneGeometry(w, 2.98).rotateX(Math.PI / 2).translate(x0 + w / 2, DECK.up - 0.06, 0), new THREE.PlaneGeometry(x0 - 0.03, 0.9).rotateX(Math.PI / 2).translate(x0 / 2 + 0.015, DECK.up - 0.06, 0),
+                      stair(new THREE.PlaneGeometry(sl, 0.9).rotateX(Math.PI / 2).translate(0, -0.03, 0)), ...par]),
     };
   }
   return DECK_GEO[key];
@@ -842,18 +869,18 @@ function poseHatch(h, f){   // f 0 closed .. 1 open (leaves part and slide back 
   h.leaves.forEach(l => l.piv.position.set(TGV.PC_TIP - NOSE.BACK * e, NOSE.y0 + NOSE.LIFT * e, l.s * (PC.hatch.hz + NOSE.OUT * e)));
   h.head.position.x = TGV.PC_TIP - 0.95 + 0.45 * f;
 }
-function tgvBogie(parent, cx, mk, wheelbase = 3.0, jacobs = false){
+function tgvBogie(parent, cx, mk, wheelbase = 3.0, low = false){   // low: under a trailer, kept below the top of the lower deck's floor (0.92): wheels 0.9 m across (0.92 new on a TGV), the frame dropped to match
   const fm = mk(pal.dark, { roughness:0.7 }), wm = mk(pal.wheel, { roughness:0.45, metalness:0.6 }), sm = mk(pal.steel, { metalness:0.6 });
-  [1.1, -1.1].forEach(z => parent.add(box(wheelbase + 0.9, 0.3, 0.2, fm, cx, 0.95, z)));
-  parent.add(box(0.6, 0.3, 2.3, fm, cx, 0.98, 0));
-  if (jacobs) parent.add(box(1.2, 0.35, 2.2, fm, cx, 1.22, 0));                         // articulation bolster carrying both car ends
+  const r = low ? 0.45 : WHEEL_R, y = low ? 0.67 : 0.95;
+  [1.1, -1.1].forEach(z => parent.add(box(wheelbase + 0.9, 0.3, 0.2, fm, cx, y, z)));
+  parent.add(box(0.6, 0.3, 2.3, fm, cx, y + 0.03, 0));
   [cx - wheelbase / 2, cx + wheelbase / 2].forEach(x => {
-    const ax = new THREE.Group(); ax.position.set(x, WHEEL_R, 0);
+    const ax = new THREE.Group(); ax.position.set(x, r, 0); ax.userData.r = r;   // the radius the wheels roll on (see the sims)
     ax.add(cyl(0.08, 2.0, sm, 'z', 0, 0, 0, 12));
-    [-0.75, 0.75].forEach(z => ax.add(cyl(WHEEL_R, 0.13, wm, 'z', 0, 0, z, 28)));
+    [-0.75, 0.75].forEach(z => ax.add(cyl(r, 0.13, wm, 'z', 0, 0, z, 28)));
     [-0.62, 0.62].forEach(z => ax.add(cyl(0.36, 0.05, fm, 'z', 0, 0, z, 20)));         // brake discs
     parent.add(ax); axles.push(ax);
-    [1.1, -1.1].forEach(z => parent.add(box(0.34, 0.34, 0.18, fm, x, WHEEL_R, z)));
+    [1.1, -1.1].forEach(z => parent.add(box(0.34, 0.34, 0.18, fm, x, r, z)));
   });
 }
 
@@ -975,17 +1002,18 @@ const TR = (() => {
     const fg = surround[L] = new THREE.BufferGeometry();
     fg.setAttribute('position', new THREE.Float32BufferAttribute(fp, 3)); fg.setIndex(fi); fg.computeVertexNormals();
   }
-  const paint = g => {   // inOui door: magenta at the top and bottom, coral a little over mid height (vertex colours by height); its inner face the lining's end-wall grey
-    const p = g.getAttribute('position'), st = [[0, '#dd4c8e'], [0.55, '#fa6951'], [1, '#e034a2']].map(([t, h]) => [t, new THREE.Color(h)]), q = new THREE.Color(), inner = new THREE.Color(LIN.end), col = [];
+  const paint = d => {   // inOui door: magenta at the top and bottom, coral a little over mid height (vertex colours by height, worn by its outer face and edges); the edges fade to the lining's end-wall grey at the inner face
+    const p = d.leaf.getAttribute('position'), st = [[0, '#dd4c8e'], [0.55, '#fa6951'], [1, '#e034a2']].map(([t, h]) => [t, new THREE.Color(h)]), q = new THREE.Color(), inner = new THREE.Color(LIN.end), col = [];
     for (let i = 0; i < p.count; i++){
-      if (Math.abs(p.getZ(i)) < zAtY(pts, p.getY(i)) - 0.018){ col.push(inner.r, inner.g, inner.b); continue; }   // the inner face: 6 cm in from the skin (doorLeafGeo)
+      if (Math.abs(p.getZ(i)) < zAtY(pts, p.getY(i)) - 0.018){ col.push(inner.r, inner.g, inner.b); continue; }   // the inner face, 6 cm behind the outer one (doorLeafGeo)
       const t = Math.min(1, Math.max(0, (p.getY(i) - DOOR[2]) / (DOOR[3] - DOOR[2]))), k = t < st[1][0] ? 0 : 1;
       q.copy(st[k][1]).lerp(st[k + 1][1], (t - st[k][0]) / (st[k + 1][0] - st[k][0])); col.push(q.r, q.g, q.b);
     }
-    g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
-    return g;
+    d.leaf.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+    return d;
   };
-  const leaf = { p:paint(doorLeafGeo(pts, 1, ...DOOR.slice(2), DOOR[1] - DOOR[0])), n:paint(doorLeafGeo(pts, -1, ...DOOR.slice(2), DOOR[1] - DOOR[0])) };
+  const win = [0.4, 1.7, 2.3];   // the leaf's window: half width, bottom, top (level with the lower deck's windows)
+  const leaf = { p:paint(doorLeafGeo(pts, 1, ...DOOR.slice(2), DOOR[1] - DOOR[0], win)), n:paint(doorLeafGeo(pts, -1, ...DOOR.slice(2), DOOR[1] - DOOR[0], win)) };
   return { geo, tex, lin, pane, lining, surround, cap, pts, yBot, yTop, leaf, holes, doorX:(DOOR[0] + DOOR[1]) / 2 };
 })();
 /* rubber fairings over the car gaps, as on the real sets: each car's own section 2 cm in all round, lofted across the gap and 1 cm
@@ -1031,13 +1059,14 @@ function buildSet(opts){
   }
   const endM = mk(0x2b3238, { roughness:0.85 }), capM = mk(0x2b3238, { roughness:0.85 });
   const frameM = mk(LIN.reveal, { side:THREE.DoubleSide, roughness:0.9, metalness:0, emissive:LIN.reveal, emissiveIntensity:0.25 });   // lit like the lining
-  const bellowsM = mk(0x23272c, { roughness:0.95 }), doorM = mk(0xffffff, { vertexColors:true, roughness:0.45, metalness:0.15, side:THREE.DoubleSide }), glassM = mk(0x1c2530, { roughness:0.25, metalness:0.1 });
-  const paneM = {   // glass in the openings: opaque from afar, tinted and clear near the camera; the doorway plug only from afar
-    far:mk(0x27303a, { roughness:0.25, metalness:0.1 }), plug:mk(LIV.door, { roughness:0.8 }),
+  const bellowsM = mk(0x23272c, { roughness:0.95 }), doorM = mk(0xffffff, { vertexColors:true, roughness:0.45, metalness:0.15, side:THREE.DoubleSide });
+  const leafM = [doorM, mk(LIN.end, { roughness:0.9, metalness:0, emissive:LIN.end, emissiveIntensity:0.25 }), mk(LIV.gasket, { roughness:0.8 })];   // a door leaf's groups: livery, inner face lit like the lining, window gasket
+  const paneM = {   // glass in the openings: opaque from afar (the doors' own copy: highlighting the doors leaves the windows be), tinted and clear near the camera; the doorway plug only from afar
+    far:mk(0x27303a, { roughness:0.25, metalness:0.1 }), door:mk(0x27303a, { roughness:0.25, metalness:0.1 }), plug:mk(LIV.door, { roughness:0.8 }),
     near:mk(0x1c2530, { transparent:true, opacity:0.45, depthWrite:false, side:THREE.DoubleSide, forceSinglePass:true, roughness:0.05, metalness:0 }),   // one pass: every pane has the same tint, so the blend order does not matter
   };
   const skin = m => { if (internals) trShells.meshes.push(m); return m; };   // what the shell control fades: body, ends, gangways, doors (the underframe stays); the other trains stay opaque
-  if (internals) trShells.mats.push(...Object.values(bodyM), capM, bellowsM, doorM, glassM);
+  if (internals) trShells.mats.push(...Object.values(bodyM), capM, bellowsM, ...leafM);
   set.coaches = [];
   const coachM = { floor:mk(0x3a3f46, { roughness:0.9 }), ceil:mk(0xe6e2da, { roughness:0.9, emissive:0xe6e2da, emissiveIntensity:0.45 }), seat:mk(0xffffff, { roughness:0.85 }), people:paxMat(mk),
                   bar:mk(0xffffff, { vertexColors:true, roughness:0.7, metalness:0.05 }), glow:new THREE.MeshBasicMaterial({ vertexColors:true, toneMapped:false }),   // the bar car's fittings, and what glows in it
@@ -1057,17 +1086,18 @@ function buildSet(opts){
     if (i === 0){ const f = new THREE.Mesh(GANG.pcFront, bellowsM); f.position.x = L; g.add(skin(f)); }   // and to the front power car
     G.trailers.add(g); trailerRear.push(xr);
     // plug-sliding door at the -x end of each trailer, both sides; only +z (platform) leaves animate
+    const doorPanes = [];
     [1, -1].forEach(s => {
       const d = new THREE.Group(); d.position.set(xr + TR.doorX, 0, 0);
-      const leaf = new THREE.Mesh(TR.leaf[s > 0 ? 'p' : 'n'], doorM); leaf.castShadow = true; d.add(skin(leaf));
-      d.add(skin(box(0.8, 0.6, 0.02, glassM, 0, 2.0, s * (zAtY(TR.pts, 2.0) + 0.022))));  // door window, level with the lower deck
-      d.add(skin(box(0.8, 0.6, 0.02, glassM, 0, 2.0, s * (Math.min(...[1.7, 2.0, 2.3].map(y => zAtY(TR.pts, y))) - 0.06))));   // and its inside, clear of the leaf's inner face
+      const t = TR.leaf[s > 0 ? 'p' : 'n'], leaf = new THREE.Mesh(t.leaf, leafM), pane = new THREE.Mesh(t.pane, paneM.door);   // the pane follows the coach's glass (coachLod)
+      leaf.castShadow = true; pane.receiveShadow = true; d.add(skin(leaf), pane); doorPanes.push(pane);
       G.doors.add(d); set.doors.push({ g:d, s, x0:xr + TR.doorX, z0:0 });
       const num = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.25), new THREE.MeshBasicMaterial({ map:carNumber(firstCar + i), side:THREE.DoubleSide }));
-      num.position.set(xr + 2.75, 3.3, s * (zAtY(TR.pts, 3.3) + 0.012)); if (s < 0) num.rotation.y = Math.PI; G.trailers.add(num);
+      const tilt = Math.atan((zAtY(TR.pts, 3.425) - zAtY(TR.pts, 3.175)) / 0.25);   // leant with the tumblehome, 1 to 1.5 cm off it (upright, its lower edge was inside the wall and showed from inside)
+      num.position.set(xr + 2.75, 3.3, s * (zAtY(TR.pts, 3.3) + 0.012)); num.rotation.set(s * tilt, s < 0 ? Math.PI : 0, 0); G.trailers.add(num);
     });
     const c = buildCoach(G.trailers, coachM, xr, L, firstCar + i);
-    Object.assign(c, { lining, glass, plug, paneM, own:internals, lod:0 });
+    Object.assign(c, { lining, glass, doorPanes, plug, paneM, own:internals, lod:0 });
     if (i < TGV.TRAILERS.length - 1){ const t = new THREE.Mesh(GANGWAY, gangM); t.position.x = xr; c.g.add(t); }   // through to the next car
     for (const [end, x, ry] of [[i === 0, xr + L - 0.02, -Math.PI / 2], [i === TGV.TRAILERS.length - 1, xr + 0.02, Math.PI / 2]]) if (end){   // the end against a power car: a staff door shuts the opening
       const d = new THREE.Mesh(staffGeo, staffM); d.position.set(x, (DECK.up + 4.05) / 2, 0); d.rotation.y = ry; c.g.add(d);
@@ -1075,9 +1105,9 @@ function buildSet(opts){
     set.coaches.push(c); allCoaches.push(c);
   });
   // bogies: end bogies + 7 Jacobs at the articulations
-  tgvBogie(G.jacobs, -13.0, mk, 3.0, false);
+  tgvBogie(G.jacobs, -13.0, mk, 3.0, true);
   for (let i = 0; i < TGV.TRAILERS.length - 1; i++) tgvBogie(G.jacobs, TGV.TRAILERS[i][0] - 0.25, mk, 3.0, true);
-  tgvBogie(G.jacobs, -161.0, mk, 3.0, false);
+  tgvBogie(G.jacobs, -161.0, mk, 3.0, true);
   // rear power car (nose toward -x) + its pantograph; the front car is the loco shell (set 1) or built here (set 2)
   const rear = buildPowerCarBody(G.power, TGV.REAR_PC, -1, mk, true, internals);
   set.hatches.push(rear.hatch); set.lamps.rear = { hl:rear.hl, tl:rear.tl };
@@ -1498,6 +1528,7 @@ function coachLod(){   // lod 0 far: opaque glass, plugged doorway, no interior;
     else { _p.set(c.xr + c.L / 2, 2.5, 0).applyMatrix4(c.g.matrixWorld); lod = _p.distanceTo(camera.position) < COACH_NEAR + (c.lod === 1 ? 10 : 0) ? 1 : 0; }
     if (lod === c.lod) continue;
     c.lod = lod; c.g.visible = lod > 0; c.lining.visible = lod === 1; c.glass.visible = lod < 2; c.glass.material = lod ? c.paneM.near : c.paneM.far; c.plug.visible = lod === 0;
+    for (const p of c.doorPanes){ p.visible = lod < 2; p.material = lod ? c.paneM.near : c.paneM.door; }
   }
 }
 
