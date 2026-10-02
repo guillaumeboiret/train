@@ -7,11 +7,14 @@ set -eu
 SRC=${1:-.}
 OUT=${2:-$SRC/site/public}
 langjs(){ printf '<script>\n'; cat "$SRC/site/lang.js"; printf '</script>\n'; }
+# the credit the licence makes every copy carry: the "Required Notice:" lines of LICENSE, as a comment in each page's head
+notice(){ printf '<!--\n'; grep '^Required Notice:' "$SRC/LICENSE"; printf 'Licence: /LICENSE.txt\n-->\n'; }
 page(){   # page <built page> <url path>; the built pages' markup is French, hence lang="fr" (site/lang.js switches it)
   mkdir -p "$OUT/$2"
   {
     printf '<!doctype html>\n<html lang="fr">\n<head>\n<meta charset="utf-8">\n'
     langjs
+    notice
     printf '<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">\n<link rel="icon" href="/favicon.svg">\n'
     sed -e 's#https://claude.ai/artifact/EMVu67YYfT7DzW8UozZAj6#/locomotive/#g' \
         -e 's#https://claude.ai/artifact/UWxzgcLXNw8nW2AxP75imT#/conducteur/#g' \
@@ -22,8 +25,9 @@ rm -rf "$OUT"; mkdir -p "$OUT"
 page locomotive-kid.html conducteur
 page locomotive-3d.html locomotive
 page aiguillages.html aiguillages
-{ sed '/<meta charset="utf-8">/q' "$SRC/site/index.html"; langjs; sed '1,/<meta charset="utf-8">/d' "$SRC/site/index.html"; } > "$OUT/index.html"
+{ sed '/<meta charset="utf-8">/q' "$SRC/site/index.html"; langjs; notice; sed '1,/<meta charset="utf-8">/d' "$SRC/site/index.html"; } > "$OUT/index.html"
 cp "$SRC/site/favicon.svg" "$OUT/"
+cp "$SRC/LICENSE" "$OUT/LICENSE.txt"
 cp -R "$SRC/site/audio" "$OUT/"   # the recorded TGV sounds (site/audio/CREDITS.txt), fetched by the pages as ../audio/
 # the deployed commit, to check what is live: Railway passes RAILWAY_GIT_COMMIT_SHA (Dockerfile ARG), a local build asks git
 printf '%s\n' "${RAILWAY_GIT_COMMIT_SHA:-$(git -C "$SRC" rev-parse HEAD 2>/dev/null || echo unknown)}" > "$OUT/version.txt"

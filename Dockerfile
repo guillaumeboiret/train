@@ -2,6 +2,6 @@
 FROM caddy:2-alpine
 # set by Railway for GitHub deploys; site/build.sh writes it to /version.txt
 ARG RAILWAY_GIT_COMMIT_SHA
-COPY locomotive-3d.html locomotive-kid.html aiguillages.html /src/
+COPY locomotive-3d.html locomotive-kid.html aiguillages.html LICENSE /src/
 COPY site /src/site
 RUN sh /src/site/build.sh /src /srv && cp /src/site/Caddyfile /etc/caddy/Caddyfile && rm -rf /src

@@ -70,7 +70,8 @@ The bake finds the alignment through the OpenStreetMap rail graph, resamples it,
 
 ## Data and licences
 
-- Code: MIT, see `LICENSE`.
+- Code, 3D models, levels and texts: © 2026 Guillaume Boiret, [PolyForm Noncommercial 1.0.0](LICENSE). Fork it, change it and share it for any noncommercial purpose. Every copy, changed or not, must carry the licence terms and the two `Required Notice:` lines at the top of `LICENSE`, which name Guillaume Boiret as the creator; `site/build.sh` writes them into the head of every served page and publishes the licence at `/LICENSE.txt`. Any commercial use needs my written permission.
+- Pull requests are closed to non-collaborators: fork the repository instead.
 - Track alignment, stations and structures: © OpenStreetMap contributors, [ODbL 1.0](https://opendatacommons.org/licenses/odbl/1-0/). The baked database in `loco/03a2-route.js` and the extracts in `route/stations.json`, `route/stations_sud.json` and `route/stations_ouest.json` are derivative databases and remain under ODbL.
 - Elevation: [Mapzen Terrain Tiles](https://registry.opendata.aws/terrain-tiles/) (Terrarium format) hosted by the AWS Open Data programme, built from SRTM and the other public sources listed on that page.
 - Three.js: MIT.
