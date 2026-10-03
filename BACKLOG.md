@@ -10,7 +10,6 @@ Nothing leaves this file: a request is added the moment it is made, and a done i
 - [ ] The remote's delay: 157 to 159 ms from the iPad to the TV on the live site (measured 2026-10-03), because the app runs in us-west2 (California) behind Railway's Paris edge (cdg1, about 200 ms to the first byte). Moving its one replica to EU West (Amsterdam) should bring it near 20 ms. Yes given with "code all the features in your todo" (2026-10-03). Tried in cb85925 with multiRegionConfig in railway.json: Railway ignores that file's deploy settings for this service, so it stayed in California (reverted). The move is a service setting, `railway service scale eu-west=1 us-west=0`, which the permission check stopped as a production change: waiting for you to run it or allow it.
 
 ### 1. World (asked 2026-10-02)
-- [ ] Lights on the train at night and in tunnels.
 - [ ] A weather system, set by hand or on a schedule. By hand it exists: sun, clouds and rain, which blend, and since 67236ac follow the hour. Open: the schedule.
 
 ### 2. The passenger's iPhone (asked 2026-10-02)
@@ -45,6 +44,7 @@ Nothing leaves this file: a request is added the moment it is made, and a done i
 ## Done
 
 ### 2026-10-03
+- [x] Lights on the train when it's dark or in tunnels ("I will need you to add lights on the train when it's dark or in the tunnels", 2026-10-02). At night and deep in a tunnel the lamps glow, the leading ones throw a beam 40 m down the line, the coaches' windows glow warm and a saloon light keeps seats and people lit inside. In a tunnel the daylight fades out over the first 40 m and the far end goes black. The lamps follow the battery: 409297e
 - [x] A real clock to set the time of day ("create a clock, a real clock, to send to people to change the time of the day", 2026-10-02). The sky follows the real time in France by default. The explainer's Time of day slider and Now, the playground's time button (now, morning, noon, evening, night) and the same button on the iPad set it, and show the clock. Dusk left the weathers: it is now the time button's evening: 67236ac, 12fa1ca
 - [x] See the sun ("I would like to see the sun", 2026-10-02). The sun stands where it really is over the train, from its place on the line and the date; the sky's colours follow its height; at night the moon and 1600 stars: 67236ac
 - [x] Heat as a transparent shimmer instead of the orange smoke ("Can you change the orange smoke to something that makes the feeling of heat but it's transparent? It just makes waves"). The air over a hot radiator, brake grid or TGV cooling block now bends and blurs what is behind it, in ripples that climb, with no colour of its own; the legend shows heat as a wavy line. Changes the warm haze of 73a8dd0: 9c57b7c
