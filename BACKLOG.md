@@ -24,7 +24,6 @@ Nothing open: stepping off is under Done.
 ### 5. Other open requests
 - [ ] Better looking human 3D models, free ones from the internet (2026-10-02). CC0 or similar, self hosted.
 - [ ] Station details left out of the nine new buildings (2026-10-03): Futuroscope's 330 m footbridge over the N10, the stairs down from Angoulême's footbridge to the platforms. All nine are modelled from descriptions and photos, not plans.
-- [ ] A train for the other direction standing across the platform at a station (2026-09-26). Today oncoming TGVs run through the stations and stop only at the termini.
 
 ## Known bugs, found while testing
 - Railway reads none of railway.json's deploy settings for this service: the /version.txt healthcheck of 964d84b never ran, so a deploy switches without waiting for it. Config as code (railway.json) is deprecated and stops being read on 2026-12-01; Railway now wants .railway/railway.ts, applied with its CLI.
@@ -35,6 +34,7 @@ Nothing open: stepping off is under Done.
 ## Done
 
 ### 2026-10-03
+- [x] A train for the other direction standing across the platform at a station (2026-09-26): it was already standing there; now, on the way to Paris, it shuts its doors 25 s after we stop and leaves for Toulouse once the line is clear: 23762c9
 - [x] Stations that look like the real ones (2026-09-28): the nine left get their own building (Vendôme, Saint-Pierre-des-Corps, Châtellerault, Futuroscope, Poitiers, Angoulême, Libourne, Agen, Montauban), the scenery keeps clear of them: 2991061
 - [x] Random landscape so the country is not empty (2026-10-02): woods, lone oaks and poplars, villages, farms with a barn, herds of cows and round bales, spread over the whole kilometre instead of its first 300 to 500 m: b1cf100
 - [x] Gangway doors (sas) between coaches that open as you walk past (2026-10-02): two leaves in each end wall on the upper deck, open within 2 m and shut behind; a door still shut holds you short of it: 79b0e03
