@@ -585,7 +585,7 @@ function keepWalker(dt){
     else { barClose(); walkAway(); walkSay(null); keys.clear(); stickReset(); }
   }
   if (!on) return;
-  const open = barIsOpen(), k = m => !open && keys.has(m) ? 1 : 0, mv = STICK.move, lk = STICK.look;   // the bar's menu open: the keys are the menu's
+  const open = barIsOpen(), k = m => !open && keys.has(m) ? 1 : 0, mv = STICK.move.on ? STICK.move : PAD.move, lk = STICK.look.on ? STICK.look : PAD.look;   // the bar's menu open: the keys are the menu's; a stick on screen before the remote's
   if (open && BAR.choco !== S.dist < CHOCOLATINE_S) barRender();   // in or out of chocolatine country, the menu open: the pastry's name follows
   let f = k('fwd') - k('back'), s = k('right') - k('left'), v = keys.has('shift') ? 2.6 : 1.3;
   if (mv.on && !open){ f = -mv.y; s = mv.x; v = 2; }
@@ -597,6 +597,8 @@ function keepWalker(dt){
   if (b.dataset.i18n !== sit){ b.dataset.i18n = sit; b.textContent = t(sit); }
 }
 const STICK = {};   // {x, y}: where the stick is pushed, -1..1 each way (y down); on: held; id: by which finger
+const PAD = { move:{ x:0, y:0, on:false }, look:{ x:0, y:0, on:false } };   // the same two sticks held on a remote (03j), shaped there
+const padReset = () => { for (const p of Object.values(PAD)) Object.assign(p, { x:0, y:0, on:false }); };
 document.querySelectorAll('.walk-stick').forEach(el => {   // the knob follows the thumb within the ring; the middle is dead, then the push grows gently so a small one stays small
   const st = STICK[el.dataset.stick] = { x:0, y:0, on:false, id:-1, el }, knob = el.firstElementChild;
   const put = e => {
@@ -614,7 +616,7 @@ document.querySelectorAll('.walk-stick').forEach(el => {   // the knob follows t
   el.addEventListener('contextmenu', e => e.preventDefault());
 });
 function stickUp(st){ st.on = false; st.id = -1; st.x = st.y = 0; st.el.classList.remove('on'); st.el.firstElementChild.style.transform = ''; }
-function stickReset(){ for (const st of Object.values(STICK)) stickUp(st); }
+function stickReset(){ for (const st of Object.values(STICK)) stickUp(st); padReset(); }
 orbit.onWheel = e => {   // walking, two fingers swiped on a trackpad turn the head as a drag does, the view following them (a pinch still zooms); the mouse stays free for the buttons
   if (!walking || e.ctrlKey || !orbit.fp) return false;
   const k = orbit.cam.fov * Math.PI / 180 / Math.max(1, canvas.clientHeight) * (e.deltaMode === 1 ? 16 : 1);

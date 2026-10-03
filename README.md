@@ -5,7 +5,7 @@ Three static [Three.js](https://threejs.org) pages about trains, in French and E
 | Page | What it is | Live |
 |---|---|---|
 | `locomotive-3d.html` | **Anatomie d'une locomotive**: an interactive explainer of a diesel-electric locomotive, an electric locomotive and a TGV Duplex, driven along the real Toulouse Matabiau to Paris Montparnasse line with its TGV stops (Montauban, Agen, Bordeaux Saint-Jean, Libourne, Angoulême, Poitiers, Futuroscope, Châtellerault, Saint-Pierre-des-Corps, Vendôme and Massy; 829.5 km: the classic lines under 1.5 kV DC through the towns, the LGVs under 25 kV AC between them), with a nine-step guide, energy-flow animations, station autopilot, weather and time scale. Inside the TGV: drive from the cab, walk among the passengers car to car and sit in a free seat, or order at the bar in car 4 with play money | [train.boiret.com/locomotive](https://train.boiret.com/locomotive/) |
-| `locomotive-kid.html` | **Jouer au train** (Train playground): the same engine as a game for young children, made for a tablet. Big buttons (lever, horn, pantograph, next station autopilot in both directions, weather, sound) and, always in the same corner, the driver's seat, the passenger's (walk through the TGV with two sticks, sit down, buy at the bar) and the views outside. On a TV, ⚙️ then 📱 pairs an iPad as its remote: the iPad drives, the TV shows only the trip | [train.boiret.com/playground](https://train.boiret.com/playground/) (`/conducteur/` redirects) |
+| `locomotive-kid.html` | **Jouer au train** (Train playground): the same engine as a game for young children, made for a tablet. Big buttons (lever, horn, pantograph, next station autopilot in both directions, weather, sound) and, always in the same corner, the driver's seat, the passenger's (walk through the TGV with two sticks, sit down, buy at the bar) and the views outside. On a TV, ⚙️ then 📱 pairs an iPad or an iPhone as its remote: it drives, and in the TGV it turns into a game controller (one stick walks the passenger, the other looks, its button sits, stands and orders at the bar, whose menu it shows); the TV shows only the trip. The remote is off at every load of the TV until ⚙️ 📱 again, which keeps the same 4 letters | [train.boiret.com/playground](https://train.boiret.com/playground/) (`/conducteur/` redirects) |
 | `aiguillages.html` | **Aiguillages**: a railway switch puzzle game, 10 levels plus a tutorial | [train.boiret.com/aiguillages](https://train.boiret.com/aiguillages/) |
 
 Each page is plain HTML plus one ES module. Three.js 0.170 is loaded from jsDelivr, nothing else is fetched at runtime.
@@ -52,7 +52,7 @@ Adding a language: its code in `OK` in `site/lang.js`, a button in each switcher
 - `03g-sim.js`, `03h-ui.js`: physics and autopilot, UI, HUD, main loop
 - `03i-kid.js`: the kid layer, appended only to `locomotive-kid.html`
 - `03i2-cine.js`: the kid build's 🎬 view, a camera that films the trip (shots riding with the train and from the ground, never inside), after the kid layer
-- `03j-remote.js`: the TV side of the remote (pairing card and QR code, the relay link, the iPad's commands), after the kid layer
+- `03j-remote.js`: the TV side of the remote (pairing card and QR code, the relay link, the remote's commands, the passenger's sticks and the bar), after the kid layer
 - `04-end.html`: closing tags
 
 `game/` follows the same pattern (`g0-style.html` to `g5-game.js`). `node check-levels.mjs`, run from inside `game/`, checks that every level is solvable.

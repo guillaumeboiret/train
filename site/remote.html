@@ -95,7 +95,7 @@ main{position:relative;flex:1;display:grid;grid-template-columns:clamp(112px,13v
 .cam .kt .lab{text-align:center}
 .cam .kt[aria-disabled="true"],.cam .kt:disabled{opacity:.35}
 .off-msg{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:2;max-width:min(460px,90%);padding:18px 24px;border-radius:20px;background:#0b1015;border:1px solid var(--line);box-shadow:0 12px 30px rgba(0,0,0,.5);font:600 19px/1.35 var(--font-body);text-align:center}
-body.off :is(main>.lever,main>.pad,.line,.trains){opacity:.3;pointer-events:none}
+body.off :is(main>.lever,.btns,.game,.cam,.line,.trains){opacity:.3;pointer-events:none}
 /* the line, as on the TV: evenly spaced stops, a tap on a dot stops the train there, anywhere else takes it there */
 .line{padding:10px 28px 4px;touch-action:none}
 .rb{position:relative;height:60px;cursor:pointer}
@@ -117,25 +117,71 @@ body.off :is(main>.lever,main>.pad,.line,.trains){opacity:.3;pointer-events:none
 .mi .sw{margin-left:auto;width:46px;height:28px;border-radius:14px;background:#3a4858;position:relative;flex:none}
 .mi .sw::after{content:'';position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;transition:left .15s}
 .mi[aria-pressed="true"] .sw{background:#2fbf5b}.mi[aria-pressed="true"] .sw::after{left:21px}
+/* the Passenger view: a game controller, a stick to walk and one to look, the walker's button between them; at the counter, the bar */
+body.walk main{grid-template-columns:minmax(0,1fr)}
+body.walk main>.lever,body.walk .btns{display:none}
+body.walk .pad{grid-template-rows:minmax(0,1fr) auto}
+.game{position:relative;container:game/size;min-height:0}
+.g-in{position:absolute;inset:0;display:grid;grid-template-columns:auto minmax(0,1fr) auto;grid-template-areas:"move act look";align-items:center;justify-items:center;gap:12px;padding:12px}
+.stick{--d:min(calc(100cqh - 24px),34cqw,300px);grid-area:move;position:relative;width:var(--d);height:var(--d);border-radius:50%;background:rgba(255,255,255,.08);border:3px solid rgba(255,255,255,.55);touch-action:none}
+#sLook{grid-area:look}
+.stick b{position:absolute;left:50%;top:50%;width:46%;height:46%;border-radius:50%;transform:translate(-50%,-50%);display:grid;place-items:center;background:#f1f4f7;font-size:calc(var(--d) * .16);box-shadow:0 5px 12px rgba(0,0,0,.45);pointer-events:none}
+.stick.on b{background:var(--accent)}
+.g-act{grid-area:act;width:min(100%,220px);height:min(100%,150px);min-height:56px}
+.game .g-act .ico{font-size:clamp(30px,24cqh,64px)}.game .g-act .lab{display:block;font-size:16px;font-weight:600}   /* the big button: its icon big, its name always under it */
+@container game (aspect-ratio < 1.5){   /* upright: the button across the top, the sticks side by side under it */
+  .g-in{grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:auto minmax(0,1fr);grid-template-areas:"act act" "move look"}
+  .stick{--d:min(calc(100cqh - 104px),calc(50cqw - 18px),300px)}
+  .g-act{width:100%;height:64px;flex-direction:row;gap:12px}.game .g-act .ico{font-size:34px}
+}
+.g-bar{position:absolute;inset:0;display:grid;grid-template-rows:auto auto minmax(0,1fr);grid-template-areas:"top" "tray" "items";gap:10px;padding:12px}   /* the purse and the tray stay in sight, the menu scrolls */
+.gb-top{grid-area:top;display:flex;align-items:center;gap:10px;min-width:0}
+.gb-w{font:700 26px/1 var(--font-display);margin-right:auto;white-space:nowrap}
+.gb-b{min-height:48px;padding:0 16px;border:0;border-radius:14px;background:rgba(255,255,255,.1);font:600 15px/1.2 var(--font-body)}
+.gb-x{min-width:48px;padding:0;font-size:22px}
+.gb-items{grid-area:items;display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));grid-auto-rows:max-content;align-content:start;gap:8px;padding-bottom:4px;overflow-y:auto;overscroll-behavior:contain}
+.gb-it{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;min-width:0;min-height:88px;padding:8px 4px;border:0;border-radius:16px;background:#f1f4f7;color:var(--ink);box-shadow:0 4px 0 rgba(0,0,0,.4)}
+.gb-it:active{transform:translateY(3px);box-shadow:0 1px 0 rgba(0,0,0,.4)}
+.gb-it.dear{opacity:.4}
+.gb-e{display:grid;place-items:center;width:32px;height:32px;font-size:30px;line-height:1}.gb-e img{width:100%;height:100%}
+.gb-n{max-width:100%;font:600 13px/1.15 var(--font-body);text-align:center;overflow-wrap:anywhere}
+.gb-p{font:700 16px/1 var(--font-display);letter-spacing:.04em}
+.gb-tray{grid-area:tray;display:flex;align-items:center;gap:8px;min-width:0;min-height:52px;overflow-x:auto;overscroll-behavior:contain;color:var(--mute);font-weight:600}
+.gb-tray>*{flex:none}.gb-tray span{white-space:nowrap}
+.gb-tray button{width:52px;height:52px;padding:8px;border:0;border-radius:14px;background:rgba(255,255,255,.12);display:grid;place-items:center;font-size:28px;line-height:1}
+.gb-tray button img{width:100%;height:100%}
+@container game (aspect-ratio > 2.2){   /* wide and low: the tray beside the purse, the menu under both */
+  .g-bar{grid-template-columns:minmax(0,1fr) auto;grid-template-rows:auto minmax(0,1fr);grid-template-areas:"tray top" "items items"}
+  .gb-it{min-height:72px}
+}
 .toast{position:fixed;left:50%;top:24%;transform:translate(-50%,-50%);z-index:9;max-width:min(90%,560px);padding:16px 24px;border-radius:20px;background:var(--accent);color:#1b1206;font:700 24px/1.2 var(--font-display);text-align:center;box-shadow:0 10px 28px rgba(0,0,0,.45);opacity:0;transition:opacity .3s;pointer-events:none}
 .toast.show{opacity:1}
 @media (orientation:portrait){
   .pad{grid-template-rows:minmax(0,1.4fr) minmax(0,1fr)}
   .btns{grid-template-columns:repeat(5,minmax(0,1fr))}
 }
-@media (max-width:700px){   /* a phone: smaller, the labels of the trains away */
-  header{flex-wrap:wrap}.speed{order:3;flex-basis:100%}.chip{margin-left:auto;padding:0 14px}
-  .kt{min-width:56px}.trains .kt .lab{display:none}.speed .n{font-size:40px}
-  main{grid-template-columns:96px minmax(0,1fr)}.lv-knob{width:66px;height:66px;border-width:5px}.lv-track{margin:36px 0}
-  .btns{grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:repeat(5,minmax(0,1fr));gap:8px;padding:8px}.kb{gap:4px;border-radius:16px}.cam{padding:8px;gap:6px}.views,.angles{gap:6px}.cam .kt .lab{display:none}
-  .line{padding:8px 18px 2px}.rb-lb{font-size:11px}
+@media (max-width:700px) and (orientation:portrait){   /* a phone upright: the trains without their names, the speed on one line, the buttons 3 by 3 beside the lever, the cameras
+                                across the whole width; walking, the cameras on top and the sticks under them */
+  #ctl{gap:8px}
+  header{flex-wrap:wrap;gap:8px}.chip{margin-left:auto;padding:0 12px;gap:6px}
+  .speed{order:3;flex-basis:100%;flex-direction:row;align-items:baseline;gap:12px;padding:6px 14px}.speed .n{font-size:34px}.next{font-size:14px}
+  .kt{min-width:52px}.trains .kt .lab{display:none}
+  main{grid-template-columns:84px minmax(0,1fr);grid-template-rows:minmax(0,1fr) auto;gap:8px}.lv-knob{width:62px;height:62px;border-width:5px}.lv-track{margin:34px 0}
+  .pad{display:contents}.btns{grid-area:1/2}.game{grid-area:1/1/2/-1}.cam{grid-column:1/-1}
+  .btns{grid-template-columns:repeat(3,minmax(0,1fr));grid-template-rows:repeat(3,minmax(0,1fr));gap:8px;padding:8px}#bStop{grid-row:auto}
+  .kb{gap:4px;padding:4px;border-radius:16px}.kb .ico{font-size:clamp(26px,8vw,36px)}.kb .lab{font-size:12px;line-height:1.1;letter-spacing:.02em}
+  .cam{padding:8px;gap:6px}.views,.angles{gap:6px}.cam .kt{min-height:44px}.cam .kt .lab{display:none}
+  .line{padding:8px 18px 2px}.rb{height:46px}.rb-lb{top:30px;font-size:11px}
+  body.walk main{grid-template-rows:auto minmax(0,1fr)}body.walk .cam{grid-row:1}body.walk .game{grid-row:2}body.bar .cam{display:none}
 }
+@media (max-width:700px) and (orientation:portrait) and (max-height:600px){ .kb .lab{display:none} }   /* an iPhone SE: the buttons too low for a name under the icon */
 @media (max-height:620px) and (orientation:landscape){   /* a phone held sideways */
   #ctl{gap:6px}.speed .n{font-size:34px}.kt .ico{font-size:24px}.trains .kt .lab{display:none}.kt{min-width:52px}
   .kb .lab,.cam .kt .lab{display:none}.btns{gap:8px;padding:8px}.lv-knob{width:56px;height:56px;border-width:4px}.lever .end{font-size:26px}.lv-track{margin:30px 0}
   .rb{height:44px}.rb-lb{top:30px;font-size:11px}.hint{padding:6px 12px;font-size:14px}
   .pad{grid-template-rows:minmax(0,1fr) auto}   /* the cameras in one row, 44 px tall, the views beside the angles; the buttons get the rest */
   .cam{grid-template-rows:none;grid-template-columns:minmax(0,4fr) minmax(0,5fr);gap:6px;padding:6px}.cam .kt{min-height:44px}
+  body.walk .line,body.bar .cam{display:none}   /* walking, two thumbs on the sticks: the line and, at the bar, the cameras give them their room */
 }
 </style>
 </head>
@@ -191,6 +237,18 @@ body.off :is(main>.lever,main>.pad,.line,.trains){opacity:.3;pointer-events:none
         <button type="button" class="kb" id="bTod" aria-label="Heure" data-i18n-aria="tod"><span class="ico" id="bTodIco">☀️</span><span class="lab" id="bTodLab">--:--</span></button>
         <button type="button" class="kb" id="bXray" aria-pressed="false"><span class="ico">👀</span><span class="lab" data-i18n="xray">Rayons X</span></button>
       </div>
+      <div class="panel game" id="game" hidden>
+        <div class="g-in" id="gIn">
+          <div class="stick" id="sMove" data-stick="move" aria-hidden="true"><b>👣</b></div>
+          <button type="button" class="kb green g-act" id="bAct"><span class="ico" id="bActIco">💺</span><span class="lab" id="bActLab"></span></button>
+          <div class="stick" id="sLook" data-stick="look" aria-hidden="true"><b>👀</b></div>
+        </div>
+        <div class="g-bar" id="gBar" hidden>
+          <div class="gb-top"><span class="gb-w" id="gbW"></span><button type="button" class="gb-b" id="gbPocket" data-i18n="pocket"></button><button type="button" class="gb-b gb-x" id="gbX" aria-label="Fermer" data-i18n-aria="close">✕</button></div>
+          <div class="gb-items" id="gbItems"></div>
+          <div class="gb-tray" id="gbTray"></div>
+        </div>
+      </div>
       <div class="panel cam">
         <div class="views" id="views" role="group">
           <button type="button" class="kt" data-view="driver" aria-pressed="false"><span class="ico">🧑‍✈️</span><span class="lab" data-i18n="v_driver">Conducteur</span></button>
@@ -223,7 +281,8 @@ body.off :is(main>.lever,main>.pad,.line,.trains){opacity:.3;pointer-events:none
          diesel:"Diesel", electric:"Électrique", tgv:"TGV", stop:"Stop", horn:"Klaxon", station:"Prochaine gare", service:"Toute la ligne", auto:"Pilote auto…", turn:"Demi-tour",
          dir_par:"Vers Paris", dir_tls:"Vers Toulouse", panto:"Pantographe", doors:"Portes", wx:"Météo", plan:"Météo programmée", tod:"Heure", xray:"Rayons X", lever:"Manette", terminus:"Terminus",
          v_driver:"Conducteur", v_pax:"Passager", v_out:"Dehors", v_cine:"Cinéma", o_overview:"Ensemble", o_side:"Profil", o_train:"Tout le train", o_far:"Paysage", o_door:"Portes",
-         gui:"Commandes sur la télé", sound:"Son de la télé", other:"Changer de télé" },
+         gui:"Commandes sur la télé", sound:"Son de la télé", other:"Changer de télé",
+         sit:"S'asseoir", stand:"Se lever", order:"Commander", pocket:"Argent de poche +10€", close:"Fermer", tray:"Touche pour déguster :", tray0:"Rien sur le plateau pour l'instant." },
     en:{ title:"Remote · Train playground", h1:"Remote", lang:"Language", code:"The TV's code", go:"Connect",
          how_a:"On the TV, open", how_b:", then ⚙️ and 📱 Remote. Scan its QR code with the camera, or type its 4 letters here:",
          connecting:"Connecting…", looking:"Looking for the TV…", nope:"No TV with this code. Check the 4 letters on the TV.", full:"This TV already has 8 remotes.",
@@ -232,7 +291,8 @@ body.off :is(main>.lever,main>.pad,.line,.trains){opacity:.3;pointer-events:none
          diesel:"Diesel", electric:"Electric", tgv:"TGV", stop:"Stop", horn:"Horn", station:"Next station", service:"Whole line", auto:"Autopilot…", turn:"Turn around",
          dir_par:"To Paris", dir_tls:"To Toulouse", panto:"Pantograph", doors:"Doors", wx:"Weather", plan:"Weather schedule", tod:"Time of day", xray:"X-ray", lever:"Lever", terminus:"Terminus",
          v_driver:"Driver", v_pax:"Passenger", v_out:"Outside", v_cine:"Cinema", o_overview:"Overview", o_side:"Side", o_train:"Whole train", o_far:"Landscape", o_door:"Doors",
-         gui:"Controls on the TV", sound:"TV sound", other:"Another TV" },
+         gui:"Controls on the TV", sound:"TV sound", other:"Another TV",
+         sit:"Sit down", stand:"Stand up", order:"Order", pocket:"Pocket money +10€", close:"Close", tray:"Tap to enjoy:", tray0:"Nothing on the tray yet." },
   };
   const $ = id => document.getElementById(id), root = document.documentElement, body = document.body;
   const CODE = /^[A-Z]{4}$/, WX = { sun:'☀️', cloud:'☁️', rain:'🌧️', auto:'🗓️' }, WX_ORDER = Object.keys(WX), TOD = ['now', 'morning', 'noon', 'evening', 'night'];
@@ -254,7 +314,7 @@ body.off :is(main>.lever,main>.pad,.line,.trains){opacity:.3;pointer-events:none
     if (!R.joined) pairMsg(R.lookT0 ? 'looking' : 'connecting');
     render();
   }
-  function drop(){ clearTimeout(R.timer); const ws = R.ws; R.ws = null; R.hi = false; if (ws){ ws.onclose = ws.onmessage = null; try { ws.close(1000); } catch (e) {} } hornUp(); }
+  function drop(){ clearTimeout(R.timer); const ws = R.ws; R.ws = null; R.hi = false; if (ws){ ws.onclose = ws.onmessage = null; try { ws.close(1000); } catch (e) {} } hornUp(); padStop(); }
   function lost(code){
     drop();
     if (code === 4004 || (code === 4029 && !R.typed)){   // no such TV: a typed code is wrong; one that worked, or came from the TV's QR, is looked for (the TV reloading, the server restarting)
@@ -285,7 +345,10 @@ body.off :is(main>.lever,main>.pad,.line,.trains){opacity:.3;pointer-events:none
         Object.assign(R, { hi:true, joined:true, typed:false, tries:0, look:0, lookT0:0, tv:!!m.tv });
         try { localStorage.setItem('remote.code', R.code); } catch (e) {}
         $('codeIn').blur(); pairMsg(''); show('ctl'); break;
-      case 'line': if (Array.isArray(m.st)) buildLine(m.st); break;
+      case 'line':
+        if (Array.isArray(m.st)) buildLine(m.st);
+        if (Array.isArray(m.bar)){ G.menu = m.bar.filter(x => Array.isArray(x) && typeof x[0] === 'string'); G.bar = ''; $('gbItems').textContent = ''; }   // the bar's menu: its ids and icons, once
+        break;
       case 'state': R.st = m; break;
       case 'tv': R.tv = !!m.on; break;
       case 'toast': toast(String(m.text ?? ''), +m.ms || 0); return;
@@ -347,6 +410,14 @@ body.off :is(main>.lever,main>.pad,.line,.trains){opacity:.3;pointer-events:none
     $('mSnd').setAttribute('aria-pressed', String(!s.mute)); $('mSndIco').textContent = s.mute ? '🔇' : '🔊';
     $('sndHint').hidden = !(up && R.tv && s.snd === false && !s.mute);
     $('rbTrain').style.left = `${clamp01(+s.f || 0) * 100}%`;
+    const w = s.walk && typeof s.walk === 'object' ? s.walk : null;   // walking in the train: the game controller instead of the cab's controls
+    body.classList.toggle('walk', !!w); body.classList.toggle('bar', !!w?.bar); $('game').hidden = !w;
+    if (!w || w.bar) padStop();
+    if (w){
+      const a = ACT[w.act] || ACT.walk_sit; $('bActIco').textContent = a[0]; $('bActLab').textContent = t(a[1]);
+      $('gIn').hidden = !!w.bar; $('gBar').hidden = !w.bar;
+      if (w.bar) barShow(w.bar);
+    }
   }
 
   /* ---- the line */
@@ -445,6 +516,63 @@ body.off :is(main>.lever,main>.pad,.line,.trains){opacity:.3;pointer-events:none
   $('trains').addEventListener('click', e => { const b = e.target.closest('[data-mode]'); if (b && b.dataset.mode !== R.st?.mode) send('train', b.dataset.mode); });
   $('views').addEventListener('click', e => { const b = e.target.closest('[data-view]'); if (b) send('view', b.dataset.view); });
   $('angles').addEventListener('click', e => { const b = e.target.closest('[data-cam]'); if (b && !b.disabled) send('cam', b.dataset.cam); });
+
+  /* ---- the Passenger view: the iPad as a game controller. Its sticks are the TV's own (the middle dead, then the push growing gently),
+     said to the TV when they change, at most 20 times a second, and again every 0.25 s while held (the TV lets go after 0.7 s of silence) */
+  const ACT = { walk_sit:['💺', 'sit'], walk_stand:['🧍', 'stand'], bar_order:['☕', 'order'] };
+  const G = { menu:[], bar:'', st:{}, iv:0, sent:'', sentT:0 };
+  const r2 = n => Math.round(n * 100) / 100;
+  function padTick(){
+    const v = ['move', 'look'].flatMap(k => G.st[k].on ? [r2(G.st[k].x), r2(G.st[k].y)] : [null, null]), j = JSON.stringify(v), now = performance.now();
+    if (j !== G.sent || now - G.sentT >= 250){ G.sent = j; G.sentT = now; send('walk', v); }
+    if (!G.st.move.on && !G.st.look.on){ clearInterval(G.iv); G.iv = 0; }
+  }
+  function stickUp(st){ st.on = false; st.id = -1; st.x = st.y = 0; st.el.classList.remove('on'); st.el.firstElementChild.style.transform = ''; }
+  function padStop(){ if (!G.st.move?.on && !G.st.look?.on) return; stickUp(G.st.move); stickUp(G.st.look); padTick(); }
+  document.querySelectorAll('.stick').forEach(el => {
+    const st = G.st[el.dataset.stick] = { x:0, y:0, on:false, id:-1, el }, knob = el.firstElementChild;
+    const put = e => {
+      const r = el.getBoundingClientRect(), R = r.width / 2, dx = e.clientX - r.left - R, dy = e.clientY - r.top - R, a = Math.hypot(dx, dy) / R || 1e-9, m = Math.min(1, a);
+      const g = m < 0.12 ? 0 : ((m - 0.12) / 0.88) ** 2 / a / R;
+      st.x = dx * g; st.y = dy * g;
+      knob.style.transform = `translate(calc(-50% + ${(dx / a * m * 0.55).toFixed(1)}px), calc(-50% + ${(dy / a * m * 0.55).toFixed(1)}px))`;
+    };
+    el.addEventListener('pointerdown', e => {
+      e.preventDefault(); if (st.on || e.button) return;
+      st.on = true; st.id = e.pointerId; try { el.setPointerCapture(e.pointerId); } catch (err) {} el.classList.add('on'); put(e);
+      padTick(); if (!G.iv) G.iv = setInterval(padTick, 50);
+    });
+    el.addEventListener('pointermove', e => { if (st.on && e.pointerId === st.id) put(e); });
+    for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture']) el.addEventListener(ev, e => { if (st.on && e.pointerId === st.id){ stickUp(st); padTick(); } });
+    el.addEventListener('contextmenu', e => e.preventDefault());
+  });
+  $('bAct').addEventListener('click', () => send('act'));   // sit, stand up, or order at the counter: as the TV says
+  const icon = (el, e) => {   // an emoji as text; the madeleine is a drawing, shown as a picture, never as markup from the relay
+    el.textContent = '';
+    if (typeof e !== 'string' || !e.startsWith('<svg')){ el.textContent = String(e ?? ''); return; }
+    const img = new Image(); img.alt = ''; img.src = 'data:image/svg+xml,' + encodeURIComponent(e.includes('xmlns=') ? e : e.replace('<svg', '<svg xmlns="http://www.w3.org/2000/svg"')); el.append(img);
+  };
+  function barShow(b){   // the TV's bar menu open: the same menu here, its names and prices as the TV says them; a tap buys, a tap on the tray eats
+    const key = L + JSON.stringify(b); if (key === G.bar) return; G.bar = key;
+    const it = Array.isArray(b.it) ? b.it : [], box = $('gbItems');
+    $('gbW').textContent = `👛 ${String(b.w ?? '')}`; $('gbPocket').hidden = !b.pocket;
+    if (!box.children.length) for (const [id, e] of G.menu){
+      const btn = document.createElement('button'); btn.type = 'button'; btn.className = 'gb-it'; btn.dataset.id = id;
+      const ic = document.createElement('span'); ic.className = 'gb-e'; ic.setAttribute('aria-hidden', 'true'); icon(ic, e);
+      btn.append(ic, Object.assign(document.createElement('span'), { className:'gb-n' }), Object.assign(document.createElement('span'), { className:'gb-p' })); box.append(btn);
+    }
+    [...box.children].forEach((btn, i) => { const x = Array.isArray(it[i]) ? it[i] : []; btn.children[1].textContent = String(x[0] ?? ''); btn.children[2].textContent = String(x[1] ?? ''); btn.classList.toggle('dear', !!x[2]); });
+    const tray = $('gbTray'), ids = Array.isArray(b.tray) ? b.tray : [];
+    tray.textContent = ''; tray.append(Object.assign(document.createElement('span'), { textContent:t(ids.length ? 'tray' : 'tray0') }));
+    ids.forEach((id, k) => {
+      const i = G.menu.findIndex(x => x[0] === id), n = String(it[i]?.[0] ?? ''), btn = document.createElement('button');
+      btn.type = 'button'; btn.dataset.k = k; btn.title = n; btn.setAttribute('aria-label', n); icon(btn, G.menu[i]?.[1] ?? '🍽️'); tray.append(btn);
+    });
+  }
+  $('gbItems').addEventListener('click', e => { const b = e.target.closest('[data-id]'); if (b) send('buy', b.dataset.id); });
+  $('gbTray').addEventListener('click', e => { const b = e.target.closest('[data-k]'); if (b) send('eat', +b.dataset.k); });
+  $('gbPocket').addEventListener('click', () => send('pocket'));
+  $('gbX').addEventListener('click', () => send('barx'));
   const menuFit = () => { const m = $('menu'); if (!m.hidden) m.style.maxHeight = `${Math.max(120, innerHeight - m.getBoundingClientRect().top - 10)}px`; };   // a phone held sideways: the menu scrolls, all of it in reach
   const menu = open => { $('menu').hidden = !open; $('chip').setAttribute('aria-expanded', String(open)); menuFit(); };
   addEventListener('resize', menuFit);
@@ -506,7 +634,7 @@ body.off :is(main>.lever,main>.pad,.line,.trains){opacity:.3;pointer-events:none
   if (CODE.test(h)){ history.replaceState(history.state, '', location.pathname + location.search); try { localStorage.setItem('remote.code', h); } catch (e) {} }
   const first = CODE.test(h) ? h : CODE.test(saved) ? saved : '';
   if (first) go(first, false); else show('pair');
-  window.remoteDebug = { R, send, render, go };
+  window.remoteDebug = { R, G, send, render, go };
 })();
 </script>
 </body>
