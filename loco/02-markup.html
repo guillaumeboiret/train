@@ -128,12 +128,15 @@
             </div>
           </div>
           <div class="field">
+            <label class="lab" for="todIn" data-i18n="ctl_tod">Heure</label>
+            <div class="row tod-row"><input id="todIn" type="range" min="0" max="1435" step="5" value="720"><output id="todOut" for="todIn">12:00</output><button type="button" id="todNow" class="btn" aria-pressed="true" data-i18n="tod_now">Maintenant</button></div>
+          </div>
+          <div class="field">
             <span class="lab" data-i18n="ctl_weather">Météo</span>
             <div class="seg" id="wxSeg">
               <button type="button" data-wx="sun" aria-pressed="true" data-i18n="wx_sun">Soleil</button>
               <button type="button" data-wx="cloud" aria-pressed="false" data-i18n="wx_cloud">Nuages</button>
               <button type="button" data-wx="rain" aria-pressed="false" data-i18n="wx_rain">Pluie</button>
-              <button type="button" data-wx="dusk" aria-pressed="false" data-i18n="wx_dusk">Crépuscule</button>
             </div>
           </div>
           <div class="field">
@@ -203,7 +206,7 @@
     </aside>
     <div id="hud" class="hud">
       <div class="hud-info">
-        <div class="hud-row"><span class="hk" data-i18n="hud_next">Prochaine gare</span><span class="hv" id="hudNext"></span><span class="hud-kind" id="hudKind"></span></div>
+        <div class="hud-row"><span class="hk" data-i18n="hud_next">Prochaine gare</span><span class="hv" id="hudNext"></span><span class="hud-kind" id="hudKind"></span><span class="hud-clock" id="hudClock"></span></div>
         <div class="hud-row hud-more"><span class="hk" data-i18n="hud_pk">PK</span><span class="hv"><b id="hudPk">0.9</b> km</span><span class="hk" data-i18n="hud_limit">Limite</span><span class="hv"><b id="hudLimit">160</b> km/h</span><span class="hk" data-i18n="hud_alt">Alt.</span><span class="hv"><b id="hudAlt">0</b> m</span><span class="hk" data-i18n="hud_grade">Pente</span><span class="hv"><b id="hudGrade">0</b> ‰</span><span class="hk" data-i18n="hud_tracks">Voies</span><span class="hv"><b id="hudTracks">2</b></span></div>
       </div>
       <div id="routeBar" role="group" aria-label="Ligne" data-i18n-aria="aria_line"></div>

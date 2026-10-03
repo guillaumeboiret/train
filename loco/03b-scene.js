@@ -114,10 +114,10 @@ function clearAt(h){   // the clear sky with the sun h degrees high
   return _clear;
 }
 scene.background = new THREE.Color(); scene.fog = new THREE.Fog(0xb8d2e8, 238, 832);   // set every frame by updateWeather
-let weatherId = 'sun', wxPick = 'sun';   // the weather, and the button that chose it
+let weatherId = 'sun';
 const wxW = { sun:1, cloud:0, rain:0 };   // how much of each weather is in the sky now (they blend)
 /* ---- the clock: French time, minutes after midnight. Live, it is the real time; set by hand, it runs with the simulation (x1 to x16) */
-const CLOCK = { live:true, min:720 };
+const CLOCK = { live:true, min:720, pick:null };   // pick: the time of day a button chose (TOD), until the clock is set another way
 let tzOff = 120, tzT = -1e9;   // France's offset from UTC (minutes), read once a minute
 function frOff(){
   const now = Date.now(); if (now - tzT < 60000) return tzOff;
@@ -131,9 +131,10 @@ function frOff(){
 const liveMin = () => { const d = new Date(); return (d.getUTCHours() * 60 + d.getUTCMinutes() + d.getUTCSeconds() / 60 + frOff() + 1440) % 1440; };
 const dayOfYear = () => { const d = new Date(); return Math.floor((d - Date.UTC(d.getUTCFullYear(), 0, 1)) / 864e5) + 1; };
 function setClock(min){   // null: back to the real time
-  CLOCK.live = min == null;
+  CLOCK.live = min == null; CLOCK.pick = null;
   CLOCK.min = CLOCK.live ? liveMin() : ((min % 1440) + 1440) % 1440;
 }
+const hhmm = min => { const m = Math.floor(min) % 1440; return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`; };
 /* the sun over the train (NOAA's approximation), in the route frame: x east, y up, z south. The route's x and z are metres from Toulouse,
    north up: the latitude and longitude come back within a few kilometres, a few seconds of the sun's time */
 const SUN_R = new THREE.Vector3(0, 1, 0);
@@ -155,6 +156,16 @@ function sunTime(h, evening){   // when the sun crosses h degrees today, going u
   }
   return null;
 }
+/* the times of day the playground's and the iPad's button go through: now (the real time), the morning with the sun 4 degrees up, noon, the
+   evening with the sun 1 degree up before it sets, midnight by the sun */
+const TOD = ['now', 'morning', 'noon', 'evening', 'night'];
+function solarNoon(){ const a = sunTime(-0.833, false), b = sunTime(-0.833, true); return a != null && b != null ? (a + b) / 2 : 825; }
+function setTod(id){
+  const m = id === 'morning' ? sunTime(4, false) : id === 'noon' ? solarNoon() : id === 'evening' ? sunTime(1, true) : id === 'night' ? solarNoon() + 720 : null;
+  if (id === 'now') setClock(null); else if (m != null){ setClock(m); CLOCK.pick = id; }
+}
+const todPick = () => CLOCK.live ? 'now' : CLOCK.pick || 'set';
+const todIcon = () => sunH < -4 ? '🌙' : sunH > 12 ? '☀️' : SUN_R.x > 0 ? '🌅' : '🌇';   // the sun in the east: morning
 /* rain: 1500 short streaks in a 60 m box that follows the camera; the vertex shader wraps them vertically over time */
 const RAIN_N = 1500;
 const rainMat = new THREE.ShaderMaterial({
@@ -248,10 +259,9 @@ function updateWeather(dt){
 const _tint = new THREE.Color();
 function applyWeather(){ updateWeather(0); }
 function setWeather(id){
-  if (id === 'dusk'){ wxPick = id; weatherId = 'sun'; const m = sunTime(1, true); if (m != null) setClock(m); }   // the evening: the clock goes to a sun 1 degree high, before it sets
-  else if (WEATHER[id]){ wxPick = weatherId = id; }
-  else return;
-  document.querySelectorAll('#wxSeg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.wx === wxPick)));
+  if (!WEATHER[id]) return;
+  weatherId = id;
+  document.querySelectorAll('#wxSeg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.wx === id)));
 }
 function applyTheme(){ applyWeather(); }   // the UI theme no longer drives the sky; kept for the theme observers below
 const darkMq = window.matchMedia('(prefers-color-scheme: dark)');

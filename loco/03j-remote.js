@@ -204,7 +204,7 @@ function rmState(){
   const st = nextStation(0), d = st ? (st.s - TGV.PLAT_FRONT - S.dist) * S.dir : 0;
   return JSON.stringify({ t:'state', kmh:Math.round(S.speed * 3.6), notch:Math.round(S.notch), auto:S.autoStop, svc:S.service, mode:S.mode, dir:S.dir,
     panto:!!S.panto, doors:S.doorsF > 0.5, doorsOk:!(S.speed > 0.1 && S.doorsF < 0.02), horn:horn.active, view:kidWhere(), cam:kidOut,
-    wx:KID_WX[wxIdx][0], xray:shellLevel < 1, nogui:noGui, mute:SND.muted, snd:SND.ctx?.state === 'running',
+    wx:KID_WX[wxIdx][0], tod:todPick(), todIco:todIcon(), clock:hhmm(CLOCK.min), xray:shellLevel < 1, nogui:noGui, mute:SND.muted, snd:SND.ctx?.state === 'running',
     next:st ? st.name : null, dist:st ? distText(d) : '', f:+RB.f(S.dist).toFixed(3) });
 }
 function rmPush(){ if (!RM.n) return; const s = rmState(); if (s !== RM.sent){ RM.sent = s; rmSend(s); } }
@@ -227,6 +227,7 @@ function rmCmd(c, v){
     case 'turn': kidTurn(); break;
     case 'doors': kidDoors(); break;
     case 'wx': { const i = KID_WX.findIndex(w => w[0] === v); if (i >= 0) kidWxSet(i); break; }
+    case 'tod': if (TOD.includes(v)){ setTod(v); updateWeather(0); kidTick(); } break;
     case 'xray': kidXray(); break;
     case 'view': if (v === 'driver' || v === 'pax') kidView(v); else if (v === 'out' && kidWhere() !== 'out') kidGo(kidOut); break;
     case 'cam': if (RM_CAMS.includes(v)) kidGo(v); break;

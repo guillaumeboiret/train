@@ -4,14 +4,14 @@
    three places to be: the driver's seat, the passenger's (on foot through the TGV) and outside, whose angles open beside it. */
 const KID_T = {
   fr:{ title:"Jouer au train", diesel:"Diesel", electric:"Électrique", tgv:"TGV", stop:"Stop", horn:"Klaxon", lever:"Manette", station:"Prochaine gare", service:"Toute la ligne",
-       back:"Retour à Bordeaux", auto:"Pilote auto…", doors:"Portes", wx:"Météo", xray:"Rayons X", hint:"Pousse la manette pour partir !", lever_drag:"Glisse la manette vers le haut pour avancer, vers le bas pour freiner !",
+       back:"Retour à Bordeaux", auto:"Pilote auto…", doors:"Portes", wx:"Météo", tod:"Heure", xray:"Rayons X", hint:"Pousse la manette pour partir !", lever_drag:"Glisse la manette vers le haut pour avancer, vers le bas pour freiner !",
        hint_doors:"Ferme les portes… et c'est parti !", hint_pax:"Attends, tout le monde descend !", hint_end:"Terminus ! Appuie sur 🔄 pour faire demi-tour.", hint_stopped:"Le train doit être arrêté.", service_on:"🔁 Toute la ligne, en boucle", service_off:"Boucle arrêtée", service_last:"Boucle arrêtée : la prochaine gare est la dernière",
        terminus:"Terminus", next:"Prochaine gare", full:"Version complète ↗", game:"Jeu des aiguillages ↗", lang:"Langue",
        panto:"Pantographe", dir_par:"Vers Paris", dir_tls:"Vers Toulouse", turn:"Demi-tour", hint_panto:"Lève le pantographe !", hint_wait:"Le pantographe monte…", sound:"Son",
        v_driver:"Conducteur", v_pax:"Passager", v_out:"Dehors", pax_tgv:"Le passager voyage en TGV : choisis le TGV 🚄",
        o_overview:"Ensemble", o_side:"Profil", o_train:"Tout le train", o_far:"Paysage", o_door:"Portes" },
   en:{ title:"Train playground", diesel:"Diesel", electric:"Electric", tgv:"TGV", stop:"Stop", horn:"Horn", lever:"Lever", station:"Next station", service:"Whole line",
-       back:"Back to Bordeaux", auto:"Autopilot…", doors:"Doors", wx:"Weather", xray:"X-ray", hint:"Push the lever to go!", lever_drag:"Slide the lever up to go, down to brake!",
+       back:"Back to Bordeaux", auto:"Autopilot…", doors:"Doors", wx:"Weather", tod:"Time of day", xray:"X-ray", hint:"Push the lever to go!", lever_drag:"Slide the lever up to go, down to brake!",
        hint_doors:"Closing the doors… off we go!", hint_pax:"Wait, everyone is getting off!", hint_end:"End of the line! Press 🔄 to turn around.", hint_stopped:"The train must be stopped first.", service_on:"🔁 The whole line, again and again", service_off:"Loop stopped", service_last:"Loop stopped: the next station is the last",
        terminus:"Terminus", next:"Next station", full:"Full version ↗", game:"Switch game ↗", lang:"Language",
        panto:"Pantograph", dir_par:"To Paris", dir_tls:"To Toulouse", turn:"Turn around", hint_panto:"Raise the pantograph!", hint_wait:"Pantograph rising…", sound:"Sound",
@@ -19,7 +19,7 @@ const KID_T = {
        o_overview:"Overview", o_side:"Side", o_train:"Whole train", o_far:"Landscape", o_door:"Doors" },
 };
 const kt = k => KID_T[S.lang][k] ?? k;
-const KID_WX = [['sun', '☀️'], ['cloud', '☁️'], ['rain', '🌧️'], ['dusk', '🌆']];
+const KID_WX = [['sun', '☀️'], ['cloud', '☁️'], ['rain', '🌧️']];
 Object.assign(CAMS, {
   door: () => {   // on the platform just ahead of coach 1's door, over the heads of the queue: the leaf slides toward the camera
     const x = TGV.TRAILERS[0][0] + TR.doorX, V = THREE.Vector3, k = nearestStation().side;
@@ -210,6 +210,7 @@ $('c3d').parentElement.insertAdjacentHTML('beforeend', `<div id="kid">
       <button type="button" class="kb" id="kidDir"><span class="ico">🔄</span><span class="lab" id="kidDirLab"></span></button>
       <span class="tgv-only"><button type="button" class="kb blue" id="kidDoors" aria-pressed="false"><span class="ico">🚪</span><span class="lab" data-kid="doors"></span></button></span>
       <button type="button" class="kb" id="kidWx"><span class="ico" id="kidWxIco">☀️</span><span class="lab" data-kid="wx"></span></button>
+      <button type="button" class="kb" id="kidTod"><span class="ico" id="kidTodIco">☀️</span><span class="lab" id="kidTodLab">12:00</span></button>
       <button type="button" class="kb" id="kidXray" aria-pressed="false"><span class="ico">👀</span><span class="lab" data-kid="xray"></span></button>
     </div>
   </div>
@@ -304,6 +305,7 @@ function kidView(v){   // one tap from anywhere: the driver's seat, the passenge
 }
 function kidWxSet(i){ wxIdx = i; setWeather(KID_WX[i][0]); $('kidWxIco').textContent = KID_WX[i][1]; }
 function kidWx(){ kidWxSet((wxIdx + 1) % KID_WX.length); }
+function kidTod(){ setTod(TOD[(TOD.indexOf(todPick()) + 1) % TOD.length]); updateWeather(0); kidTick(); }   // now, morning, noon, evening, night, now again
 function kidXray(){ setShell(shellLevel >= 1 ? 0.18 : 1); $('kidXray').setAttribute('aria-pressed', String(shellLevel < 1)); }
 function kidTrain(mode){
   const d = S.dist, dir = S.dir, where = kidWhere();
@@ -319,10 +321,12 @@ function kidLang(){
   document.title = kt('title');
   document.querySelectorAll('[data-kid]').forEach(el => { el.textContent = kt(el.dataset.kid); });
   $('kidLang').querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.lang === S.lang)));
-  $('kidLever').setAttribute('aria-label', kt('lever')); $('clTrack').setAttribute('aria-label', kt('lever'));
+  $('kidLever').setAttribute('aria-label', kt('lever')); $('clTrack').setAttribute('aria-label', kt('lever')); $('kidTod').setAttribute('aria-label', kt('tod'));
 }
+let kidTodT = '';   // the clock and the sky last shown on the time button
 function kidTick(){
   $('kidSpeed').textContent = Math.round(S.speed * 3.6);
+  const tod = todIcon() + hhmm(CLOCK.min); if (tod !== kidTodT){ kidTodT = tod; $('kidTodIco').textContent = todIcon(); $('kidTodLab').textContent = hhmm(CLOCK.min); }
   const st = nextStation(0), d = st ? (st.s - TGV.PLAT_FRONT - S.dist) * S.dir : 0;
   $('kidNext').textContent = st ? `🚉 ${st.name} · ${d < 950 ? `${Math.round(d)} m` : `${(d / 1000).toFixed(d < 10000 ? 1 : 0)} km`}` : `🏁 ${kt('terminus')}`;
   const sb = $('kidStation'); sb.classList.toggle('auto', S.autoStop); sb.setAttribute('aria-pressed', String(S.service));
@@ -349,6 +353,7 @@ $('kidDoors').addEventListener('click', () => kidDoors());
 $('kidViews').addEventListener('click', e => { const b = e.target.closest('[data-view]'); if (b) kidView(b.dataset.view); });
 $('kidAngles').addEventListener('click', e => { const b = e.target.closest('[data-cam]'); if (b) kidGo(b.dataset.cam); });
 $('kidWx').addEventListener('click', kidWx);
+$('kidTod').addEventListener('click', kidTod);
 $('kidXray').addEventListener('click', kidXray);
 {
   const hb = $('kidHorn');
@@ -384,4 +389,4 @@ setMode('tgv'); Object.assign(SIM_MUL, KID_MUL.tgv); setShell(1); kidPower(true)
 kidGo('overview'); orbit.autoRotate = false;
 kidLang(); kidTick(); setInterval(kidTick, 100);
 kidToast('hint', 6000);
-Object.assign(window.locoDebug, { kidLever, kidStop, kidStation, kidService, kidDoors, kidView, kidGo, kidWhere, kidWx, kidXray, kidTrain, kidTick, kidPanto, kidTurn, kidMute });
+Object.assign(window.locoDebug, { kidLever, kidStop, kidStation, kidService, kidDoors, kidView, kidGo, kidWhere, kidWx, kidTod, kidXray, kidTrain, kidTick, kidPanto, kidTurn, kidMute });

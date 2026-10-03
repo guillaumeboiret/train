@@ -150,6 +150,8 @@ body:not([data-mode="tgv"]) .tgv-only{display:none}
 #routeBar{position:relative;height:32px;margin-top:6px;cursor:pointer;touch-action:none}
 #rbTip{position:absolute;top:-22px;transform:translateX(-50%);background:var(--accent);color:var(--accent-ink);font:600 10px/1 var(--font-mono);padding:3px 6px;border-radius:3px;pointer-events:none;white-space:nowrap;display:none}
 .pk-row{align-items:center}
+.tod-row{align-items:center;flex-wrap:nowrap}#todIn{flex:1;min-width:0;accent-color:var(--accent)}#todOut{font-family:var(--font-mono);font-size:13px;min-width:42px}
+.hud .hud-clock{font-family:var(--font-mono);font-weight:600}
 #pkIn{width:110px;background:var(--panel-2);border:1px solid var(--line);border-radius:6px;padding:7px 9px;font-family:var(--font-mono);font-size:13px;color:var(--ink)}
 #routeBar::before{content:"";position:absolute;left:7px;right:7px;top:7px;height:2px;background:var(--line)}
 .rb-in{position:absolute;inset:0 7px}
@@ -433,12 +435,15 @@ body.nogui.ng-calm #c3d{cursor:none}
             </div>
           </div>
           <div class="field">
+            <label class="lab" for="todIn" data-i18n="ctl_tod">Heure</label>
+            <div class="row tod-row"><input id="todIn" type="range" min="0" max="1435" step="5" value="720"><output id="todOut" for="todIn">12:00</output><button type="button" id="todNow" class="btn" aria-pressed="true" data-i18n="tod_now">Maintenant</button></div>
+          </div>
+          <div class="field">
             <span class="lab" data-i18n="ctl_weather">Météo</span>
             <div class="seg" id="wxSeg">
               <button type="button" data-wx="sun" aria-pressed="true" data-i18n="wx_sun">Soleil</button>
               <button type="button" data-wx="cloud" aria-pressed="false" data-i18n="wx_cloud">Nuages</button>
               <button type="button" data-wx="rain" aria-pressed="false" data-i18n="wx_rain">Pluie</button>
-              <button type="button" data-wx="dusk" aria-pressed="false" data-i18n="wx_dusk">Crépuscule</button>
             </div>
           </div>
           <div class="field">
@@ -508,7 +513,7 @@ body.nogui.ng-calm #c3d{cursor:none}
     </aside>
     <div id="hud" class="hud">
       <div class="hud-info">
-        <div class="hud-row"><span class="hk" data-i18n="hud_next">Prochaine gare</span><span class="hv" id="hudNext"></span><span class="hud-kind" id="hudKind"></span></div>
+        <div class="hud-row"><span class="hk" data-i18n="hud_next">Prochaine gare</span><span class="hv" id="hudNext"></span><span class="hud-kind" id="hudKind"></span><span class="hud-clock" id="hudClock"></span></div>
         <div class="hud-row hud-more"><span class="hk" data-i18n="hud_pk">PK</span><span class="hv"><b id="hudPk">0.9</b> km</span><span class="hk" data-i18n="hud_limit">Limite</span><span class="hv"><b id="hudLimit">160</b> km/h</span><span class="hk" data-i18n="hud_alt">Alt.</span><span class="hv"><b id="hudAlt">0</b> m</span><span class="hk" data-i18n="hud_grade">Pente</span><span class="hv"><b id="hudGrade">0</b> ‰</span><span class="hk" data-i18n="hud_tracks">Voies</span><span class="hv"><b id="hudTracks">2</b></span></div>
       </div>
       <div id="routeBar" role="group" aria-label="Ligne" data-i18n-aria="aria_line"></div>
@@ -595,7 +600,7 @@ const T = {
     walk_bar:"Bar", bar_title:"Le bar", bar_order:"Commander", bar_close:"Fermer le menu", bar_wallet:"Porte-monnaie", bar_tray:"Mon plateau", bar_tray_hint:"Choisis-en un pour le déguster.", bar_empty:"Rien pour l'instant.", bar_pocket:"Argent de poche +10€", bar_pocket_say:"Et 10€ de plus !", bar_broke:"Pas assez de sous", bar_thanks:"Voilà ! Merci.", bar_yum:"Miam !", bar_gulp:"Glou glou !", bar_free:"Gratuit", bar_full:"Plateau plein, goûte d'abord !", bar_speed:"Vitesse du train",
     bar_i_espresso:"Café", bar_i_choco:"Chocolat chaud", bar_i_tea:"Thé", bar_i_soda:"Soda", bar_i_juice:"Jus de pomme", bar_i_water:"Verre d'eau", bar_i_club:"Club sandwich", bar_i_croque:"Croque-monsieur", bar_i_burger:"Burger", bar_i_cookie:"Cookie", bar_i_muffin:"Muffin", bar_i_painchoc:"Pain au chocolat", bar_i_chocolatine:"Chocolatine", bar_i_madeleine:"Madeleines", bar_i_chips:"Chips", bar_i_sweets:"Bonbons",
     ctl_track:"Voie", track_hint:"Changement par une communication 400 m devant la rame.", track_busy:"Communication déjà engagée, attendez.", track_occupied:"Voie occupée par un train en face.", track_2:"Voie 2 (sens Paris)", track_1:"Voie 1 (sens Toulouse)",
-    ctl_time:"Vitesse du temps", horn:"Klaxon (H)", hud_pk:"PK", hud_alt:"Alt.", hud_grade:"Pente", hud_tracks:"Voies", hud_limit:"Limite", hud_next:"Prochaine gare", hud_end:"Terminus", hud_tp:"Aller au PK", hud_go:"Go", rb_title:"Cliquez ou glissez sur la ligne pour vous téléporter", ctl_weather:"Météo", wx_sun:"Soleil", wx_cloud:"Nuages", wx_rain:"Pluie", wx_dusk:"Crépuscule", hud_bridge:"Pont", hud_tunnel:"Tunnel", hud_cutting:"Tranchée", hud_viaduct:"Viaduc",
+    ctl_time:"Vitesse du temps", horn:"Klaxon (H)", hud_pk:"PK", hud_alt:"Alt.", hud_grade:"Pente", hud_tracks:"Voies", hud_limit:"Limite", hud_next:"Prochaine gare", hud_end:"Terminus", hud_tp:"Aller au PK", hud_go:"Go", rb_title:"Cliquez ou glissez sur la ligne pour vous téléporter", ctl_weather:"Météo", wx_sun:"Soleil", wx_cloud:"Nuages", wx_rain:"Pluie", ctl_tod:"Heure", tod_now:"Maintenant", hud_bridge:"Pont", hud_tunnel:"Tunnel", hud_cutting:"Tranchée", hud_viaduct:"Viaduc",
     cam_hint:"Clavier: W A S D déplacent le point de visée le long de la rame, R/F (ou E/Q) montent et descendent, Maj accélère. H ou Espace: klaxon. Aux places et au poste de conduite, glisser ou W A S D tournent la tête. Au poste, ↑ et ↓ manœuvrent le manipulateur.",
     route_src:"Ligne Toulouse Matabiau à Paris Montparnasse par Bordeaux Saint-Jean, 829,5 km. Tracé, gares, nombre de voies, éoliennes et monuments: © OpenStreetMap contributors (ODbL); formes des monuments simplifiées d'après Wikipédia. Relief: Mapzen/AWS Terrain Tiles (SRTM). Profil de la voie lissé et limité à 2,5 %. Champs, maisons et arbres générés; trains en face à intervalles aléatoires. Sons du TGV enregistrés par bruno.auzet et noisymichael (Freesound) et Joseph Sardin (BigSoundBank), CC0; le reste est synthétisé.",
     aria_traction:"Type de traction", aria_lang:"Langue", aria_canvas:"Locomotive 3D", aria_compass:"Boussole", cmp_w:"O", aria_line:"Ligne", aria_fold:"Replier", aria_hide:"Masquer", tip_hide:"Masquer / afficher",
@@ -633,7 +638,7 @@ const T = {
     walk_bar:"Bar", bar_title:"The bar", bar_order:"Order", bar_close:"Close the menu", bar_wallet:"Wallet", bar_tray:"My tray", bar_tray_hint:"Pick one to enjoy it.", bar_empty:"Nothing yet.", bar_pocket:"Pocket money +10€", bar_pocket_say:"Here's 10€ more!", bar_broke:"Not enough money", bar_thanks:"Here you go! Thanks.", bar_yum:"Yum!", bar_gulp:"Gulp!", bar_free:"Free", bar_full:"Tray full, enjoy something first!", bar_speed:"Train speed",
     bar_i_espresso:"Espresso", bar_i_choco:"Hot chocolate", bar_i_tea:"Tea", bar_i_soda:"Soda", bar_i_juice:"Apple juice", bar_i_water:"Glass of water", bar_i_club:"Club sandwich", bar_i_croque:"Croque-monsieur", bar_i_burger:"Burger", bar_i_cookie:"Cookie", bar_i_muffin:"Muffin", bar_i_painchoc:"Pain au chocolat", bar_i_chocolatine:"Chocolatine", bar_i_madeleine:"Madeleines", bar_i_chips:"Crisps", bar_i_sweets:"Sweets",
     ctl_track:"Track", track_hint:"Changes over a crossover 400 m ahead of the train.", track_busy:"Crossover already in use, wait.", track_occupied:"Track occupied by an oncoming train.", track_2:"Track 2 (to Paris)", track_1:"Track 1 (to Toulouse)",
-    ctl_time:"Time scale", horn:"Horn (H)", hud_pk:"km", hud_alt:"Alt.", hud_grade:"Grade", hud_tracks:"Tracks", hud_limit:"Limit", hud_next:"Next station", hud_end:"Terminus", hud_tp:"Go to km", hud_go:"Go", rb_title:"Click or drag on the line to teleport", ctl_weather:"Weather", wx_sun:"Sun", wx_cloud:"Clouds", wx_rain:"Rain", wx_dusk:"Dusk", hud_bridge:"Bridge", hud_tunnel:"Tunnel", hud_cutting:"Cutting", hud_viaduct:"Viaduct",
+    ctl_time:"Time scale", horn:"Horn (H)", hud_pk:"km", hud_alt:"Alt.", hud_grade:"Grade", hud_tracks:"Tracks", hud_limit:"Limit", hud_next:"Next station", hud_end:"Terminus", hud_tp:"Go to km", hud_go:"Go", rb_title:"Click or drag on the line to teleport", ctl_weather:"Weather", wx_sun:"Sun", wx_cloud:"Clouds", wx_rain:"Rain", ctl_tod:"Time of day", tod_now:"Now", hud_bridge:"Bridge", hud_tunnel:"Tunnel", hud_cutting:"Cutting", hud_viaduct:"Viaduct",
     cam_hint:"Keys: W A S D move the focus along the train, R/F (or E/Q) up and down, Shift is faster. H or Space: horn. In a seat or the driver's seat, drag or W A S D turn your head. In the driver's seat, ↑ and ↓ work the lever.",
     route_src:"Toulouse Matabiau to Paris Montparnasse via Bordeaux Saint-Jean, 829.5 km. Alignment, stations, track count, wind turbines and landmarks: © OpenStreetMap contributors (ODbL); landmark shapes simplified from Wikipedia. Relief: Mapzen/AWS Terrain Tiles (SRTM). Track profile smoothed and capped at 2.5%. Fields, houses and trees are generated; oncoming trains run at random intervals. TGV sounds recorded by bruno.auzet and noisymichael (Freesound) and Joseph Sardin (BigSoundBank), CC0; the rest is synthesised.",
     aria_traction:"Traction type", aria_lang:"Language", aria_canvas:"3D locomotive", aria_compass:"Compass", cmp_w:"W", aria_line:"Line", aria_fold:"Collapse", aria_hide:"Hide", tip_hide:"Hide / show",
@@ -971,10 +976,10 @@ function clearAt(h){   // the clear sky with the sun h degrees high
   return _clear;
 }
 scene.background = new THREE.Color(); scene.fog = new THREE.Fog(0xb8d2e8, 238, 832);   // set every frame by updateWeather
-let weatherId = 'sun', wxPick = 'sun';   // the weather, and the button that chose it
+let weatherId = 'sun';
 const wxW = { sun:1, cloud:0, rain:0 };   // how much of each weather is in the sky now (they blend)
 /* ---- the clock: French time, minutes after midnight. Live, it is the real time; set by hand, it runs with the simulation (x1 to x16) */
-const CLOCK = { live:true, min:720 };
+const CLOCK = { live:true, min:720, pick:null };   // pick: the time of day a button chose (TOD), until the clock is set another way
 let tzOff = 120, tzT = -1e9;   // France's offset from UTC (minutes), read once a minute
 function frOff(){
   const now = Date.now(); if (now - tzT < 60000) return tzOff;
@@ -988,9 +993,10 @@ function frOff(){
 const liveMin = () => { const d = new Date(); return (d.getUTCHours() * 60 + d.getUTCMinutes() + d.getUTCSeconds() / 60 + frOff() + 1440) % 1440; };
 const dayOfYear = () => { const d = new Date(); return Math.floor((d - Date.UTC(d.getUTCFullYear(), 0, 1)) / 864e5) + 1; };
 function setClock(min){   // null: back to the real time
-  CLOCK.live = min == null;
+  CLOCK.live = min == null; CLOCK.pick = null;
   CLOCK.min = CLOCK.live ? liveMin() : ((min % 1440) + 1440) % 1440;
 }
+const hhmm = min => { const m = Math.floor(min) % 1440; return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`; };
 /* the sun over the train (NOAA's approximation), in the route frame: x east, y up, z south. The route's x and z are metres from Toulouse,
    north up: the latitude and longitude come back within a few kilometres, a few seconds of the sun's time */
 const SUN_R = new THREE.Vector3(0, 1, 0);
@@ -1012,6 +1018,16 @@ function sunTime(h, evening){   // when the sun crosses h degrees today, going u
   }
   return null;
 }
+/* the times of day the playground's and the iPad's button go through: now (the real time), the morning with the sun 4 degrees up, noon, the
+   evening with the sun 1 degree up before it sets, midnight by the sun */
+const TOD = ['now', 'morning', 'noon', 'evening', 'night'];
+function solarNoon(){ const a = sunTime(-0.833, false), b = sunTime(-0.833, true); return a != null && b != null ? (a + b) / 2 : 825; }
+function setTod(id){
+  const m = id === 'morning' ? sunTime(4, false) : id === 'noon' ? solarNoon() : id === 'evening' ? sunTime(1, true) : id === 'night' ? solarNoon() + 720 : null;
+  if (id === 'now') setClock(null); else if (m != null){ setClock(m); CLOCK.pick = id; }
+}
+const todPick = () => CLOCK.live ? 'now' : CLOCK.pick || 'set';
+const todIcon = () => sunH < -4 ? '🌙' : sunH > 12 ? '☀️' : SUN_R.x > 0 ? '🌅' : '🌇';   // the sun in the east: morning
 /* rain: 1500 short streaks in a 60 m box that follows the camera; the vertex shader wraps them vertically over time */
 const RAIN_N = 1500;
 const rainMat = new THREE.ShaderMaterial({
@@ -1105,10 +1121,9 @@ function updateWeather(dt){
 const _tint = new THREE.Color();
 function applyWeather(){ updateWeather(0); }
 function setWeather(id){
-  if (id === 'dusk'){ wxPick = id; weatherId = 'sun'; const m = sunTime(1, true); if (m != null) setClock(m); }   // the evening: the clock goes to a sun 1 degree high, before it sets
-  else if (WEATHER[id]){ wxPick = weatherId = id; }
-  else return;
-  document.querySelectorAll('#wxSeg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.wx === wxPick)));
+  if (!WEATHER[id]) return;
+  weatherId = id;
+  document.querySelectorAll('#wxSeg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.wx === id)));
 }
 function applyTheme(){ applyWeather(); }   // the UI theme no longer drives the sky; kept for the theme observers below
 const darkMq = window.matchMedia('(prefers-color-scheme: dark)');
@@ -7150,6 +7165,7 @@ const RB = (() => {
   const lerp = (a, b, v) => { let i = 0; while (i < a.length - 2 && v > a[i + 1]) i++; const d = a[i + 1] - a[i]; return b[i] + (d > 0 ? (v - a[i]) / d : 0) * (b[i + 1] - b[i]); };
   return { f:v => lerp(s, f, v), s:v => lerp(f, s, v) };   // PK in metres to 0..1 along the bar, and back
 })();
+let hudClockT = '', todInT = -1e9;   // the clock last shown, and whether it was the real time; when the slider last moved by hand
 function updateHud(){
   const s = S.dist;
   $('hudPk').textContent = (s / 1000).toFixed(1);
@@ -7161,6 +7177,9 @@ function updateHud(){
   const k = ROUTE.kindAt(s); $('hudKind').textContent = k ? t(KIND_KEY[k]) : '';
   $('rbTrain').style.left = `${(RB.f(s) * 100).toFixed(2)}%`;
   $('throttleVal').textContent = `${S.notch} · ${Math.round(S.vMaxEff * S.notch / 8 * 3.6)} km/h`; cabLever.sync();
+  const hm = hhmm(CLOCK.min), ti = $('todIn');
+  if (hm + CLOCK.live !== hudClockT){ hudClockT = hm + CLOCK.live; $('hudClock').textContent = '🕒 ' + hm; $('todOut').textContent = hm; $('todNow').setAttribute('aria-pressed', String(CLOCK.live)); }
+  if (performance.now() - todInT > 1000) ti.value = Math.round(CLOCK.min);   // not under a moving finger
 }
 function distText(d){ return d < 950 ? `${Math.round(d)} m` : `${(d / 1000).toFixed(d < 10000 ? 1 : 0)} km`; }
 function stationText(st){ return st ? `${st.name} · ${distText((st.s - TGV.PLAT_FRONT - S.dist) * S.dir)}` : t('hud_end'); }   // a stop and how far to its mark
@@ -7231,6 +7250,8 @@ const ST_SHORT = { bdx:'Bordeaux', par:'Paris', tls:'Toulouse', pts:'Poitiers', 
   pkIn.addEventListener('keyup', e => e.stopPropagation());
 }
 $('wxSeg').addEventListener('click', e => { const b = e.target.closest('button'); if (b) setWeather(b.dataset.wx); });
+$('todIn').addEventListener('input', e => { todInT = performance.now(); setClock(+e.target.value); updateHud(); });   // the time of day by hand; Now: the real time again
+$('todNow').addEventListener('click', () => { setClock(null); updateHud(); });
 $('trackSeg').addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b) return;
   const res = requestTrack(+b.dataset.track);
@@ -7400,5 +7421,5 @@ resize();
 setShell(0.18); setCut('none'); setExplode(0);
 setMode('diesel');
 requestAnimationFrame(loop);
-window.locoDebug = { BAR, BAR_MENU, barOpen, barClose, barBuy, barEat, barNear, barIsOpen, walkSitStool, updateBar, CAB, driverSeat, cabActions, cabLever, S, simulate, animate, updateFlows, updateGauges, orbit, renderer, scene, camera, goStep, setMode, setCut, setExplode, setShell, select, parts, TGV, tgvSets, station, updateTgv, syncControls, tick:window.tick, ROUTE, horn, chunks, requestTrack, trk, opp, parked, cars, curveLocal, updateHud, jumpToStation, jumpTo, setWeather, CLOCK, setClock, sunTime, sunHAt, SUN_R, LIGHT_DIR, sky:() => ({ sunH, weatherId, wxW:{ ...wxW }, P:[...PAL] }), sun, hemi, fill, stars, pcHosts, pcShells, flowObjs, landmarks, flyPreset, SND, PX, pool, paxResolve, paxHolding, allCoaches, world, keys, WK, walkMove, walkSitNear, walkPick, walkStand, walkZones, STICK, walkView, nextStation, goNextStation, serviceOn, serviceOff, driverLever, cabRowX, CAB_ROW_Y };
+window.locoDebug = { BAR, BAR_MENU, barOpen, barClose, barBuy, barEat, barNear, barIsOpen, walkSitStool, updateBar, CAB, driverSeat, cabActions, cabLever, S, simulate, animate, updateFlows, updateGauges, orbit, renderer, scene, camera, goStep, setMode, setCut, setExplode, setShell, select, parts, TGV, tgvSets, station, updateTgv, syncControls, tick:window.tick, ROUTE, horn, chunks, requestTrack, trk, opp, parked, cars, curveLocal, updateHud, jumpToStation, jumpTo, setWeather, CLOCK, setClock, setTod, todPick, todIcon, hhmm, solarNoon, sunTime, sunHAt, SUN_R, LIGHT_DIR, sky:() => ({ sunH, weatherId, wxW:{ ...wxW }, P:[...PAL] }), sun, hemi, fill, stars, pcHosts, pcShells, flowObjs, landmarks, flyPreset, SND, PX, pool, paxResolve, paxHolding, allCoaches, world, keys, WK, walkMove, walkSitNear, walkPick, walkStand, walkZones, STICK, walkView, nextStation, goNextStation, serviceOn, serviceOff, driverLever, cabRowX, CAB_ROW_Y };
 </script>
