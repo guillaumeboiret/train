@@ -824,8 +824,10 @@ function updateLights(){   // every frame, the camera placed
   DARK.cam = camPlace(camera.position) && ROUTE.kindAt(CP.s) === 2 && _fx.y < CP.yG ? tunnelIn(CP.s) : 0;   // under the hill, not over it
   tunnelM.emissiveIntensity = 1 - 0.85 * DARK.cam;
   const glow = Math.max(DARK.night, DARK.cam);
-  for (const m of winMats) if (!m.userData.hl) m.emissiveIntensity = 1.1 * glow;
-  SALOON.value.setRGB(1, 0.93, 0.82).multiplyScalar(SALOON_I * glow);
+  const on = S.lights ? 1 : 0;   // our own train's lights, switched in the cab
+  for (const m of winMats) if (!m.userData.hl) m.emissiveIntensity = 1.1 * glow * (m.userData.own ? on : 1);
+  SALOON.value.setRGB(1, 0.93, 0.82).multiplyScalar(SALOON_I * glow); SALOON_OWN.value.copy(SALOON.value).multiplyScalar(on);
+  for (const m of ownLit) if (!m.userData.hl) m.emissiveIntensity = m.userData.lit * on;
   let head = null, best = 0;
   for (const h of halos){
     const lit = Math.min(1, h.lens.emissiveIntensity / h.peak), on = lit > 0 && shown(h.host);

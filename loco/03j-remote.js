@@ -208,7 +208,7 @@ const rmBar = () => ({ w:money(BAR.wallet), pocket:!$('barPocket').hidden, tray:
 function rmState(){
   const st = nextStation(0), d = st ? (st.s - TGV.PLAT_FRONT - S.dist) * S.dir : 0;
   return JSON.stringify({ t:'state', kmh:Math.round(S.speed * 3.6), notch:Math.round(S.notch), brake:Math.round(S.brake), s:+S.dist.toFixed(1), v:+S.speed.toFixed(2), auto:S.autoStop, svc:S.service, mode:S.mode, dir:S.dir,
-    panto:!!S.panto, doors:S.doorsF > 0.5, doorsOk:!(S.speed > 0.1 && S.doorsF < 0.02), horn:horn.active, view:kidWhere(), cam:kidOut,
+    panto:!!S.panto, lights:S.lights, doors:S.doorsF > 0.5, doorsOk:!(S.speed > 0.1 && S.doorsF < 0.02), horn:horn.active, view:kidWhere(), cam:kidOut,
     wx:wxPick(), plan:WX_PLAN.slots, tod:todPick(), todIco:todIcon(), clock:hhmm(CLOCK.min), xray:shellLevel < 1, nogui:noGui, mute:SND.muted, snd:SND.ctx?.state === 'running',
     next:st ? st.name : null, dist:st ? distText(d) : '', f:+RB.f(S.dist).toFixed(3),
     walk:walking ? { act:$('walkSit').dataset.i18n, bar:barIsOpen() ? rmBar() : null } : null });
@@ -229,6 +229,7 @@ function rmCmd(c, v){
     case 'stop': kidStop(); break;
     case 'horn': if (v){ RM.hornT = performance.now(); if (!RM.horn){ RM.horn = true; horn.press(); } } else if (RM.horn){ RM.horn = false; horn.release(); } break;
     case 'panto': kidPanto(); break;
+    case 'lights': cabActions.lights(); break;
     case 'next': kidStation(); break;
     case 'service': kidService(); break;
     case 'turn': kidTurn(); break;

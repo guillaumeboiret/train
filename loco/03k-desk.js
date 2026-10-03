@@ -35,7 +35,7 @@ if (DESK){
   for (const ev of ['pointerup', 'pointercancel', 'blur']) addEventListener(ev, () => hornOn(false));
   Object.assign(cabActions, {
     lever(v){ S.notch = v; S.brake = v === 0 ? 4 : 0; DK.leverT = performance.now(); cmd('lever', v); },   // the TV's state catches up after
-    horn(){ hornOn(true); }, panto(){ cmd('panto'); }, doors(){ cmd('doors'); }, next(){ cmd('next'); }, service(){ cmd('service'); },
+    horn(){ hornOn(true); }, lights(){ cmd('lights'); }, panto(){ cmd('panto'); }, doors(){ cmd('doors'); }, next(){ cmd('next'); }, service(){ cmd('service'); },
     dir(d){ if (d !== S.dir) cmd('turn'); }, leave(){}, leverTip(){ cabSay(kt('lever_drag')); },
   });
   orbit.onClick = e => { if (!inCab) return; const st = cabRowAt(e); if (st){ cmd('station', st.id); cabSay(st.name); } };   // a stop on the line screen; no skip on the edges
@@ -58,7 +58,7 @@ if (DESK){
   followHook = dt => {
     const st = DK.st, now = performance.now();
     if (!st){ simulate(dt); return; }
-    S.battery = true; S.dir = st.dir < 0 ? -1 : 1; S.panto = !!st.panto; S.doors = !!st.doors && S.mode === 'tgv';
+    S.battery = true; S.lights = st.lights !== false; S.dir = st.dir < 0 ? -1 : 1; S.panto = !!st.panto; S.doors = !!st.doors && S.mode === 'tgv';
     if (now - DK.leverT > 1000){ S.notch = clamp(st.notch | 0, 0, 8); S.brake = clamp(st.brake | 0, 0, 8); }
     const d0 = S.dist; S.autoStop = S.service = false; simulate(dt);   // the needles, the pantographs, the engine: this train's own, its autopilot never at the lever
     const v = Math.max(0, +st.v || 0), age = Math.min(1, (now - DK.t) / 1000), run = age < 1 ? v : 0, want = (+st.s || 0) + v * S.dir * age;   // nothing heard for a second: it waits there

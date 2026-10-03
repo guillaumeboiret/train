@@ -24,7 +24,7 @@ const S = {
   current:0, effort:0, speed:0, dist:0,
   temp:0.2, fans:0, fanOn:false, gridHeat:0, gridFan:0,
   flowsOn:true, labelsOn:false, explode:0, autoShutdown:false, shutdownT:0, time:0,
-  sets:1, coupling:0, set2Off:-40, hatchF:0, doors:false, doorsF:0, autoStop:false, atStation:false, autoDoors:false, stationT:0, service:false,
+  sets:1, coupling:0, set2Off:-40, hatchF:0, doors:false, doorsF:0, autoStop:false, atStation:false, autoDoors:false, stationT:0, service:false, lights:true,
 };
 function startEngine(){ if (S.mode !== 'diesel' || !S.battery || S.engine !== 'off') return; S.engine = 'cranking'; S.crankT = 0; }
 function stopEngine(){ if (S.engine === 'running') S.engine = 'stopping'; else if (S.engine === 'cranking') S.engine = 'off'; }
@@ -214,7 +214,7 @@ function animate(dt){
     if (sp) f.obj.rotation.y += sp * dt;
   }
   for (const l of cabLevers) l.rotation.z = -(S.notch / 8) * 0.6 + (S.brake / 8) * 0.4;
-  for (const m of lampMats){ if (m.userData.hl) continue; m.emissiveIntensity = approach(m.emissiveIntensity, S.battery ? m.userData.lamp : 0, dt * 4); }
+  for (const m of lampMats){ if (m.userData.hl) continue; m.emissiveIntensity = approach(m.emissiveIntensity, S.battery && S.lights ? m.userData.lamp : 0, dt * 4); }
   for (const k in gridMats){ const m = gridMats[k]; if (m.userData.hl) continue; m.emissiveIntensity = S.gridHeat * 3; }
   const rate = S.mode === 'diesel' && S.rpm > 0 ? 22 + 90 * S.fuel : 0;
   const darkness = S.engine === 'cranking' ? 0.85 : clamp(S.fuel * 0.6, 0.15, 0.55);

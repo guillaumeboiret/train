@@ -348,11 +348,12 @@ const pcShells = { mats:[], meshes:[] };     // their body shells, so the shell 
 const trShells = { mats:[], meshes:[] };     // trailer skins (body, ends, gangways, doors): the shell control fades them too and reveals the interiors
 const allCoaches = [], COACH_NEAR = 60;      // every trailer of every set (own, parked, opposing); interiors are drawn within COACH_NEAR m of the camera (further out a head is 3 px)
 const winMats = [];                          // every coach's window glass seen from afar, lit from inside in the dark (updateLights, 03f4-route.js)
-const SALOON = { value:new THREE.Color(0) };   // the saloon lights: sky light only the coaches' insides get, so seats and people stay lit at night and in tunnels (updateLights)
-function saloonLit(m){   // add SALOON to what lights this material, on top of its own patch if any (the people's)
+const SALOON = { value:new THREE.Color(0) }, SALOON_OWN = { value:new THREE.Color(0) };   // the saloon lights: sky light only the coaches' insides get, so seats and people stay lit at night and in tunnels (updateLights); our own train's follow the cab's lights button
+const ownLit = [];                           // our own coaches' lit lining and ceilings: dark with the lights off
+function saloonLit(m, u = SALOON){   // add u to what lights this material, on top of its own patch if any (the people's); one program for both, each material its own uniform
   const own = m.onBeforeCompile, key = 'saloon' + (own ? own.name : '');
   m.onBeforeCompile = (sh, r) => {
-    own?.(sh, r); sh.uniforms.saloon = SALOON;
+    own?.(sh, r); sh.uniforms.saloon = u;
     sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nuniform vec3 saloon;')
       .replace('#include <lights_fragment_end>', '#if defined( RE_IndirectDiffuse )\nirradiance += saloon;\n#endif\n#include <lights_fragment_end>');
   };
@@ -1100,7 +1101,7 @@ function buildSet(opts){
     far:mk(0x27303a, { roughness:0.25, metalness:0.1 }), door:mk(0x27303a, { roughness:0.25, metalness:0.1 }), plug:mk(LIV.door, { roughness:0.8 }),
     near:mk(0x1c2530, { transparent:true, opacity:0.45, depthWrite:false, side:THREE.DoubleSide, forceSinglePass:true, roughness:0.05, metalness:0 }),   // one pass: every pane has the same tint, so the blend order does not matter
   };
-  for (const m of [paneM.far, paneM.door]){ m.emissive.setHex(0xffc98a); winMats.push(m); }   // the saloon's light in them from afar, in the dark (updateLights)
+  for (const m of [paneM.far, paneM.door]){ m.emissive.setHex(0xffc98a); m.userData.own = internals; winMats.push(m); }   // the saloon's light in them from afar, in the dark (updateLights)
   const skin = m => { if (internals) trShells.meshes.push(m); return m; };   // what the shell control fades: body, ends, gangways, doors (the underframe stays); the other trains stay opaque
   if (internals) trShells.mats.push(...Object.values(bodyM), capM, bellowsM, ...leafM);
   set.coaches = [];
@@ -1108,7 +1109,8 @@ function buildSet(opts){
                   bar:mk(0xffffff, { vertexColors:true, roughness:0.7, metalness:0.05 }), glow:new THREE.MeshBasicMaterial({ vertexColors:true, toneMapped:false }),   // the bar car's fittings, and what glows in it
                   fridge:new THREE.MeshBasicMaterial({ map:BAR_TEX.fridge, toneMapped:false }), screen:new THREE.MeshBasicMaterial({ map:internals ? BAR_TEX.live : BAR_TEX.idle, toneMapped:false }) };
   const gangM = [coachM.floor, frameM, coachM.ceil], staffM = mk(LIN.rack, { roughness:0.6, metalness:0.2, emissive:LIN.rack, emissiveIntensity:0.25 }), staffGeo = new THREE.PlaneGeometry(0.9, 4.05 - DECK.up);
-  for (const m of [...Object.values(linM), frameM, leafM[1], staffM, coachM.floor, coachM.ceil, coachM.seat, coachM.people, coachM.bar]) saloonLit(m);
+  for (const m of [...Object.values(linM), frameM, leafM[1], staffM, coachM.floor, coachM.ceil, coachM.seat, coachM.people, coachM.bar]) saloonLit(m, internals ? SALOON_OWN : SALOON);
+  if (internals) for (const m of [...Object.values(linM), frameM, leafM[1], staffM, coachM.ceil]){ m.userData.lit = m.emissiveIntensity; ownLit.push(m); }
   const trailerRear = [];
   TGV.TRAILERS.forEach(([xr, L], i) => {
     const g = new THREE.Group(); g.position.x = xr;
@@ -1773,7 +1775,7 @@ function setTgvVisible(on){
   paxResolve();
 }
 function updateTgv(dt){
-  const s1 = tgvSets[0], s2 = tgvSets[1], bat = S.battery ? 1 : 0;
+  const s1 = tgvSets[0], s2 = tgvSets[1], bat = S.battery && S.lights ? 1 : 0;   // the cab's lights button too
   const wide = S.sets === 2 || S.coupling !== 0;
   s2.group.visible = wide;
   platVariant[1].visible = S.sets === 1; platVariant[2].visible = S.sets === 2;

@@ -610,7 +610,7 @@ body.desk .cam .kt{min-height:60px}
      following the TV's train. Walking, or a loco backing its wagons (no cab at its head), the buttons come back; a phone keeps them; the menu
      turns it off. Hidden, the frame draws nothing */
   const DESK = { on:true, f:null, ready:false, shown:false, paused:null, horn:false, tab:matchMedia('(min-width:700px) and (min-height:640px)') };
-  const DESK_CMDS = ['lever', 'panto', 'doors', 'next', 'service', 'turn', 'station'];
+  const DESK_CMDS = ['lever', 'lights', 'panto', 'doors', 'next', 'service', 'turn', 'station'];
   try { DESK.on = localStorage.getItem('remote.desk') !== '0'; } catch (e) {}
   function deskPost(m){ if (DESK.ready) DESK.f.contentWindow.postMessage(m, location.origin); }
   function deskSync(){

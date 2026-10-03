@@ -36,7 +36,7 @@ function resetSim(){   // home is Bordeaux Saint-Jean, where the tour starts, ev
   const home = (ROUTE.stations.find(x => x.id === 'bdx') || ROUTE.stations[0]).s - TGV.PLAT_FRONT;
   Object.assign(S, { battery:false, engine:'off', crankT:0, rpm:0, rpmN:0, fuel:0, notch:0, brake:0, throttleN:0, brakeN:0, panto:false, pantoF:0, lineOn:false, vcb:false,
     dcV:0, dcN:0, excitation:0, powerN:0, tractionN:0, regenN:0, current:0, effort:0, speed:0, temp:0.2, fans:0, fanOn:false, gridHeat:0, gridFan:0, autoShutdown:false, shutdownT:0,
-    sets:1, coupling:0, set2Off:-40, hatchF:0, doors:false, doorsF:0, autoStop:false, atStation:true, autoDoors:false, stationT:0, service:false,
+    sets:1, coupling:0, set2Off:-40, hatchF:0, doors:false, doorsF:0, autoStop:false, atStation:true, autoDoors:false, stationT:0, service:false, lights:true,
     dist:home, stopS:home, dir:1, timeScale:1, holdN:0, track:0, trackF:0 });
   trk.from = trk.to = 0; trk.s0 = -1e9;
   voltSnap(); S.vMaxEff = Math.min(specNow().vMax, ROUTE.lineLimit(S.dist) / 3.6);
@@ -441,6 +441,10 @@ const cabActions = {   // what each desk button does, and the way out of the cab
   },
   panto(){ if (!S.battery){ ensureBattery(); syncControls(); } $('swPanto').click(); },   // a cold train: its battery on first, as the lever does (no GUI has no battery switch)
   doors(){ $('swDoors').click(); },
+  lights(){   // the head and tail lamps and our own saloons, on and off; a cold train: its battery on first, the lights with it
+    if (!S.battery){ ensureBattery(); S.lights = true; syncControls(); } else S.lights = !S.lights;
+    cabSay(t(S.lights ? 'cab_lights_on' : 'cab_lights_off'));
+  },
   next(){   // the station autopilot, lit until the train stands at the platform; pressed again it says where it is going, or ends the whole line
     if (S.service){ cabSay(t(S.autoStop ? 'service_last' : 'service_off')); serviceOff(); return; }
     if (!S.autoStop && !goNextStation()){ cabSay(t('cab_end')); return; }
@@ -720,7 +724,7 @@ cabLever.build();
 let cabT = 1;   // seconds since the screens were last drawn
 const _cabP = new THREE.Vector3();
 function updateCab(dt){
-  const hot = { horn:horn.active, panto:S.panto, doors:S.doorsF > 0.02, next:S.autoStop || S.service };   // a lit or pushed-in button: its function is on
+  const hot = { horn:horn.active, lights:S.lights, panto:S.panto, doors:S.doorsF > 0.02, next:S.autoStop || S.service };   // a lit or pushed-in button: its function is on
   for (const b of CAB.btns){ const id = b.userData.cabBtn; b.visible = id !== 'panto' || S.mode !== 'diesel'; b.position.x = hot[id] ? 0.008 : 0; }
   for (const id in CAB.mats){ const M = CAB.mats[id], k = !S.battery ? 0.06 : hot[id] ? 1 : 0.3; M.body.color.copy(M.base).multiplyScalar(k); M.cap.color.setScalar(k); }
   cabT += dt; if (cabT < 0.25) return;
@@ -783,15 +787,16 @@ function cabPanel(c, w, h){   // 512 × 320: the print around the push buttons, 
   const kind = S.mode === 'tgv' ? 'tgv' : 'loco';
   c.fillStyle = '#262e37'; c.fillRect(0, 0, w, h);
   c.strokeStyle = '#3a4550'; c.lineWidth = 6; c.strokeRect(3, 3, w - 6, h - 6);
-  c.textAlign = 'center'; c.textBaseline = 'middle'; c.font = `700 30px ${CAB_FONT}`;
+  const px = CAB.px[kind], room = px[1] - px[0] - 6;   // a column's width: 122 px on a loco, 96 on a TGV
+  c.textAlign = 'center'; c.textBaseline = 'middle'; c.font = `700 ${room < 108 ? 26 : 30}px ${CAB_FONT}`;
   CAB.cols[kind].forEach((id, i) => {
     if (id === 'panto' && S.mode === 'diesel') return;
-    const x = CAB.px[kind][i];
-    c.fillStyle = '#151a20'; c.beginPath(); c.arc(x, 130, 54, 0, Math.PI * 2); c.fill();
+    const x = px[i], wMax = Math.min(108, room);
+    c.fillStyle = '#151a20'; c.beginPath(); c.arc(x, 130, Math.min(54, room / 2), 0, Math.PI * 2); c.fill();
     const lab = t('btn_' + id).toUpperCase(), sp = lab.indexOf(' ');
     c.fillStyle = S.battery ? '#c9d4df' : '#56606b';
-    if (sp > 0 && c.measureText(lab).width > 108){ c.fillText(lab.slice(0, sp), x, 234, 108); c.fillText(lab.slice(sp + 1), x, 266, 108); }   // as wide as the button at most: two words go on two lines
-    else c.fillText(lab, x, 250, 108);
+    if (sp > 0 && c.measureText(lab).width > wMax){ c.fillText(lab.slice(0, sp), x, 234, wMax); c.fillText(lab.slice(sp + 1), x, 266, wMax); }   // as wide as the button's column at most: two words go on two lines
+    else c.fillText(lab, x, 250, wMax);
   });
 }
 function cabIcon(c, id){   // 128 × 128 on the button's cap, in the button's colour
@@ -802,6 +807,9 @@ function cabIcon(c, id){   // 128 × 128 on the button's cap, in the button's co
     for (const r of [22, 36]){ c.beginPath(); c.arc(78, 64, r, -0.7, 0.7); c.stroke(); }
   } else if (id === 'panto'){   // a bolt: the line's power
     c.beginPath(); [[72, 12], [36, 70], [60, 70], [50, 116], [94, 52], [68, 52], [80, 12]].forEach(([x, y], i) => i ? c.lineTo(x, y) : c.moveTo(x, y)); c.closePath(); c.fill();
+  } else if (id === 'lights'){   // a bulb giving light
+    c.beginPath(); c.arc(64, 56, 24, 0.75 * Math.PI, 0.25 * Math.PI); c.lineTo(76, 84); c.lineTo(52, 84); c.closePath(); c.fill(); c.fillRect(52, 90, 24, 8); c.fillRect(56, 102, 16, 6);
+    for (let k = 0; k < 7; k++){ const a = Math.PI * (0.95 + k / 6 * 1.1), r0 = 32, r1 = 46; c.beginPath(); c.moveTo(64 + r0 * Math.cos(a), 56 + r0 * Math.sin(a)); c.lineTo(64 + r1 * Math.cos(a), 56 + r1 * Math.sin(a)); c.stroke(); }
   } else if (id === 'doors'){   // two leaves with their windows, sliding apart
     c.fillRect(30, 22, 31, 84); c.fillRect(67, 22, 31, 84);
     for (const k of [-1, 1]){ c.beginPath(); c.moveTo(64 + 57 * k, 64); c.lineTo(64 + 45 * k, 52); c.lineTo(64 + 45 * k, 76); c.closePath(); c.fill(); }
