@@ -38,7 +38,6 @@ Nothing open: the film, outside only, is under Done.
 - In the 🎬 film the shot riding along the train's side can sink behind a dark wall beside the line, which then fills half the view (found 2026-10-03, 2.2 km before Poitiers).
 - Railway reads none of railway.json's deploy settings for this service: the /version.txt healthcheck of 964d84b never ran, so a deploy switches without waiting for it. Config as code (railway.json) is deprecated and stops being read on 2026-12-01; Railway now wants .railway/railway.ts, applied with its CLI.
 - The Garonne is dry land: water is drawn only under bridges of 550 m or more.
-- Railway failed the deploy of 47c1d8d before its build started (deployment 4762d73c, no build log, 2026-10-03), so the site still serves 589f855. The same build runs clean here. A redeploy from here is refused as a production deploy: the next push, or `railway redeploy --from-source`, puts it live.
 - Under Massy's slab (510 to 68 m before the station) and Montparnasse's garden (the last 366 m), the far, overview and train angles show the slab, not the train; only the side angle sees it (found 2026-10-03). In a tunnel the camera goes into the tube; under a slab it stays above.
 - The outside camera cuts in one frame into the tunnel's shape 40 m before a mouth, and out of it 40 m after, so at speed it jumps 12 to 24 degrees (found 2026-10-03 leaving the tunnel 1252 m before Poitiers, side angle).
 - After the TV's page reloads, its sound waits for one click on the TV: browsers play no sound before a gesture on the page. The iPad shows a hint when that happens.
@@ -46,6 +45,7 @@ Nothing open: the film, outside only, is under Done.
 ## Done
 
 ### 2026-10-03
+- [x] Railway failed the deploy of 47c1d8d before its build started (deployment 4762d73c, no build log, found 2026-10-03), so the site kept 589f855. The next push deployed in 20 s and the live playground is byte for byte the local build: 4d78511
 - [x] At the bar, the menu hides the tray while ordering ("When ordering, the menu hides the "plateau"", 2026-10-03). The look turns just enough for the menu to leave the tray in view, the barista still in sight; a phone in landscape keeps about 22 px of overlap: e54878e
 - [x] The bar coach as the real one: the upper deck only, no stairs down, no doors ("The food coach does not allow going downstairs. There are no stairs. It's just the top floor And there are no doors. Check on the internet", 2026-10-03). Checked first, true: the Duplex bar trailer has one passenger level, the upper one, and equipment below (trains-europe.fr, Wikipedia FR, cheminots.net). Car 4 of each set now has a floor from gangway to gangway, no stair, no doors and only the upper windows. Not confirmed from a photo: whether its lower side has windows; it is drawn blank: 71771d4
 - [x] Passengers board through the bar car (follow-up approved 2026-10-02). Dropped 2026-10-03 by the bar coach item: the real bar car has no passenger doors, so nobody boards there: 71771d4
