@@ -398,7 +398,8 @@ function definePart(id, build){
 
 /* ------------------------------------------------------- orbit camera (or first person: an eye riding a car of the train, the head free to turn) */
 const _fpP = new THREE.Vector3(), _fpQ = new THREE.Quaternion(), _fpR = new THREE.Quaternion(), _fpE = new THREE.Euler();
-const fpFov = aspect => THREE.MathUtils.clamp(2 * Math.atan(Math.tan(37.5 * Math.PI / 180) / aspect) * 180 / Math.PI, 55, 95);   // about 75° across, kept within 55..95° tall
+const FP_T = Math.tan(37.5 * Math.PI / 180), FP_ROOM = 104;   // about 75° across; the room the page's controls take at either side of a desk (the playground's lever 92 px, its views 100 px)
+const fpFov = (aspect, t = FP_T) => THREE.MathUtils.clamp(2 * Math.atan(t / aspect) * 180 / Math.PI, 55, 95);   // t: half the view across, as a tangent; kept within 55..95° tall
 class Orbit {
   constructor(cam, dom){
     this.cam = cam; this.dom = dom;
@@ -464,8 +465,8 @@ class Orbit {
   }
   clamp(){ this.tSph.phi = THREE.MathUtils.clamp(this.tSph.phi, 0.06, Math.PI - 0.06); }
   turn(yaw, pitch){ const f = this.fp; f.yaw += yaw; f.pitch = THREE.MathUtils.clamp(f.pitch + pitch, -1.2, 1.2); }
-  look(obj, eye, yaw, pitch){   // first person: eye is in obj's frame and rides it rigidly, so the landscape moves past and the car does not; yaw 0 looks along +x, π/2 toward -z
-    this.fp = { obj, eye, yaw, pitch, t:0, from:this.cam.position.clone(), fromQ:this.cam.quaternion.clone() };
+  look(obj, eye, yaw, pitch, desk = 0){   // first person: eye is in obj's frame and rides it rigidly, so the landscape moves past and the car does not; yaw 0 looks along +x, π/2 toward -z; desk: how far across a desk in front reaches (driverView)
+    this.fp = { obj, eye, yaw, pitch, desk, t:0, from:this.cam.position.clone(), fromQ:this.cam.quaternion.clone() };
     this.fpZoom = 1;
   }
   free(){   // back to orbiting from where the eye is, around a point 4 m ahead of it, so the view does not jump
@@ -509,7 +510,8 @@ class Orbit {
       this.over?.(cam.position, dt, yMin != null);   // nor behind a building, nor in a tree (03f4-route.js)
       cam.lookAt(this.target);
     }
-    const fov = this.fp ? fpFov(cam.aspect) * this.fpZoom : this.fov;   // a wider lens in first person, as a seat sees through a window
+    const desk = this.fp?.desk, w = this.dom.clientWidth, t = desk ? Math.max(FP_T, desk * w / Math.max(w / 2, w - 2 * FP_ROOM)) : FP_T;   // at a desk, wide enough for all of it to show between the page's controls
+    const fov = this.fp ? fpFov(cam.aspect, t) * this.fpZoom : this.fov;   // a wider lens in first person, as a seat sees through a window
     if (Math.abs(cam.fov - fov) > 0.01){ cam.fov += (fov - cam.fov) * k; cam.updateProjectionMatrix(); }
   }
 }
@@ -530,5 +532,5 @@ const CAMS = {
 };
 function flyPreset(name){   // a preset is [eye, target] to orbit, or {obj, eye, yaw, pitch} to ride in first person; a station can have its own (stationCam)
   let c = stationCam(name) || CAMS[name]; if (typeof c === 'function') c = c(); if (!c) return;
-  if (c.obj){ orbit.look(c.obj, c.eye, c.yaw, c.pitch); orbit.fp.name = name; } else orbit.flyTo(new THREE.Vector3(...c[0]), new THREE.Vector3(...c[1]));
+  if (c.obj){ orbit.look(c.obj, c.eye, c.yaw, c.pitch, c.desk); orbit.fp.name = name; } else orbit.flyTo(new THREE.Vector3(...c[0]), new THREE.Vector3(...c[1]));
 }

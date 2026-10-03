@@ -16,7 +16,7 @@ if (DESK){
   const seated = CAMS.driver;
   CAMS.driver = () => {
     const v = seated(); if (S.mode !== 'tgv' && S.dir < 0) return v;   // a loco backing its wagons has no cab at the head: the remote shows its own buttons then
-    const [b, u, yaw, pitch] = pose(); v.eye.x -= b; v.eye.y += u; return { ...v, yaw, pitch };
+    const [b, u, yaw, pitch] = pose(); v.eye.x -= b; v.eye.y += u; return { ...v, yaw, pitch, desk:0 };   // framed as it is: no page controls beside it
   };
   function lookBack(dt, now){
     const f = orbit.fp;

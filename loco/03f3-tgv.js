@@ -1606,7 +1606,8 @@ function driverView(){   // first person in the driver's place, the page's contr
   const obj = driverSeat(), V = THREE.Vector3;
   if (S.mode !== 'tgv' && S.dir < 0) return { obj, eye:new V(-8.9, 4.0, 0), yaw:Math.PI, pitch:-0.05 };   // just past the end of the last wagon, looking back down the line
   const pitch = -0.09;   // the dashboard's lower edge (about -32°) on the bottom edge of the widest view (55° tall); a taller one shows more roof and desk alike
-  return S.mode === 'tgv' ? { obj, eye:new V(8.3, 3.45, 0), yaw:0, pitch } : { obj, eye:new V(8.25, 3.2, 0.55), yaw:0, pitch };
+  // desk: from these eyes at this pitch the screens' outer corners stand 38.6° (TGV) and 40.7° (loco) to either side, past the 37.5° of a 4:3 view: the lens takes them in (Orbit.update)
+  return S.mode === 'tgv' ? { obj, eye:new V(8.3, 3.45, 0), yaw:0, pitch, desk:0.8 } : { obj, eye:new V(8.25, 3.2, 0.55), yaw:0, pitch, desk:0.87 };
 }
 /* ---- walking through set 1 in first person (CAMS.walk): up the stair at a car's rear end, over the bridge and through the upper-deck
    gangway into the next car, either way, and into any free seat (occ 4 while taken). The walker stands at x from the rear end of car
