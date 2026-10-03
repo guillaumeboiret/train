@@ -10,10 +10,8 @@ Nothing leaves this file: a request is added the moment it is made, and a done i
 - [ ] The remote's delay: 157 to 159 ms from the iPad to the TV on the live site (measured 2026-10-03), because the app runs in us-west2 (California) behind Railway's Paris edge (cdg1, about 200 ms to the first byte). Moving its one replica to EU West (Amsterdam) should bring it near 20 ms. Yes given with "code all the features in your todo" (2026-10-03). Tried in cb85925 with multiRegionConfig in railway.json: Railway ignores that file's deploy settings for this service, so it stayed in California (reverted). The move is a service setting, `railway service scale eu-west=1 us-west=0`, which the permission check stopped as a production change: waiting for you to run it or allow it.
 
 ### 1. World (asked 2026-10-02)
-- [ ] A real clock to set the time of day.
-- [ ] See the sun.
 - [ ] Lights on the train at night and in tunnels.
-- [ ] A weather system, set by hand or on a schedule.
+- [ ] A weather system, set by hand or on a schedule. By hand it exists: sun, clouds and rain, which blend, and since 67236ac follow the hour. Open: the schedule.
 
 ### 2. The passenger's iPhone (asked 2026-10-02)
 - [ ] Take out an iPhone and look at it ("I want to be able to look at my iPhone").
@@ -38,6 +36,8 @@ Nothing leaves this file: a request is added the moment it is made, and a done i
 ## Known bugs, found while testing
 - Railway reads none of railway.json's deploy settings for this service: the /version.txt healthcheck of 964d84b never ran, so a deploy switches without waiting for it. Config as code (railway.json) is deprecated and stops being read on 2026-12-01; Railway now wants .railway/railway.ts, applied with its CLI.
 - The Garonne is dry land: water is drawn only under bridges of 550 m or more.
+- In a tunnel the outside camera stays above the hill, so the train is out of sight (2026-10-03).
+- On a phone held sideways the remote's buttons are 38 px tall, its camera buttons smaller still, under the 44 px a finger needs (2026-10-03).
 - The Angoulême tunnel ends about 100 m early.
 - The HUD's track count includes the far face of island platforms, one too many.
 - After the TV's page reloads, its sound waits for one click on the TV: browsers play no sound before a gesture on the page. The iPad shows a hint when that happens.
@@ -45,6 +45,8 @@ Nothing leaves this file: a request is added the moment it is made, and a done i
 ## Done
 
 ### 2026-10-03
+- [x] A real clock to set the time of day ("create a clock, a real clock, to send to people to change the time of the day", 2026-10-02). The sky follows the real time in France by default. The explainer's Time of day slider and Now, the playground's time button (now, morning, noon, evening, night) and the same button on the iPad set it, and show the clock. Dusk left the weathers: it is now the time button's evening: 67236ac, 12fa1ca
+- [x] See the sun ("I would like to see the sun", 2026-10-02). The sun stands where it really is over the train, from its place on the line and the date; the sky's colours follow its height; at night the moon and 1600 stars: 67236ac
 - [x] Heat as a transparent shimmer instead of the orange smoke ("Can you change the orange smoke to something that makes the feeling of heat but it's transparent? It just makes waves"). The air over a hot radiator, brake grid or TGV cooling block now bends and blurs what is behind it, in ripples that climb, with no colour of its own; the legend shows heat as a wavy line. Changes the warm haze of 73a8dd0: 9c57b7c
 - [x] In no GUI, everything in 3D stays clickable: the cockpit's buttons, the passenger's 3D things, and the power lever ("In no-GUI I should be able to click on the buttons still in the cockpit as well as in the traveler. The 3D buttons, the 3D elements, and Power should be actionable even in No-GUI", 2026-10-03). cc6848b did the desk. Now in both pages the walker's seats, counter and stools answer a tap too, with their words, and the speed screen's BRAKE/POWER bar drags the lever, GUI or not, a knob showing where it stands: 092b652
 - [x] Known bug fixed: the driver's 3D lever sits below the default view ("look down to grab it"). Its job is now in view: the speed screen's BRAKE/POWER bar drags it, so the lever stays put and the line screen stays clear: 092b652
