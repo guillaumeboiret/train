@@ -35,8 +35,6 @@ Nothing open: the clock, the sun, the lights and the weather schedule are under 
 ## Known bugs, found while testing
 - Railway reads none of railway.json's deploy settings for this service: the /version.txt healthcheck of 964d84b never ran, so a deploy switches without waiting for it. Config as code (railway.json) is deprecated and stops being read on 2026-12-01; Railway now wants .railway/railway.ts, applied with its CLI.
 - The Garonne is dry land: water is drawn only under bridges of 550 m or more.
-- In a tunnel the outside camera stays above the hill, so the train is out of sight (2026-10-03).
-- On a phone held sideways the remote's buttons are 38 px tall, its camera buttons smaller still, under the 44 px a finger needs (2026-10-03).
 - The Angoulême tunnel ends about 100 m early.
 - The HUD's track count includes the far face of island platforms, one too many.
 - After the TV's page reloads, its sound waits for one click on the TV: browsers play no sound before a gesture on the page. The iPad shows a hint when that happens.
@@ -44,6 +42,8 @@ Nothing open: the clock, the sun, the lights and the weather schedule are under 
 ## Done
 
 ### 2026-10-03
+- [x] Known bug fixed: in a tunnel the outside camera stayed above the hill, so the train was out of sight (found 2026-10-03). While the train is in a tunnel or 40 m from one, the camera keeps to the tube's shape, in the tube and in front of its mouths: ce23fba
+- [x] Known bug fixed: on a phone held sideways the remote's buttons were 38 px tall and its camera buttons smaller still, under the 44 px a finger needs (found 2026-10-03). Now 54 px, the cameras 44 px in one row: d38480d
 - [x] A weather system, set by hand or on a schedule ("I would like to have a weather system too and I want to be able to schedule that or to change that if I want to", 2026-10-02). Sun, Clouds, Rain or Auto. Auto follows a plan for the day, one weather every 3 hours, blending into each; a tap on a box changes it. On the explainer, the playground's menu and the remote's menu, which now scrolls on a phone held sideways: 852e08a
 - [x] Lights on the train when it's dark or in tunnels ("I will need you to add lights on the train when it's dark or in the tunnels", 2026-10-02). At night and deep in a tunnel the lamps glow, the leading ones throw a beam 40 m down the line, the coaches' windows glow warm and a saloon light keeps seats and people lit inside. In a tunnel the daylight fades out over the first 40 m and the far end goes black. The lamps follow the battery: 409297e
 - [x] A real clock to set the time of day ("create a clock, a real clock, to send to people to change the time of the day", 2026-10-02). The sky follows the real time in France by default. The explainer's Time of day slider and Now, the playground's time button (now, morning, noon, evening, night) and the same button on the iPad set it, and show the clock. Dusk left the weathers: it is now the time button's evening: 67236ac, 12fa1ca
