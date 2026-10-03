@@ -11,9 +11,7 @@ Nothing leaves this file: a request is added the moment it is made, and a done i
 - [ ] The glass turns into very bright panels seen from a distance, too strong and from too close: take that out. Seen at night: past 60 m from the camera a coach's windows become solid panels lit at full strength ("the glass transform into very bright panel at distance its too much and too close if you can remove it it's better", 2026-10-03).
 - [ ] The windows are too dark: half as tinted in the dark ("the glass is too dark make it twice less tinted in dark", 2026-10-03).
 - [ ] A 3D button in the cockpit to switch the lights on and off ("Add a button to open and close the lights even in the cockpit, a 3D button", 2026-10-03).
-- [ ] The remote on an iPhone in portrait (Safari, 393 px wide, about 660 px of page between its bars): the buttons are squeezed, their labels run into the icons and are cut (Horn, Next station, To Paris, Pantograph, Doors, Weather, the clock, X-ray). Make it display properly ("make the view displaying properly on iphone", 2026-10-03, with a screenshot).
-- [ ] The remote off by default, turned on from the menu ("bu default the remote shoult not be active we shoult activate in the menu", 2026-10-03). Today a new TV tab starts with it off and ⚙️ then 📱 turns it on, but once on it stays on: a reload or a restored tab pairs again by itself, and the phone joins its last TV as soon as /remote/ opens, which hides the TV's controls.
-- [ ] Control the passenger from the remote: walk and look with the iPhone as a game controller ("in the remote i want to be able to controle the human", then "move using the iphone as a controller", 2026-10-03).
+- [ ] The bar coach as the real one: the upper deck only, no stairs down, no doors ("The food coach does not allow going downstairs. There are no stairs. It's just the top floor And there are no doors. Check on the internet", 2026-10-03). Today its stair takes the passenger down and it has doors. Checked 2026-10-03, true: the Duplex bar trailer has one level, the upper one; its lower level holds electrical equipment, closed to passengers; seats there would need doors it lacks (trains-europe.fr, Wikipedia FR, cheminots.net). Its lower side windows are not confirmed from a photo. Changes "Passengers board through the bar car" below.
 
 ### 1. World (asked 2026-10-02)
 Nothing open: the clock, the sun, the lights and the weather schedule are under Done.
@@ -33,7 +31,7 @@ Nothing open: the film, outside only, is under Done.
 - [ ] Gangway doors (sas) between coaches that open as you walk past (2026-10-02).
 - [ ] Random landscape so the country is not empty (2026-10-02).
 - [ ] Better looking human 3D models, free ones from the internet (2026-10-02). CC0 or similar, self hosted.
-- [ ] Passengers board through the bar car (follow-up approved 2026-10-02).
+- [ ] Passengers board through the bar car (follow-up approved 2026-10-02). Changed 2026-10-03 by the bar coach item in 0: the real bar car has no passenger doors, so nobody boards there. It closes with that item.
 - [ ] Stations that look like the real ones (2026-09-28). Done: Paris Montparnasse, Massy TGV, Bordeaux Saint-Jean, Toulouse Matabiau. Still a generic building: Vendôme, Saint-Pierre-des-Corps, Châtellerault, Futuroscope, Poitiers, Angoulême, Libourne, Agen, Montauban.
 - [ ] A train for the other direction standing across the platform at a station (2026-09-26). Today oncoming TGVs run through the stations and stop only at the termini.
 
@@ -48,6 +46,9 @@ Nothing open: the film, outside only, is under Done.
 ## Done
 
 ### 2026-10-03
+- [x] The remote off by default, turned on from the menu ("bu default the remote shoult not be active we shoult activate in the menu", 2026-10-03). The TV starts with it off at every load, a reload or a restored tab included; ⚙️ then 📱 turns it on under the same 4 letters, and a phone left on /remote/ joins by itself: 916e690
+- [x] Control the passenger from the remote ("in the remote i want to be able to controle the human", then "move using the iphone as a controller", 2026-10-03). In the TGV the phone turns into a game controller: the left stick walks, the right one looks, the big button sits, stands or orders at the counter; at the bar it shows the menu, purse, pocket money and tray. A phone quiet for 0.7 s lets go of the passenger: 916e690
+- [x] The remote on an iPhone in portrait ("make the view displaying properly on iphone", 2026-10-03, with a screenshot). Upright from 375 to 393 px wide and sideways: every control 44 px or more, none on another, labels clear of their icons, no page scroll: 916e690
 - [x] No inside views in the 🎬 film, only shots from outside ("in the cinematic mode forget the inside views", 2026-10-03). Changes the 2026-10-03 ask to "switch from the outside to the inside": the driver's seat, window seat and aisle shots are gone; in a tunnel or under a slab, a shot low ahead of the nose takes their place: effc035
 - [x] Known bug fixed: 🎬 tapped from an outside view stopped the film on the very next frame whenever its first shot glided in from there, 22 of 40 taps (found 2026-10-03 on the live site). 40 of 40 start now: effc035
 - [x] A camera that films the trip by itself, for long trips ("movie-like movements that can switch from the outside to the inside and make elegant movements", 2026-10-03; first asked 2026-10-02 for streaming, then "I don't need you to stream it's just the camera movement for long term travels"). 🎬 in the playground's views and on the remote: a director cuts every 9 to 16 s between shots riding with the train, from the ground and inside (outside only since effc035), gliding into each other or cutting through black, and films the platform and the doors at each stop. A drag, a pinch, the wheel, a key or Esc hands the camera over where it is; 🎬 again cuts to the next shot: d283102
