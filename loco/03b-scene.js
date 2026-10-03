@@ -492,6 +492,7 @@ class Orbit {
       _fpP.copy(f.eye).applyMatrix4(f.obj.matrixWorld);
       f.t = Math.min(1, f.t + dt / 0.9); const b = f.t * f.t * (3 - 2 * f.t);   // a 0.9 s glide into the seat, then rigid
       cam.position.copy(f.from).lerp(_fpP, b); cam.quaternion.copy(f.fromQ).slerp(_fpQ, b);
+      this.over?.(null);   // a seat's view: the trees hidden from the outside camera come back
     } else {
       if (this.autoRotate && this.ptrs.size === 0) this.tSph.theta += dt * 0.18;
       this.sph.radius += (this.tSph.radius - this.sph.radius) * k;
@@ -505,6 +506,7 @@ class Orbit {
         this.sph.phi = Math.min(this.sph.phi, phi); this.tSph.phi = Math.min(this.tSph.phi, this.sph.phi);
         cam.position.setFromSpherical(this.sph).add(this.target); cam.position.y = Math.max(cam.position.y, yMin);
       }
+      this.over?.(cam.position, dt, yMin != null);   // nor behind a building, nor in a tree (03f4-route.js)
       cam.lookAt(this.target);
     }
     const fov = this.fp ? fpFov(cam.aspect) * this.fpZoom : this.fov;   // a wider lens in first person, as a seat sees through a window

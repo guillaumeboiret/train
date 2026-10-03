@@ -502,6 +502,7 @@ function buildChunk(ci){
       });
       ch.ground = G; }
     const pos = [], col = [], trees = [], houses = [], blocks = [], NC = rows[0].v.length, cityKey = cityKeyAt(s0);
+    const boxes = [], box = (x, y, z, c, s, hw, hd, top) => boxes.push(x + O.x, z + O.z, c, s, hw, hd, y + O.y + top);   // the buildings for the camera (camOver): centre, yaw, half sizes, top
     for (let r = 0; r < rows.length - 1; r++){
       const A = rows[r], B = rows[r + 1];
       for (let c = 0; c < NC - 1; c++){
@@ -541,9 +542,11 @@ function buildChunk(ci){
     addMesh(tg, terrainMat).receiveShadow = true;
     const tm = trees.map(([x, y, z], i) => { const sc = 0.8 + 0.7 * hash2(i, ci, 23); return new THREE.Matrix4().compose(_cp.set(x, y - 0.2, z), _cq.setFromAxisAngle(Y_UP, hash2(i, ci, 29) * 6.283), _cs.set(sc, sc, sc)); }).filter((m, i) => windClear(trees[i][0] + O.x, trees[i][2] + O.z, 20) && sightClear(trees[i][0] + O.x, trees[i][2] + O.z));
     _cs.set(1, 1, 1);
-    instanced(GEO.crown, treeCrownM, tm, g, false); instanced(GEO.trunk, treeTrunkM, tm, g, false);
+    const crowns = instanced(GEO.crown, treeCrownM, tm, g, false), trunks = instanced(GEO.trunk, treeTrunkM, tm, g, false);
+    if (tm.length) ch.trees = { tm, crowns, trunks, hid:new Set(), B:Float64Array.from(tm.flatMap(m => { const e = m.elements; return [e[12] + O.x, e[14] + O.z, 2.2 * e[5], e[13] + O.y + 8 * e[5]]; })) };   // for the camera (camTrees): centre, half width and top of a crown 4.8 m wide at its foot and 8 m high, both times its scale
     const hm = houses.map(([x, y, z], i) => new THREE.Matrix4().compose(_cp.set(x, y - 0.1, z), _cq.setFromAxisAngle(Y_UP, hash2(i, ci, 31) * 6.283), _cs)).filter((m, i) => windClear(houses[i][0] + O.x, houses[i][2] + O.z, 500) && sightClear(houses[i][0] + O.x, houses[i][2] + O.z));
     instanced(GEO.house, houseWallM, hm, g, false); instanced(GEO.roof, houseRoofM, hm, g, false);
+    for (const m of hm){ const e = m.elements; box(e[12], e[13], e[14], e[0], e[8], 4.6, 4.6, 6.8); }   // 9 by 7 m under a roof 9 m square, 6.8 m high
     if (blocks.length){   // city blocks: merged facades with window UVs + roofs, two draw calls per chunk
       const walls = new GeoAcc(true), roofs = new GeoAcc(false), par = cityKey === 'par';
       for (const b of blocks){
@@ -555,10 +558,12 @@ function buildChunk(ci){
         const along = 12 + 7 * hash2(b.r, b.c, 81), deep = Math.max(6, Math.min(b.width - 0.5, 9 + 5 * hash2(b.r, b.c, 83))), hh = hash2(b.r, b.c, 85);
         const h = par ? (b.s > ROUTE.L - 3000 && hh < 0.06 ? 30 + 15 * hash2(b.r, b.c, 87) : 14 + 10 * hh) : 5 + 6 * hh;
         cityBox(walls, roofs, (x + x2) / 2, Math.min(y, y2) - 0.3, (z + z2) / 2, along, h, deep, yaw, par ? 3.0 : 1.8, par ? 1.2 : 2.2);
+        box((x + x2) / 2, Math.min(y, y2) - 0.3, (z + z2) / 2, Math.cos(yaw), Math.sin(yaw), along / 2, deep / 2, h + (par ? 3.0 : 1.8));
       }
       addMesh(walls.build(), cityWallM[cityKey]).receiveShadow = true;
       addMesh(roofs.build(), cityRoofM[cityKey]).receiveShadow = true;
     }
+    ch.boxes = new Float64Array(boxes);
   }
   // urban corridor: boundary walls along the line and road bridges over it (mid-span of the 54 m catenary grid, every 594 m)
   { const wall = new GeoAcc(false), roadM = [], asphM = [];
@@ -690,6 +695,75 @@ function camFence(p){   // p: the camera in scene coordinates
   return _fx.sub(P_loco).applyQuaternion(qInv).y;
 }
 orbit.fence = camFence;
+/* ---- nor behind a building (Orbit.over, after the fence): a building or a house anywhere on its line of sight to the train lifts the camera on
+   its sphere until it looks over the roof or stands in front of it; in a city, a view over the roofs. The train running, the camera rises as a
+   building comes within a second of the line, so it is up when the building gets there; down again 1.5 s after nothing is in the way, so a
+   street going by does not drop it. The orbit keeps the angle it was given. A tree the camera stands in or right behind is hidden instead; one
+   further out may hide the train as it goes by, as a tree does */
+const _ot = new THREE.Vector3(), _op = new THREE.Vector3(), OVER = { lift:0, hold:0, hid:0 }, ZERO_M = new THREE.Matrix4().makeScale(0, 0, 0);
+function overNeed(r, ux, uz, e0, tx, tz){   // the least elevation from e0 up at which no building stands on the line of sight from (tx, tz)
+  const ci = Math.floor(S.dist / CH), hc = r * Math.cos(e0);   // across the ground: the camera, at its lowest; higher, it is nearer and the line steeper, so one pass
+  let e = e0;
+  for (let k = ci - 1; k <= ci + 1; k++){
+    const B = chunks.get(k)?.boxes; if (!B) continue;
+    for (let j = 0; j < B.length; j += 7){
+      const dx = tx - B[j], dz = tz - B[j + 1], c = B[j + 2], s = B[j + 3], hw = B[j + 4], hd = B[j + 5];
+      if (dx * dx + dz * dz > (hc + hw + hd) ** 2) continue;
+      const ox = dx * c - dz * s, oz = dx * s + dz * c, lx = ux * c - uz * s, lz = ux * s + uz * c;   // the sight line across the ground, in the box's frame
+      let h0 = -Infinity, h1 = Infinity;
+      if (Math.abs(lx) > 1e-9){ const a = (-hw - ox) / lx, b = (hw - ox) / lx; h0 = Math.max(h0, Math.min(a, b)); h1 = Math.min(h1, Math.max(a, b)); } else if (Math.abs(ox) > hw) continue;
+      if (Math.abs(lz) > 1e-9){ const a = (-hd - oz) / lz, b = (hd - oz) / lz; h0 = Math.max(h0, Math.min(a, b)); h1 = Math.min(h1, Math.max(a, b)); } else if (Math.abs(oz) > hd) continue;
+      if (h0 > h1 || h0 < 0.5 || h0 >= hc) continue;   // missed, round what it looks at, or past the camera
+      const eb = Math.min(Math.acos(Math.min(1, (h0 - 0.5) / r)), Math.atan2(B[j + 6] + 0.5 - _ot.y, h0));   // in front of it, or over its roof
+      if (eb > e) e = eb;
+    }
+  }
+  return e;
+}
+function camTrees(r, ux, uz, e){   // hide the trees the camera stands in or beside (3 m), or that its last 10 m of sight cross under their top; no arguments: show them all
+  if (r === undefined && !OVER.hid) return;
+  const ci = Math.floor(S.dist / CH), ce = Math.cos(e), hc = r * ce, near = (r - 10) * ce, te = Math.tan(e), cx = _ot.x + ux * hc, cz = _ot.z + uz * hc, cy = _ot.y + r * Math.sin(e);
+  OVER.hid = 0;
+  for (let k = ci - 1; k <= ci + 1; k++){
+    const T = chunks.get(k)?.trees; if (!T) continue;
+    for (let j = 0, i = 0; j < T.B.length; j += 4, i++){
+      let hide = false;
+      if (r !== undefined){
+        const X = T.B[j], Z = T.B[j + 1], h = T.B[j + 2], top = T.B[j + 3];
+        if (Math.abs(cx - X) < h + 3 && Math.abs(cz - Z) < h + 3 && cy < top + 1) hide = true;
+        else {
+          const dx = X - _ot.x, dz = Z - _ot.z;
+          let h0 = -Infinity, h1 = Infinity;
+          if (Math.abs(ux) > 1e-9){ const a = (dx - h) / ux, b = (dx + h) / ux; h0 = Math.min(a, b); h1 = Math.max(a, b); } else if (Math.abs(dx) > h) h0 = Infinity;
+          if (Math.abs(uz) > 1e-9){ const a = (dz - h) / uz, b = (dz + h) / uz; h0 = Math.max(h0, Math.min(a, b)); h1 = Math.min(h1, Math.max(a, b)); } else if (Math.abs(dz) > h) h0 = Infinity;
+          hide = h0 <= h1 && h0 < hc && h1 > near && _ot.y + Math.max(h0, near) * te < top + 0.3;
+        }
+      }
+      if (hide) OVER.hid++;
+      if (hide === T.hid.has(i)) continue;
+      if (hide) T.hid.add(i); else T.hid.delete(i);
+      T.crowns.setMatrixAt(i, hide ? ZERO_M : T.tm[i]); T.trunks.setMatrixAt(i, hide ? ZERO_M : T.tm[i]);
+      T.crowns.instanceMatrix.needsUpdate = T.trunks.instanceMatrix.needsUpdate = true;
+    }
+  }
+}
+function camOver(p, dt, open){   // p: the camera in scene coordinates, after the fence; open: the fence left it over the ground, not in a tube. No p: a seat's view
+  if (!p || !open){ OVER.lift = 0; camTrees(); return; }
+  _ot.copy(orbit.target).applyQuaternion(F0.q).add(P_loco); _op.copy(p).applyQuaternion(F0.q).add(P_loco);
+  const vx = _op.x - _ot.x, vz = _op.z - _ot.z, hl = Math.hypot(vx, vz), r = _op.distanceTo(_ot);
+  if (hl < 0.5){ OVER.lift = 0; camTrees(); return; }
+  const ux = vx / hl, uz = vz / hl, e0 = Math.atan2(_op.y - _ot.y, hl), now = overNeed(r, ux, uz, e0, _ot.x, _ot.z) - e0;
+  const v = S.speed * S.dir, n = Math.min(12, Math.ceil(Math.abs(v) / 8));   // where the line will be within a second, every 8 m or less
+  let soon = now;
+  for (let i = 1; i <= n; i++){ const d = v * i / n; soon = Math.max(soon, overNeed(r, ux, uz, e0, _ot.x + F0.t.x * d, _ot.z + F0.t.z * d) - e0); }
+  if (now > OVER.lift) OVER.lift = now;   // in the way already (a jump along the line, a drag): up at once
+  if (soon >= OVER.lift){ OVER.lift += (soon - OVER.lift) * (1 - Math.exp(-dt / 0.3)); OVER.hold = 1.5; }
+  else if ((OVER.hold -= dt) < 0) OVER.lift -= (OVER.lift - soon) * (1 - Math.exp(-dt / 0.8));
+  const e = Math.max(e0, Math.min(1.4, e0 + OVER.lift)), hc = r * Math.cos(e);
+  if (OVER.lift > 1e-3){ _op.set(_ot.x + ux * hc, _ot.y + r * Math.sin(e), _ot.z + uz * hc); p.copy(_op).sub(P_loco).applyQuaternion(qInv); }
+  camTrees(r, ux, uz, e);
+}
+orbit.over = camOver;
 /* ---- the train's lights ("add lights on the train when it's dark or in the tunnels"). As it gets dark around the camera, at night or deep in a
    tunnel, the lamps glow (halos, 03c-common.js) and the coaches' windows light up; the leading lamps throw a beam down the line at night and
    once the head of the train is in a tunnel. Deep in a tunnel the daylight fades out (DARK.cam, updateWeather), and the tube's own glow with it */
