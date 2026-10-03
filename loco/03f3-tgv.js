@@ -346,8 +346,10 @@ const PC_INTERNALS = ['frame', 'cab', 'bogies', 'motors', 'transformer', 'conver
 const pcHosts = [];                          // {ig, clones:{id:group}} per equipped power car
 const pcShells = { mats:[], meshes:[] };     // their body shells, so the shell opacity control covers every power car
 const trShells = { mats:[], meshes:[] };     // trailer skins (body, ends, gangways, doors): the shell control fades them too and reveals the interiors
-const allCoaches = [], COACH_NEAR = 60;      // every trailer of every set (own, parked, opposing); interiors are drawn within COACH_NEAR m of the camera (further out a head is 3 px)
-const winMats = [];                          // every coach's window glass seen from afar, lit from inside in the dark (updateLights, 03f4-route.js)
+const allCoaches = [], COACH_NEAR = 120;     // every trailer of every set (own, parked, opposing); interiors are drawn within COACH_NEAR m of the camera (further out a head is 1.5 px, a window 10)
+const winMats = [];                          // every coach's window glass seen from afar, as bright as the saloon looks through it near (updateLights, 03f4-route.js)
+const WIN_EDGE = { value:0 }, WIN_EDGE_OWN = { value:0 };   // the share of that glow a pane keeps seen edgeways (edgeways); our own train's follows its lights
+const nearPanes = [], PANE_TINT = 0.45;      // the clear glass seen near: its tint by day, half that in the dark (updateLights)
 const SALOON = { value:new THREE.Color(0) }, SALOON_OWN = { value:new THREE.Color(0) };   // the saloon lights: sky light only the coaches' insides get, so seats and people stay lit at night and in tunnels (updateLights); our own train's follow the cab's lights button
 const ownLit = [];                           // our own coaches' lit lining and ceilings: dark with the lights off
 function saloonLit(m, u = SALOON){   // add u to what lights this material, on top of its own patch if any (the people's); one program for both, each material its own uniform
@@ -358,6 +360,15 @@ function saloonLit(m, u = SALOON){   // add u to what lights this material, on t
       .replace('#include <lights_fragment_end>', '#if defined( RE_IndirectDiffuse )\nirradiance += saloon;\n#endif\n#include <lights_fragment_end>');
   };
   m.customProgramCacheKey = () => key;
+  return m;
+}
+function edgeways(m, u){   // a far window's glow fades as the pane turns edgeways down to the share u: face on the saloon shows through to the sky in the far side's windows, edgeways only its lamp-lit seats and walls
+  m.onBeforeCompile = sh => {
+    sh.uniforms.edge = u;
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nuniform float edge;')
+      .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n  totalEmissiveRadiance *= mix(abs(dot(normal, isOrthographic ? vec3(0.0, 0.0, 1.0) : normalize(vViewPosition))), 1.0, edge);');
+  };
+  m.customProgramCacheKey = () => 'edgeways';
   return m;
 }
 const DECK = { lo:0.92, up:2.46 };           // floor heights of the two decks (the windows sit at 1.6..2.2 and 3.0..3.75): 1.48 m under the upper floor, room to stand
@@ -1099,9 +1110,10 @@ function buildSet(opts){
   const leafM = [doorM, mk(LIN.end, { roughness:0.9, metalness:0, emissive:LIN.end, emissiveIntensity:0.25 }), mk(LIV.gasket, { roughness:0.8 })];   // a door leaf's groups: livery, inner face lit like the lining, window gasket
   const paneM = {   // glass in the openings: opaque from afar (the doors' own copy: highlighting the doors leaves the windows be), tinted and clear near the camera; the doorway plug only from afar
     far:mk(0x27303a, { roughness:0.25, metalness:0.1 }), door:mk(0x27303a, { roughness:0.25, metalness:0.1 }), plug:mk(LIV.door, { roughness:0.8 }),
-    near:mk(0x1c2530, { transparent:true, opacity:0.45, depthWrite:false, side:THREE.DoubleSide, forceSinglePass:true, roughness:0.05, metalness:0 }),   // one pass: every pane has the same tint, so the blend order does not matter
+    near:mk(0x1c2530, { transparent:true, opacity:PANE_TINT, depthWrite:false, side:THREE.DoubleSide, forceSinglePass:true, roughness:0.05, metalness:0 }),   // one pass: every pane has the same tint, so the blend order does not matter
   };
-  for (const m of [paneM.far, paneM.door]){ m.emissive.setHex(0xffc98a); m.userData.own = internals; winMats.push(m); }   // the saloon's light in them from afar, in the dark (updateLights)
+  nearPanes.push(paneM.near);
+  for (const m of [paneM.far, paneM.door]){ m.userData.own = internals; edgeways(m, internals ? WIN_EDGE_OWN : WIN_EDGE); winMats.push(m); }   // the saloon's light in them from afar, by day and in the dark (updateLights)
   const skin = m => { if (internals) trShells.meshes.push(m); return m; };   // what the shell control fades: body, ends, gangways, doors (the underframe stays); the other trains stay opaque
   if (internals) trShells.mats.push(...Object.values(bodyM), capM, bellowsM, ...leafM);
   set.coaches = [];

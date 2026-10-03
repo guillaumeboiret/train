@@ -819,13 +819,17 @@ function tunnelIn(s, ramp = 40){   // how far into a tunnel s is: 0 outside or a
 const beam = new THREE.SpotLight(0xfff0d8, 0, 160, 0.42, 0.6, 1);   // always in the scene, off by day: adding a light would rebuild every shader
 scene.add(beam, beam.target);
 const BEAM_I = 60, SALOON_I = 1.6, _hp = new THREE.Vector3(), _hx = new THREE.Vector3();
+const WIN_SKY = 0.075, WIN_LAMP = 0.046, WIN_LAMP_EDGE = 0.6;   // a far window's glow, from the sky's light and the saloon's lamps: the saloon as it looks through the glass where the look switches (coachLod), by day and by night, from both sides; seen edgeways the lamps' keeps 0.6 of it, the sky's none (edgeways, 03f3-tgv.js)
 const shown = o => { for (; o; o = o.parent) if (!o.visible) return false; return true; };   // drawn: it and every parent visible
 function updateLights(){   // every frame, the camera placed
   DARK.cam = camPlace(camera.position) && ROUTE.kindAt(CP.s) === 2 && _fx.y < CP.yG ? tunnelIn(CP.s) : 0;   // under the hill, not over it
   tunnelM.emissiveIntensity = 1 - 0.85 * DARK.cam;
   const glow = Math.max(DARK.night, DARK.cam);
   const on = S.lights ? 1 : 0;   // our own train's lights, switched in the cab
-  for (const m of winMats) if (!m.userData.hl) m.emissiveIntensity = 1.1 * glow * (m.userData.own ? on : 1);
+  const h = hemi.color, sky = WIN_SKY * hemi.intensity * (0.2126 * h.r + 0.7152 * h.g + 0.0722 * h.b), lamp = WIN_LAMP * glow;
+  for (const m of winMats) if (!m.userData.hl) m.emissive.setRGB(1, 0.93, 0.82).multiplyScalar(sky + lamp * (m.userData.own ? on : 1));
+  WIN_EDGE.value = WIN_LAMP_EDGE * lamp / (sky + lamp || 1); WIN_EDGE_OWN.value = WIN_LAMP_EDGE * lamp * on / (sky + lamp * on || 1);
+  for (const m of nearPanes) m.opacity = PANE_TINT * (1 - 0.5 * glow);   // half as tinted in the dark
   SALOON.value.setRGB(1, 0.93, 0.82).multiplyScalar(SALOON_I * glow); SALOON_OWN.value.copy(SALOON.value).multiplyScalar(on);
   for (const m of ownLit) if (!m.userData.hl) m.emissiveIntensity = m.userData.lit * on;
   let head = null, best = 0;
