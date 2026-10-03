@@ -4961,8 +4961,8 @@ const ROUTE = (() => {
 /* ---- world materials */
 const terrainMat = new THREE.MeshStandardMaterial({ vertexColors:true, roughness:1, metalness:0, side:THREE.DoubleSide });
 themeMats.push({ mat:terrainMat, token:'--terrain' });
-const treeCrownM = pmat(0x2f6b34, { roughness:0.9, metalness:0 }), treeTrunkM = pmat(0x5a3d26, { roughness:0.9, metalness:0 });
-const houseWallM = pmat(0xe3ddd0, { roughness:0.9, metalness:0 }), houseRoofM = pmat(0x8a4a3a, { roughness:0.85, metalness:0 });
+const treeCrownM = pmat(0xffffff, { roughness:0.9, metalness:0 }), treeTrunkM = pmat(0x5a3d26, { roughness:0.9, metalness:0 });   // crowns, walls, roofs, beasts: coloured per instance
+const houseWallM = pmat(0xffffff, { roughness:0.9, metalness:0 }), houseRoofM = pmat(0xffffff, { roughness:0.85, metalness:0 }), farmM = pmat(0xffffff, { roughness:0.95, metalness:0 });
 const bridgeM = pmat(0x9a9da1, { roughness:0.85, metalness:0.05 }), stopM = pmat(0x8a1f1f, { roughness:0.7, metalness:0.1 });
 const tunnelM = new THREE.MeshStandardMaterial({ color:0x6f7276, emissive:0x45484c, emissiveIntensity:1, roughness:1, side:THREE.DoubleSide });   // self-lit a little: the inside of a tube never sees the sun
 const portalM = new THREE.MeshStandardMaterial({ color:0x8e8f8b, roughness:0.95, side:THREE.DoubleSide });
@@ -5128,10 +5128,22 @@ terminusCity('par', landmarks.par, 70, 1350, -760, 760, [[100, 150, 44, 112]]); 
 /* ---- chunks: 1 km of track, ballast, sleepers, catenary, terrain, trees, houses, bridges and tunnels, built on demand */
 const CH = 1000, chunks = new Map(), LANES = ROUTE.lanes;
 const _cf = mkFrame(), _cm = new THREE.Matrix4(), _cp = new THREE.Vector3(), _cq = new THREE.Quaternion(), _cs = new THREE.Vector3(1, 1, 1), X_AX = new THREE.Vector3(1, 0, 0);
-function instanced(geo, mat, mats, parent, shadow){
+function boxGeo(list){   // boxes [w, h, d, x, y, z] merged into one geometry
+  const pos = [], nor = [];
+  for (const [w, h, d, x, y, z] of list){ const b = new THREE.BoxGeometry(w, h, d).translate(x, y, z).toNonIndexed(); pos.push(...b.attributes.position.array); nor.push(...b.attributes.normal.array); }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3)); return g;
+}
+function gable(l, w, h){   // a pitched roof l long (x), w wide at the eaves (z), its ridge h over them
+  const a = l / 2, b = w / 2, V = [[-a, 0, -b], [a, 0, -b], [a, h, 0], [-a, h, 0], [-a, 0, b], [a, 0, b]];
+  const T = [[0, 3, 2], [0, 2, 1], [4, 5, 2], [4, 2, 3], [0, 4, 3], [1, 2, 5]], pos = [];
+  for (const t of T) for (const k of t) pos.push(...V[k]);
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.computeVertexNormals(); return g;
+}
+function instanced(geo, mat, mats, parent, shadow, cols, name){   // cols: a colour per instance on a white material
   if (!mats.length) return null;
   const im = new THREE.InstancedMesh(geo, mat, mats.length);
-  for (let i = 0; i < mats.length; i++) im.setMatrixAt(i, mats[i]);
+  for (let i = 0; i < mats.length; i++){ im.setMatrixAt(i, mats[i]); if (cols) im.setColorAt(i, cols[i]); }
+  if (name) im.name = name;
   if (shadow){ im.castShadow = true; im.receiveShadow = true; }
   parent.add(im); return im;
 }
@@ -5141,10 +5153,16 @@ const GEO = {
   found: new THREE.BoxGeometry(0.8, 0.2, 0.8).translate(0, 0.05, 0),
   arm: new THREE.BoxGeometry(0.1, 0.1, 1),
   beam: new THREE.BoxGeometry(0.16, 0.3, 1),
-  crown: new THREE.ConeGeometry(2.4, 6, 7).translate(0, 5, 0),
+  crown: new THREE.ConeGeometry(2.4, 6, 7).translate(0, 5, 0),               // a conifer
+  leafy: new THREE.IcosahedronGeometry(2.8, 1).scale(1, 0.82, 1).translate(0, 4.3, 0),   // an oak, a chestnut: a round crown 5.6 m wide from 2 to 6.6 m
+  poplar: new THREE.IcosahedronGeometry(1.3, 1).scale(1, 4.6, 1).translate(0, 8, 0),   // a poplar: 2.6 m wide, up to 14 m
   trunk: new THREE.CylinderGeometry(0.22, 0.32, 2.2, 6).translate(0, 1.1, 0),
   house: new THREE.BoxGeometry(9, 4, 7).translate(0, 2, 0),
   roof: new THREE.ConeGeometry(6.4, 2.8, 4).rotateY(Math.PI / 4).translate(0, 5.4, 0),
+  barn: new THREE.BoxGeometry(16, 5, 9).translate(0, 2.5, 0),
+  barnRoof: gable(16.8, 9.8, 2.6).translate(0, 5, 0),
+  cow: boxGeo([[2, 0.85, 0.72, 0, 1.08, 0], [0.5, 0.5, 0.42, 1.18, 1.3, 0], ...[[0.75, 0.24], [0.75, -0.24], [-0.75, 0.24], [-0.75, -0.24]].map(([x, z]) => [0.16, 0.7, 0.16, x, 0.35, z])]),   // body, head, legs: 2.4 m long
+  bale: new THREE.CylinderGeometry(0.75, 0.75, 1.2, 10).rotateX(Math.PI / 2).translate(0, 0.75, 0),   // a round bale on its side
   pier: new THREE.BoxGeometry(1, 1, 1),
   lamp: new THREE.BoxGeometry(0.25, 0.12, 0.6),
   stop: new THREE.BoxGeometry(0.5, 1.1, 2.8).translate(0, 0.55, 0),
@@ -5316,7 +5334,7 @@ function buildChunk(ci){
         r.v.forEach((q, c) => { G.w[k * NCv + c] = q[3]; G.y[k * NCv + c] = q[1] + O.y; });
       });
       ch.ground = G; }
-    const pos = [], col = [], trees = [], houses = [], blocks = [], NC = rows[0].v.length, cityKey = cityKeyAt(s0);
+    const pos = [], col = [], trees = [], houses = [], barns = [], cows = [], bales = [], blocks = [], NC = rows[0].v.length, cityKey = cityKeyAt(s0);
     const boxes = [], box = (x, y, z, c, s, hw, hd, top) => boxes.push(x + O.x, z + O.z, c, s, hw, hd, y + O.y + top);   // the buildings for the camera (camOver): centre, yaw, half sizes, top
     for (let r = 0; r < rows.length - 1; r++){
       const A = rows[r], B = rows[r + 1];
@@ -5338,30 +5356,66 @@ function buildChunk(ci){
         // vegetation and houses
         if (water || inner || wall || d < 14 || B.s - A.s < 1) continue;
         const width = Math.abs(a1[3] - a0[3]);
-        const put = (arr, u, v) => { const x = a0[0] + (a1[0] - a0[0]) * u, y = a0[1] + (a1[1] - a0[1]) * u, z = a0[2] + (a1[2] - a0[2]) * u; const x2 = b0[0] + (b1[0] - b0[0]) * u, y2 = b0[1] + (b1[1] - b0[1]) * u, z2 = b0[2] + (b1[2] - b0[2]) * u; arr.push([x + (x2 - x) * v, y + (y2 - y) * v, z + (z2 - z) * v]); };
-        const hq = hash2(r + ci * 1000, c, 3);
+        const put = (arr, u, v, ...more) => { const x = a0[0] + (a1[0] - a0[0]) * u, y = a0[1] + (a1[1] - a0[1]) * u, z = a0[2] + (a1[2] - a0[2]) * u; const x2 = b0[0] + (b1[0] - b0[0]) * u, y2 = b0[1] + (b1[1] - b0[1]) * u, z2 = b0[2] + (b1[2] - b0[2]) * u; arr.push([x + (x2 - x) * v, y + (y2 - y) * v, z + (z2 - z) * v, d, ...more]); };   // [x, y, z, distance from the line, ...]
+        const R = r + ci * 1000, hq = hash2(R, c, 3), area = width * (B.s - A.s), far = 1 + d / 250, cell = (salt) => hash2(Math.floor(cx / 120), Math.floor(cz / 120), salt);
+        const many = (per, salt) => { const n = area / per; return Math.floor(n) + (hash2(R, c, salt) < n % 1 ? 1 : 0); };   // a count by area: the root of the old empty kilometre was a count per cell under a first come cap
+        const tree = (u, v, kind, wide, tall) => { const sc = 0.8 + 0.7 * hash2(R, c * 16 + trees.length % 16, 23); put(trees, u, v, kind, sc * wide, sc * tall); };   // kind 0 conifer, 1 broadleaf, 2 poplar
         if (landmarkZone(A.f.s, (a0[3] + a1[3]) / 2)) continue;
         if (city > 0 && hash2(r, c, 53) < city){   // urban cell: blocks of buildings every other row (20 m pitch), a few boulevard trees
           if (r % 2 === 0 && d >= 16 && d <= 420 && hq < 0.6 && blocks.length < 1400){
             const cnt = Math.min(5, Math.max(1, Math.round(width / 22)));
             for (let t = 0; t < cnt; t++) blocks.push({ u:(t + 0.5) / cnt + (hash2(r, c, 61 + t) - 0.5) * 0.3 / cnt, r, c:c * 8 + t, width:width / cnt, s:A.f.s, a0, a1, b0, b1 });
-          } else if (hq > 0.96 && trees.length < 520) put(trees, hash2(r, c, 11), hash2(r, c, 41));
+          } else if (hq > 0.96) tree(hash2(R, c, 11), hash2(R, c, 41), 1, 1, 1);
           continue;
         }
-        if (type === 2 && trees.length < 520){ const cnt = Math.min(8, Math.max(1, Math.round(width / 14))); for (let t = 0; t < cnt; t++) put(trees, hash2(r, c, 11 + t), hash2(r, c, 41 + t)); }
-        else if ((type === 0 || type === 1) && hq < 0.12 && trees.length < 520) put(trees, hq * 8 % 1, hash2(r, c, 5));
-        else if (type === 4 && d > 20 && hq < 0.6 && houses.length < 70) put(houses, 0.2 + 0.6 * hash2(r, c, 13), 0.2 + 0.6 * hash2(r, c, 17));
+        if (type === 2){   // a wood: thinner but wider with distance, so it stays a wood as far as the fog; a stand of conifers in three
+          const n = Math.min(40, many(55 * far * far, 43)), k = cell(71) < 0.3 ? 0 : 1;
+          for (let t = 0; t < n; t++) tree(hash2(R, c, 11 + t), hash2(R, c, 41 + t), k, far, Math.sqrt(far));
+        } else if (type === 0 || type === 1){   // fields: lone oaks and poplars, a farm, a herd on the grass, round bales on some crops
+          const n = Math.min(6, many(2500 * far, 45));
+          for (let t = 0; t < n; t++) tree(hash2(R, c, 11 + t), hash2(R, c, 41 + t), hash2(R, c, 61 + t) < 0.25 ? 2 : 1, 1, 1);
+          if (d > 60 && d < 700 && hash2(R, c, 49) < area / 120000){ const u = 0.3 + 0.4 * hash2(R, c, 13), yaw = hash2(R, c, 31) * 6.283; put(barns, u, 0.5, yaw); put(houses, u + (u < 0.5 ? 18 : -18) / width, 0.5, yaw); }   // a barn, its farmhouse 18 m across
+          if (type === 1 && d > 40 && d < 260 && hash2(R, c, 55) < area / 25000){ const u0 = 0.2 + 0.6 * hash2(R, c, 57), du = Math.min(1, 16 / width), breed = Math.floor(cell(75) * 3);
+            for (let t = 0, m = 3 + Math.floor(hash2(R, c, 59) * 4); t < m; t++) put(cows, Math.min(1, Math.max(0, u0 + (hash2(R, c, 81 + t) - 0.5) * du)), hash2(R, c, 91 + t), breed, hash2(R, c, 101 + t) * 6.283); }
+          if (type === 0 && d > 40 && d < 300 && cell(79) < 0.18) for (let t = 0, m = Math.min(10, many(350, 51)); t < m; t++) put(bales, hash2(R, c, 111 + t), hash2(R, c, 121 + t), hash2(R, c, 131 + t) * 6.283);
+        } else if (type === 4 && d > 20 && r % 2 === 0){   // a village: a house every 280 m² near, thinning with distance, set square to its streets
+          const n = Math.min(12, many(140 * far, 47)), yaw = cell(73) * 1.571;
+          for (let t = 0; t < n; t++) put(houses, (t + 0.5 + (hash2(R, c, 13 + t) - 0.5) * 0.4) / n, 0.3 + 0.4 * hash2(R, c, 17 + t), yaw + (hash2(R, c, 21 + t) < 0.5 ? 0 : 1.571) + (hash2(R, c, 25 + t) - 0.5) * 0.15);
+        }
       }
     }
     const tg = new THREE.BufferGeometry(); tg.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); tg.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); tg.computeVertexNormals();
     addMesh(tg, terrainMat).receiveShadow = true;
-    const tm = trees.map(([x, y, z], i) => { const sc = 0.8 + 0.7 * hash2(i, ci, 23); return new THREE.Matrix4().compose(_cp.set(x, y - 0.2, z), _cq.setFromAxisAngle(Y_UP, hash2(i, ci, 29) * 6.283), _cs.set(sc, sc, sc)); }).filter((m, i) => windClear(trees[i][0] + O.x, trees[i][2] + O.z, 20) && sightClear(trees[i][0] + O.x, trees[i][2] + O.z));
+    // the nearest first within a budget per kilometre, clear of the wind farms and of the signals' sight lines
+    const keep = (arr, n, wind) => { const a = arr.filter(q => windClear(q[0] + O.x, q[2] + O.z, wind) && sightClear(q[0] + O.x, q[2] + O.z)); return a.length > n ? a.sort((p, q) => p[3] - q[3]).slice(0, n) : a; };
+    const at = (q, yaw, sx, sy, dy) => new THREE.Matrix4().compose(_cp.set(q[0], q[1] + dy, q[2]), _cq.setFromAxisAngle(Y_UP, yaw), _cs.set(sx, sy, sx));
+    const hsl = (h, s, l) => new THREE.Color().setHSL(h, s, l), tint = (hex, k) => new THREE.Color(hex).multiplyScalar(k);
+    { const kept = keep(trees, 1600, 20), ms = [[], [], []], cs = [[], [], []], trm = [], n = kept.length;
+      const k = new Uint8Array(n), ix = new Uint16Array(n), ti = new Int16Array(n).fill(-1), tm = [], B = new Float64Array(n * 4);
+      kept.forEach((q, i) => {
+        const kind = q[4], wide = q[5], tall = q[6], h = hash2(i, ci, 37), m = at(q, hash2(i, ci, 29) * 6.283, wide, tall, -0.2);
+        k[i] = kind; ix[i] = ms[kind].length; ms[kind].push(m); tm.push(m);
+        cs[kind].push(kind === 0 ? hsl(0.36 + 0.03 * h, 0.42, 0.22 + 0.06 * hash2(i, ci, 39)) : kind === 1 ? hsl(0.22 + 0.08 * h, 0.38 + 0.15 * hash2(i, ci, 41), 0.24 + 0.1 * hash2(i, ci, 39)) : hsl(0.2 + 0.05 * h, 0.45, 0.33 + 0.06 * hash2(i, ci, 39)));
+        if (q[3] < 300){ ti[i] = trm.length; trm.push(m); }   // trunks: the near trees only, further they hide under the crowns
+        B.set([q[0] + O.x, q[2] + O.z, [2.4, 2.8, 1.3][kind] * wide, q[1] + O.y + [8, 6.6, 14][kind] * tall], i * 4);   // for the camera (camTrees): centre, half width and top of the crown
+      });
+      const crowns = [instanced(GEO.crown, treeCrownM, ms[0], g, false, cs[0], 'conifers'), instanced(GEO.leafy, treeCrownM, ms[1], g, false, cs[1], 'broadleaves'), instanced(GEO.poplar, treeCrownM, ms[2], g, false, cs[2], 'poplars')];
+      const trunks = instanced(GEO.trunk, treeTrunkM, trm, g, false, null, 'trunks');
+      if (n) ch.trees = { tm, crowns, trunks, k, ix, ti, hid:new Set(), B }; }
+    { const kept = keep(houses, 320, 500), south = cityKey === 'tls' || cityKey === 'bdx', wall = { tls:0xd9b9a0, bdx:0xe6dcc6, loire:0xeeeae0, par:0xe0dcd2 }[cityKey];
+      const hm = kept.map(q => at(q, q[4], 1, 1, -0.1));
+      instanced(GEO.house, houseWallM, hm, g, false, hm.map((m, i) => tint(wall, 0.9 + 0.14 * hash2(i, ci, 33))), 'houses');
+      instanced(GEO.roof, houseRoofM, hm, g, false, hm.map((m, i) => south ? tint(0x9c4f3a, 0.85 + 0.25 * hash2(i, ci, 35)) : tint(0x4b5058, 0.9 + 0.2 * hash2(i, ci, 35))), 'roofs');   // the south's terracotta, the Loire's and Paris's slate
+      for (const m of hm){ const e = m.elements; box(e[12], e[13], e[14], e[0], e[8], 4.6, 4.6, 6.8); } }   // 9 by 7 m under a roof 9 m square, 6.8 m high
+    { const kept = keep(barns, 12, 500), bm = kept.map(q => at(q, q[4], 1, 1, -0.1));
+      instanced(GEO.barn, farmM, bm, g, false, bm.map((m, i) => tint([0xb5aa96, 0x8b7b66, 0x9aa0a3][Math.floor(hash2(i, ci, 43) * 3)], 1)), 'barns');
+      instanced(GEO.barnRoof, farmM, bm, g, false, bm.map((m, i) => tint([0x8c9093, 0x6d4a3a, 0x5d6a5f][Math.floor(hash2(i, ci, 45) * 3)], 1)), 'barn roofs');   // fibre cement, rust, green steel
+      for (const m of bm){ const e = m.elements; box(e[12], e[13], e[14], e[0], e[8], 8.4, 4.9, 7.6); } }
+    { const kept = keep(cows, 60, 20), BREED = [0xd9b77e, 0xa8582e, 0xece3cf];   // Blonde d'Aquitaine, Limousine, Charolaise
+      instanced(GEO.cow, farmM, kept.map(q => at(q, q[5], 1, 1, 0)), g, false, kept.map((q, i) => tint(BREED[q[4]], 0.92 + 0.12 * hash2(i, ci, 47))), 'cows'); }
+    { const kept = keep(bales, 120, 20);
+      instanced(GEO.bale, farmM, kept.map(q => at(q, q[4], 1, 1, -0.05)), g, false, kept.map((q, i) => tint(0xc9a45c, 0.85 + 0.2 * hash2(i, ci, 49))), 'bales'); }
     _cs.set(1, 1, 1);
-    const crowns = instanced(GEO.crown, treeCrownM, tm, g, false), trunks = instanced(GEO.trunk, treeTrunkM, tm, g, false);
-    if (tm.length) ch.trees = { tm, crowns, trunks, hid:new Set(), B:Float64Array.from(tm.flatMap(m => { const e = m.elements; return [e[12] + O.x, e[14] + O.z, 2.2 * e[5], e[13] + O.y + 8 * e[5]]; })) };   // for the camera (camTrees): centre, half width and top of a crown 4.8 m wide at its foot and 8 m high, both times its scale
-    const hm = houses.map(([x, y, z], i) => new THREE.Matrix4().compose(_cp.set(x, y - 0.1, z), _cq.setFromAxisAngle(Y_UP, hash2(i, ci, 31) * 6.283), _cs)).filter((m, i) => windClear(houses[i][0] + O.x, houses[i][2] + O.z, 500) && sightClear(houses[i][0] + O.x, houses[i][2] + O.z));
-    instanced(GEO.house, houseWallM, hm, g, false); instanced(GEO.roof, houseRoofM, hm, g, false);
-    for (const m of hm){ const e = m.elements; box(e[12], e[13], e[14], e[0], e[8], 4.6, 4.6, 6.8); }   // 9 by 7 m under a roof 9 m square, 6.8 m high
     if (blocks.length){   // city blocks: merged facades with window UVs + roofs, two draw calls per chunk
       const walls = new GeoAcc(true), roofs = new GeoAcc(false), par = cityKey === 'par';
       for (const b of blocks){
@@ -5616,8 +5670,8 @@ function camTrees(r, ux, uz, e){   // hide the trees the camera stands in or bes
       if (hide) OVER.hid++;
       if (hide === T.hid.has(i)) continue;
       if (hide) T.hid.add(i); else T.hid.delete(i);
-      T.crowns.setMatrixAt(i, hide ? ZERO_M : T.tm[i]); T.trunks.setMatrixAt(i, hide ? ZERO_M : T.tm[i]);
-      T.crowns.instanceMatrix.needsUpdate = T.trunks.instanceMatrix.needsUpdate = true;
+      const cm = T.crowns[T.k[i]]; cm.setMatrixAt(T.ix[i], hide ? ZERO_M : T.tm[i]); cm.instanceMatrix.needsUpdate = true;
+      if (T.ti[i] >= 0){ T.trunks.setMatrixAt(T.ti[i], hide ? ZERO_M : T.tm[i]); T.trunks.instanceMatrix.needsUpdate = true; }
     }
   }
 }
