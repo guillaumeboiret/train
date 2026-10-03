@@ -6,6 +6,8 @@ Nothing leaves this file: a request is added the moment it is made, and a done i
 ## Open, in working order
 
 ### 0. Now (asked 2026-10-03)
+- [ ] Code every open item of this file, each one challenged first since some are old ("code all the features in your todo, challenge them before coding some are a bit old", 2026-10-03). Covers the move to EU West below, which was waiting for a yes.
+- [ ] In no GUI, everything in 3D stays clickable: the cockpit's buttons, the passenger's 3D things, and the power lever ("In no-GUI I should be able to click on the buttons still in the cockpit as well as in the traveler. The 3D buttons, the 3D elements, and Power should be actionable even in No-GUI", 2026-10-03). cc6848b did the desk; this asks for all of it, in both pages.
 - [ ] Heat as a transparent shimmer instead of the orange smoke: the hot air bends and blurs what is behind it, in waves ("Can you change the orange smoke to something that makes the feeling of heat but it's transparent? It just makes waves"). Changes the warm haze of 73a8dd0.
 - [ ] The remote's delay: 163 ms from the iPad to the TV on the live site, because the app runs far from Railway's Paris edge (cdg1, 200 ms to the first byte). Moving the service to EU West (europe-west4-drams3a, with multiRegionConfig in railway.json) should bring it near 20 ms. Waiting for a yes (2026-10-03).
 

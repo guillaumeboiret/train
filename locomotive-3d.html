@@ -234,7 +234,8 @@ body.ui-idle :is(.dock,.infocard,.gauges,.hud,.compass,#labels,.cab-bar,.cab-dec
 .ng-ico{width:18px;height:18px;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 #btnNoGui{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
 body.nogui .topbar{display:none}
-body.nogui .stage>:not(#c3d,#guiBack){display:none!important}
+body.nogui .stage>:not(#c3d,#guiBack,#cabSay,#walkBar,#kid),body.nogui :is(#walkBar,#kid)>:not(#walkSay,#barMenu,#kidToast){display:none!important}   /* left: the words a tap on the view brings, and the bar's menu the counter opens */
+body.nogui.ng-calm :is(#cabSay,#walkSay,#kidToast){visibility:hidden}   /* nobody at this screen: what the iPad's remote brings shows on the iPad */
 #guiBack{display:none;position:absolute;top:max(12px,env(safe-area-inset-top,0px));right:max(12px,env(safe-area-inset-right,0px));width:44px;height:44px;padding:0;border:0;border-radius:50%;place-items:center;background:rgba(16,20,26,.55);color:#fff;cursor:pointer;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);transition:opacity .3s}
 #guiBack .ng-ico{width:22px;height:22px}
 body.nogui #guiBack{display:grid}
@@ -6562,8 +6563,8 @@ $('langSeg').addEventListener('click', e => { const b = e.target.closest('button
 const ray = new THREE.Raycaster(), ptr = new THREE.Vector2();
 orbit.onClick = e => {
   if (inCab){ wakeTap = false; if (!cabRowTap(e)) cabTap(e); return; }   // the driver's seat, GUI or not: a stop on the line screen, else the view's edges jump along the line
-  if (noGui){ wakeTap = false; ngWake(); return; }   // no GUI: a tap only brings back the way back
-  if (wakeTap){ wakeTap = false; return; }   // that tap only brought the controls back
+  if (noGui){ wakeTap = false; if (!walking){ ngWake(); return; } }   // no GUI: a tap on the view outside only brings back the way back; the walker's still sit, order and climb on a stool
+  else if (wakeTap){ wakeTap = false; return; }   // that tap only brought the controls back
   const r = canvas.getBoundingClientRect();
   ptr.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
   ray.setFromCamera(ptr, camera);
@@ -6590,7 +6591,7 @@ const cabActions = {   // what each desk button does, and the way out of the cab
     const up = () => { horn.release(); window.removeEventListener('pointerup', up); window.removeEventListener('pointercancel', up); };
     window.addEventListener('pointerup', up); window.addEventListener('pointercancel', up);
   },
-  panto(){ $('swPanto').click(); },
+  panto(){ if (!S.battery){ ensureBattery(); syncControls(); } $('swPanto').click(); },   // a cold train: its battery on first, as the lever does (no GUI has no battery switch)
   doors(){ $('swDoors').click(); },
   next(){   // the station autopilot, lit until the train stands at the platform; pressed again it says where it is going, or ends the whole line
     if (S.service){ cabSay(t(S.autoStop ? 'service_last' : 'service_off')); serviceOff(); return; }
@@ -6627,12 +6628,15 @@ function driverLever(){   // the lever of the cab the driver sits in: the neares
   for (const l of cabLevers){ if (!shown(l)) continue; const d = l.getWorldPosition(_kn).distanceToSquared(camera.position); if (d < bd){ bd = d; best = l; } }
   return best;
 }
-orbit.onPress = e => {   // in the driver's place, GUI or not, a press on a desk button works it and the lever is dragged; anywhere else it turns the head
+const cellAt = (h, id) => { const [x0, y0] = CAB.cell[id], { width:cw, height:ch } = CAB.ctx.canvas; return [h.uv.x * cw - x0, (1 - h.uv.y) * ch - y0]; };   // a hit on a cab screen, in its cell's px
+const PWR_Y = 256, PWR_PX = 25;   // the speed screen's brake and power bar: all of the screen under the dial (cell px), a notch every 25 px either side of its middle
+orbit.onPress = e => {   // in the driver's place, GUI or not, a press on a desk button works it, the lever is dragged, and so is the speed screen's brake and power bar; anywhere else it turns the head
   if (orbit.fp?.name !== 'driver' || e.button !== 0) return false;
   const r = deskRay(e), lv = driverLever(), h = deskHit(lv ? [...CAB.btns, ...CAB.scrs, lv] : [...CAB.btns, ...CAB.scrs]);
   let o = h?.object; while (o && !o.userData.cabBtn && !o.userData.lever) o = o.parent;
   const id = o?.userData.cabBtn;
   if (id){ if (id === 'next') holdPress(() => cabActions.next(), () => cabActions.service()); else cabActions[id](); return true; }
+  if (h?.object.userData.cabScr === 'speed' && cellAt(h, 'speed')[1] > PWR_Y){ pwrDrag(e, h.object); return true; }
   const knob = lv && !h && lv.children[1].getWorldPosition(_kn).project(camera);   // nothing hit: near enough to the knob
   if (o || knob && knob.z < 1 && Math.hypot(r.left + (knob.x + 1) / 2 * r.width - e.clientX, r.top + (1 - knob.y) / 2 * r.height - e.clientY) < LEVER_REACH){ leverDrag(e, r); return true; }
   return false;   // a screen is left to the tap (cabRowTap) or to the head
@@ -6650,11 +6654,19 @@ function leverDrag(e, r){   // up for power, down to brake (to 🐢 on the playg
   canvas.setPointerCapture(e.pointerId);
   addEventListener('pointermove', move); addEventListener('pointerup', end); addEventListener('pointercancel', end);
 }
+function pwrDrag(e, scr){   // the bar pressed: the lever to the notch under the finger, and after it as it slides (the lever's own range: 0 to 8 on the playground, where 0 brakes gently)
+  const at = m => { deskRay(m); const h = ray.intersectObject(scr, false)[0]; if (h){ cabLever.set((cellAt(h, 'speed')[0] - 256) / PWR_PX); cabT = 1; } };   // the screen drawn again at once
+  const move = m => { if (m.pointerId === e.pointerId) at(m); };
+  const end = m => { if (m.pointerId !== e.pointerId) return; removeEventListener('pointermove', move); removeEventListener('pointerup', end); removeEventListener('pointercancel', end); };
+  canvas.setPointerCapture(e.pointerId);
+  addEventListener('pointermove', move); addEventListener('pointerup', end); addEventListener('pointercancel', end);
+  at(e);
+}
 function cabRowTap(e){   // a tap on the line screen's row of stops: that station, as a tap on its dot on the line bar
   deskRay(e);
   const h = deskHit(CAB.scrs); if (h?.object.userData.cabScr !== 'line') return false;
-  const [x0, y0, w] = CAB.cell.line, { width:cw, height:ch } = CAB.ctx.canvas, x = h.uv.x * cw - x0;
-  if ((1 - h.uv.y) * ch - y0 < CAB_ROW_Y - 40) return false;   // the words above the row
+  const [x, y] = cellAt(h, 'line'), w = CAB.cell.line[2];
+  if (y < CAB_ROW_Y - 40) return false;   // the words above the row
   let st = null, bd = 30;   // canvas px: the nearest dot, the stops being about 38 apart
   for (const s of ROUTE.stations){ const d = Math.abs(cabRowX(s.s, w) - x); if (d < bd){ bd = d; st = s; } }
   if (!st) return false;
@@ -6893,6 +6905,7 @@ function cabSpeed(c){   // 512 × 320: speed dial with the line's limit, what is
   c.fillStyle = '#e5484d'; c.fillRect(256 - bw, y - 7, bw, 14);
   c.fillStyle = '#3ccf6f'; c.fillRect(256, y - 7, tw, 14);
   c.fillStyle = '#fff'; c.fillRect(255, y - 12, 2, 24);
+  c.beginPath(); c.arc(256 + cabLever.pos() * PWR_PX, y, 11, 0, Math.PI * 2); c.fill(); c.strokeStyle = '#05070a'; c.lineWidth = 3; c.stroke();   // its knob, where the lever stands: a slider the finger can take
   c.fillStyle = '#8fb3d9'; c.font = `600 20px ${CAB_FONT}`; c.textBaseline = 'bottom';
   c.textAlign = 'left'; c.fillText(t('scr_brake').toUpperCase(), 56, y - 11); c.textAlign = 'right'; c.fillText(t('scr_power').toUpperCase(), 456, y - 11);
 }
@@ -7193,12 +7206,13 @@ function updateIdle(dt){
 }
 /* ---- no GUI ("a no-GUI mode button that hides the GUI to only see the travel"): every control away, only the trip on screen. The topbar's
    button (the playground's, under its compass) or G hides them; the corner's button, Esc or G bring them back. That button steps aside
-   while nobody moves; a tap on the bare view only brings it back: nothing is picked or pressed, the view still turns and zooms */
-const NG_CALM_MS = 2500;
+   while nobody moves; a tap on the view outside only brings it back. In 3D everything still answers ("the 3D buttons, the 3D elements, and Power
+   should be actionable even in no GUI"): the driver's desk, screens and lever, the walker's seats, counter and stools, with their words while someone is here */
+const NG_CALM_MS = 2500, NG_SAY = '#cabSay:not([hidden]),#walkSay:not([hidden]),.kid-toast.show';   // the words a tap brings: the way back waits for them to go
 let noGui = false, ngTm = 0;
 function ngWake(){
   const B = document.body.classList; B.remove('ng-calm'); clearTimeout(ngTm);
-  const calm = () => { if ($('guiBack').matches(':hover')) ngTm = setTimeout(calm, 1000); else B.add('ng-calm'); };
+  const calm = () => { if ($('guiBack').matches(':hover') || document.querySelector(NG_SAY)) ngTm = setTimeout(calm, 1000); else B.add('ng-calm'); };
   ngTm = setTimeout(calm, NG_CALM_MS);
 }
 function setNoGui(on){

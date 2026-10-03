@@ -234,7 +234,8 @@ body.ui-idle :is(.dock,.infocard,.gauges,.hud,.compass,#labels,.cab-bar,.cab-dec
 .ng-ico{width:18px;height:18px;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 #btnNoGui{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
 body.nogui .topbar{display:none}
-body.nogui .stage>:not(#c3d,#guiBack){display:none!important}
+body.nogui .stage>:not(#c3d,#guiBack,#cabSay,#walkBar,#kid),body.nogui :is(#walkBar,#kid)>:not(#walkSay,#barMenu,#kidToast){display:none!important}   /* left: the words a tap on the view brings, and the bar's menu the counter opens */
+body.nogui.ng-calm :is(#cabSay,#walkSay,#kidToast){visibility:hidden}   /* nobody at this screen: what the iPad's remote brings shows on the iPad */
 #guiBack{display:none;position:absolute;top:max(12px,env(safe-area-inset-top,0px));right:max(12px,env(safe-area-inset-right,0px));width:44px;height:44px;padding:0;border:0;border-radius:50%;place-items:center;background:rgba(16,20,26,.55);color:#fff;cursor:pointer;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);transition:opacity .3s}
 #guiBack .ng-ico{width:22px;height:22px}
 body.nogui #guiBack{display:grid}
