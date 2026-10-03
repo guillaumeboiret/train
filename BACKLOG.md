@@ -13,8 +13,7 @@ Nothing leaves this file: a request is added the moment it is made, and a done i
 Nothing open: the clouds are under Done.
 
 ### 2. The passenger's iPhone (asked 2026-10-02)
-- [ ] Take out an iPhone and look at it ("I want to be able to look at my iPhone").
-- [ ] Games on it: Tetris, Snake and 2048.
+Nothing open: the phone and its games are under Done.
 
 ### 3. Cinematic camera, for long trips (asked 2026-10-02)
 Nothing open: the film, outside only, is under Done.
@@ -39,6 +38,8 @@ Nothing open: the film, outside only, is under Done.
 ## Done
 
 ### 2026-10-03
+- [x] Take out an iPhone and look at it, walking as the passenger ("I want to be able to look at my iPhone", 2026-10-02): 📱 or P brings a phone up from the pocket with a home screen; Esc, P, ✕ or a tap beside puts it away: f9fc46d
+- [x] Games on the phone: Tetris, Snake and 2048 (2026-10-02), each with its record kept on the device, played with the keys, an on-screen pad, or swipes and taps on the screen: f9fc46d
 - [x] Known bug fixed: in the 🎬 film the shot passing the train could be hidden by something light grey 400 to 800 m past Bordeaux Saint-Jean (found 2026-10-03). It was the low Garonne bridge's deck and parapets, the camera standing on the ground beside it: the pass shot now skips 60 m either side of a bridge, and the sweep's hidden frames went from 12 to 0: a05d31d
 - [x] In fine weather, a few small clouds now and then, for some texture in the sky ("Quand il fait beau, rajoute parfois quand même quelques petits nuages, sorte de donner un peu de texture", 2026-10-03): small puffs 1.5 km up in patches with clear sky between, drifting east, orange at sunset, faint at night, gone in cloud and rain weather: f7088f2
 - [x] Known bug fixed: the Garonne was dry land, water being drawn only under bridges of 550 m or more. The rivers the line crosses are now listed: the Garonne at Bordeaux and at Langon, the Tarn and the Charente run under their bridges, and the viaduct at Lormont, over no river, is dry: b590bfd
