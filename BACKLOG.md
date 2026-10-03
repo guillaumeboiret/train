@@ -8,6 +8,12 @@ Nothing leaves this file: a request is added the moment it is made, and a done i
 ### 0. Now (asked 2026-10-03)
 - [ ] Code every open item of this file, each one challenged first since some are old ("code all the features in your todo, challenge them before coding some are a bit old", 2026-10-03). Covers the move to EU West below, which was waiting for a yes.
 - [ ] The remote's delay: 157 to 159 ms from the iPad to the TV on the live site (measured 2026-10-03), because the app runs in us-west2 (California) behind Railway's Paris edge (cdg1, about 200 ms to the first byte). Moving its one replica to EU West (Amsterdam) should bring it near 20 ms. Yes given with "code all the features in your todo" (2026-10-03). Tried in cb85925 with multiRegionConfig in railway.json: Railway ignores that file's deploy settings for this service, so it stayed in California (reverted). The move is a service setting, `railway service scale eu-west=1 us-west=0`, which the permission check stopped as a production change: waiting for you to run it or allow it.
+- [ ] The glass turns into very bright panels seen from a distance, too strong and from too close: take that out. Seen at night: past 60 m from the camera a coach's windows become solid panels lit at full strength ("the glass transform into very bright panel at distance its too much and too close if you can remove it it's better", 2026-10-03).
+- [ ] The windows are too dark: half as tinted in the dark ("the glass is too dark make it twice less tinted in dark", 2026-10-03).
+- [ ] A 3D button in the cockpit to switch the lights on and off ("Add a button to open and close the lights even in the cockpit, a 3D button", 2026-10-03).
+- [ ] The remote on an iPhone in portrait (Safari, 393 px wide, about 660 px of page between its bars): the buttons are squeezed, their labels run into the icons and are cut (Horn, Next station, To Paris, Pantograph, Doors, Weather, the clock, X-ray). Make it display properly ("make the view displaying properly on iphone", 2026-10-03, with a screenshot).
+- [ ] The remote off by default, turned on from the menu ("bu default the remote shoult not be active we shoult activate in the menu", 2026-10-03). Today a new TV tab starts with it off and ⚙️ then 📱 turns it on, but once on it stays on: a reload or a restored tab pairs again by itself, and the phone joins its last TV as soon as /remote/ opens, which hides the TV's controls.
+- [ ] Control the passenger from the remote: walk and look with the iPhone as a game controller ("in the remote i want to be able to controle the human", then "move using the iphone as a controller", 2026-10-03).
 
 ### 1. World (asked 2026-10-02)
 Nothing open: the clock, the sun, the lights and the weather schedule are under Done.
@@ -17,7 +23,7 @@ Nothing open: the clock, the sun, the lights and the weather schedule are under 
 - [ ] Games on it: Tetris, Snake and 2048.
 
 ### 3. Cinematic camera, for long trips (asked 2026-10-02)
-Nothing open: the 🎬 view is under Done.
+Nothing open: the film, outside only, is under Done.
 
 ### 4. Step off the train at a station (asked 2026-10-02)
 - [ ] The passenger can get off onto the platform and walk there, and the train never leaves without them: no departure until they are back aboard ("I want the user to be able to go outside of the train but the train can't go back without the user inside").
@@ -32,6 +38,7 @@ Nothing open: the 🎬 view is under Done.
 - [ ] A train for the other direction standing across the platform at a station (2026-09-26). Today oncoming TGVs run through the stations and stop only at the termini.
 
 ## Known bugs, found while testing
+- In the 🎬 film the shot riding along the train's side can sink behind a dark wall beside the line, which then fills half the view (found 2026-10-03, 2.2 km before Poitiers).
 - Railway reads none of railway.json's deploy settings for this service: the /version.txt healthcheck of 964d84b never ran, so a deploy switches without waiting for it. Config as code (railway.json) is deprecated and stops being read on 2026-12-01; Railway now wants .railway/railway.ts, applied with its CLI.
 - The Garonne is dry land: water is drawn only under bridges of 550 m or more.
 - Under Massy's slab (510 to 68 m before the station) and Montparnasse's garden (the last 366 m), the far, overview and train angles show the slab, not the train; only the side angle sees it (found 2026-10-03). In a tunnel the camera goes into the tube; under a slab it stays above.
@@ -41,8 +48,10 @@ Nothing open: the 🎬 view is under Done.
 ## Done
 
 ### 2026-10-03
-- [x] A camera that films the trip by itself, for long trips ("movie-like movements that can switch from the outside to the inside and make elegant movements", 2026-10-03; first asked 2026-10-02 for streaming, then "I don't need you to stream it's just the camera movement for long term travels"). 🎬 in the playground's views and on the remote: a director cuts every 9 to 16 s between shots riding with the train, from the ground and inside, gliding into each other or cutting through black, and films the platform and the doors at each stop. A drag, a pinch, the wheel, a key or Esc hands the camera over where it is; 🎬 again cuts to the next shot: d283102
-- [x] The wallpaper for the whole line ("we could have a wallpaper for the whole line in a very nice way", 2026-10-02): the endless Next stop (607ef93) with 🎬 on, the camera turns, goes inside the train, comes back out and follows it: d283102
+- [x] No inside views in the 🎬 film, only shots from outside ("in the cinematic mode forget the inside views", 2026-10-03). Changes the 2026-10-03 ask to "switch from the outside to the inside": the driver's seat, window seat and aisle shots are gone; in a tunnel or under a slab, a shot low ahead of the nose takes their place: effc035
+- [x] Known bug fixed: 🎬 tapped from an outside view stopped the film on the very next frame whenever its first shot glided in from there, 22 of 40 taps (found 2026-10-03 on the live site). 40 of 40 start now: effc035
+- [x] A camera that films the trip by itself, for long trips ("movie-like movements that can switch from the outside to the inside and make elegant movements", 2026-10-03; first asked 2026-10-02 for streaming, then "I don't need you to stream it's just the camera movement for long term travels"). 🎬 in the playground's views and on the remote: a director cuts every 9 to 16 s between shots riding with the train, from the ground and inside (outside only since effc035), gliding into each other or cutting through black, and films the platform and the doors at each stop. A drag, a pinch, the wheel, a key or Esc hands the camera over where it is; 🎬 again cuts to the next shot: d283102
+- [x] The wallpaper for the whole line ("we could have a wallpaper for the whole line in a very nice way", 2026-10-02): the endless Next stop (607ef93) with 🎬 on, the camera turns, goes inside the train, comes back out and follows it (outside only since effc035): d283102
 - [x] Known bug fixed: in the kid game ← → ran the explainer guide's steps, and a step could move the train (km 60 to 257.9, which ended the whole line) (found 2026-10-03). They do nothing there now; the explainer keeps them: d283102
 - [x] Known bugs fixed: in a city the outside camera could stand inside a building, lose the train behind buildings in the middle distance, or stand inside a tree crown (found 2026-10-03). A building or house on the line of sight now lifts the camera over its roof, rising a second before it gets there; a tree in the way is hidden. The train out of sight in 51 of 1612 kid views around the 13 stations, was 204; all 51 are under the Massy and Montparnasse slabs, still open below: 87d7495
 - [x] Known bug fixed: the HUD's track count was off where tracks fade in or out (Agen showed 5 for 3 laid). Logged as the island's far face counted once too many; that face is laid, so it stays counted. It now counts the tracks laid, as the chunks lay them, checked at all 13 stations: 5c7a14d
