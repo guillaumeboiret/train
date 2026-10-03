@@ -3181,10 +3181,27 @@ function barServe(st){   // the barista fetches what was just bought; the first 
   b.serve = { x:BAR_AT[st][0], face:BAR_AT[st][1], t:1.1 };
   if (BAR.tray.length === 1){ b.trayOn = true; b.tray.position.set(c.xr + barTrayX(WK.x), DECK.up + 0.94, -0.47); }
 }
-function barFace(){   // the menu open at the counter: the eye turns to it and a little down, onto the tray, the barista still in sight
+function barFace(){   // the menu open at the counter: the eye turns onto the tray, a little down, the barista in sight; turned on just enough for the menu to leave the tray in view
   const c = tgvSets[0].coaches[WK.i];
   if (WK.seat >= 0 || WK.stool >= 0 || !c.bar) return;
-  orbit.look(c.g, new THREE.Vector3(c.xr + WK.x, WK.ey + WALK_EYE, WK.z), Math.PI / 2, -0.3); orbit.fp.name = 'walk';
+  const eye = new THREE.Vector3(c.xr + WK.x, WK.ey + WALK_EYE, WK.z), b = c.bar, gap = 12;
+  const at = b.trayOn ? b.tray.position.clone() : new THREE.Vector3(c.xr + barTrayX(WK.x), DECK.up + 0.94, -0.47);   // where the tray stands, or will be put down
+  const v = canvas.getBoundingClientRect(), m = $('barMenu').getBoundingClientRect(), cam = camera.clone();
+  cam.fov = fpFov(camera.aspect); cam.updateProjectionMatrix(); c.g.updateWorldMatrix(true, false); cam.position.copy(eye).applyMatrix4(c.g.matrixWorld);
+  c.g.getWorldQuaternion(cam.quaternion).multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(-0.3, 0, 0, 'YXZ'))); cam.updateMatrixWorld(true);   // the look at yaw π/2, pitch -0.3 (orbit.update)
+  const px = (x, y, z) => { const p = at.clone().add(new THREE.Vector3(x, y, z)).applyMatrix4(c.g.matrixWorld).project(cam); return [v.left + (p.x + 1) / 2 * v.width, v.top + (1 - p.y) / 2 * v.height]; };
+  const box = [[-0.23, 0.02, -0.15], [0.23, 0.02, -0.15], [-0.23, 0.02, 0.15], [0.23, 0.02, 0.15], [-0.23, 0.2, -0.15], [0.23, 0.2, -0.15]].map(q => px(...q));   // its rim and what stands on it
+  const xs = box.map(q => q[0]), ys = box.map(q => q[1]);
+  let yaw = Math.PI / 2, pitch = -0.3, [tx, ty] = px(0, 0.05, 0);
+  if (m.width && Math.max(...xs) > m.left - gap && Math.min(...xs) < m.right && Math.max(...ys) > m.top - gap && Math.min(...ys) < m.bottom){   // the menu over it: on, the shorter way out
+    if ((m.left - v.left) * v.height >= (m.top - v.top) * v.width) tx -= Math.max(...xs) - (m.left - gap); else ty -= Math.max(...ys) - (m.top - gap);
+    // the look that puts the tray there is Ry(yaw - π/2)·Rx(pitch) (orbit.update): the pitch brings that point's direction to the tray's height, the yaw then turns it onto the tray
+    const th = Math.tan(cam.fov * Math.PI / 360), cx = ((tx - v.left) / v.width * 2 - 1) * th * cam.aspect, cy = (1 - (ty - v.top) / v.height * 2) * th, n = Math.hypot(cx, cy, 1);
+    const w = at.add(new THREE.Vector3(0, 0.05, 0)).sub(eye).normalize();
+    pitch = Math.asin(THREE.MathUtils.clamp(w.y * n / Math.hypot(cy, 1), -1, 1)) - Math.atan2(cy, 1);
+    yaw = Math.atan2(w.x, w.z) - Math.atan2(cx / n, (cy * Math.sin(pitch) - Math.cos(pitch)) / n) + Math.PI / 2;
+  }
+  orbit.look(c.g, eye, yaw, pitch); orbit.fp.name = 'walk';
 }
 function barNear(){   // standing at the counter, not turned away from it: E, Enter or the button orders
   if (!WK.on || WK.seat >= 0 || WK.stool >= 0 || WK.y < 1.7 || !tgvSets[0].coaches[WK.i].bar) return false;

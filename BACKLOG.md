@@ -12,6 +12,7 @@ Nothing leaves this file: a request is added the moment it is made, and a done i
 - [ ] The windows are too dark: half as tinted in the dark ("the glass is too dark make it twice less tinted in dark", 2026-10-03).
 - [ ] A 3D button in the cockpit to switch the lights on and off ("Add a button to open and close the lights even in the cockpit, a 3D button", 2026-10-03).
 - [ ] The iPad remote as the cab itself: in the cab it shows the 3D driver's desk and drives the train on the TV from there; as a passenger it is a game pad and the passenger walks on the train; one switch goes from one to the other ("The iPad version should be way more dynamic since you're controlling the train. I would like to have the 3D version of the cockpit. On your iPad you have the cockpit and when you are in the cockpit you have the controller of the person. When you are a person you can switch to another. You have all the controls but here it's more like a pad.", 2026-10-03). The aim: in the cab the player feels they drive the train from the iPad; as a passenger, that they walk on the train. Today the iPad shows a flat panel, and the pad only while walking (916e690).
+- [ ] At the bar, the menu hides the tray while ordering ("When ordering, the menu hides the "plateau"", 2026-10-03).
 
 ### 1. World (asked 2026-10-02)
 Nothing open: the clock, the sun, the lights and the weather schedule are under Done.
@@ -38,6 +39,7 @@ Nothing open: the film, outside only, is under Done.
 - In the 🎬 film the shot riding along the train's side can sink behind a dark wall beside the line, which then fills half the view (found 2026-10-03, 2.2 km before Poitiers).
 - Railway reads none of railway.json's deploy settings for this service: the /version.txt healthcheck of 964d84b never ran, so a deploy switches without waiting for it. Config as code (railway.json) is deprecated and stops being read on 2026-12-01; Railway now wants .railway/railway.ts, applied with its CLI.
 - The Garonne is dry land: water is drawn only under bridges of 550 m or more.
+- Railway failed the deploy of 47c1d8d before its build started (deployment 4762d73c, no build log, 2026-10-03), so the site still serves 589f855. The same build runs clean here. A redeploy from here is refused as a production deploy: the next push, or `railway redeploy --from-source`, puts it live.
 - Under Massy's slab (510 to 68 m before the station) and Montparnasse's garden (the last 366 m), the far, overview and train angles show the slab, not the train; only the side angle sees it (found 2026-10-03). In a tunnel the camera goes into the tube; under a slab it stays above.
 - The outside camera cuts in one frame into the tunnel's shape 40 m before a mouth, and out of it 40 m after, so at speed it jumps 12 to 24 degrees (found 2026-10-03 leaving the tunnel 1252 m before Poitiers, side angle).
 - After the TV's page reloads, its sound waits for one click on the TV: browsers play no sound before a gesture on the page. The iPad shows a hint when that happens.
