@@ -255,15 +255,17 @@ const landmarkGround = (s, w, yF, t) => {
   for (const z of LM_ZONES){ const d = Math.hypot(Math.max(z[0] - s, s - z[1], 0), Math.max(z[2] - w, w - z[3], 0)); if (d < LM_FLAT){ const k = 1 - ROUTE.sstep(d / LM_FLAT); if (k > v){ v = k; sink = z[4]; } } }
   return t + (yF - sink - t) * v;
 };
-/* stations dug below the surrounding ground: [depth (m), floor width beyond the ballast edge, from, to relative to the station, both ends ramped over 60 m].
-   Massy TGV really sits in a trench between two tunnels, under its hall, bus station and car park (the smoothed relief is flat there) */
-const TRENCH = { msy:[8.5, 5, -700, 130] };
-const TRENCH_Z = ROUTE.stations.filter(st => TRENCH[st.id]).map(st => { const T = TRENCH[st.id]; return { a:st.s + T[2], b:st.s + T[3], depth:T[0], F:T[1] }; });
+/* stations dug below the surrounding ground: [depth (m), floor width beyond the ballast edge, from, to relative to the station, both ends ramped over 60 m,
+   the farthest across the outside camera stands in it]. Massy TGV really sits in a trench between two tunnels, under its hall, bus station and car
+   park (the smoothed relief is flat there); its camera keeps short of the far platform's track (17 m across), where a train stands */
+const TRENCH = { msy:[8.5, 5, -700, 130, 15] };
+const TRENCH_Z = ROUTE.stations.filter(st => TRENCH[st.id]).map(st => { const T = TRENCH[st.id]; return { a:st.s + T[2], b:st.s + T[3], depth:T[0], F:T[1], far:ROUTE.laneW(0, st.s, 1) + T[4] }; });
 const trenchAt = s => { for (const z of TRENCH_Z){ const w = Math.min(ROUTE.sstep((s - z.a) / 60), ROUTE.sstep((z.b - s) / 60)); if (w > 0) return { tz:z.depth * w, F:z.F }; } return null; };
-/* slabs and sheds over a station's tracks (x from, to, z from, to in station coordinates): no catenary masts for the tracks under them, the wires hang
-   from the soffit or the roof. A slab (Massy's, Montparnasse's garden) also keeps the floor under it bare; Saint-Jean's 1898 shed covers voies 1 to 7 */
-const STATION_DECK = { msy:[-510, -68, -14, 31], par:[-366, -8, -62, 62] }, STATION_SHED = { bdx:[-403, -104, -29.3, 31.8] };
-const roofZones = o => ROUTE.stations.filter(st => o[st.id]).map(st => { const r = o[st.id], w0 = ROUTE.laneW(0, st.s, 1); return [st.s + r[0], st.s + r[1], w0 + r[2], w0 + r[3]]; });
+/* slabs and sheds over a station's tracks (x from, to, z from, to in station coordinates; a slab's soffit over the rails, as its landmark builds it):
+   no catenary masts for the tracks under them, the wires hang from the soffit or the roof. A slab (Massy's, Montparnasse's garden) also keeps the
+   floor under it bare and the outside camera under its soffit (camFence); Saint-Jean's 1898 shed covers voies 1 to 7 */
+const STATION_DECK = { msy:[-510, -68, -14, 31, 6.88], par:[-366, -8, -62, 62, 8.6] }, STATION_SHED = { bdx:[-403, -104, -29.3, 31.8] };
+const roofZones = o => ROUTE.stations.filter(st => o[st.id]).map(st => { const r = o[st.id], w0 = ROUTE.laneW(0, st.s, 1); return [st.s + r[0], st.s + r[1], w0 + r[2], w0 + r[3], r[4]]; });
 const DECK_Z = roofZones(STATION_DECK), ROOF_Z = DECK_Z.concat(roofZones(STATION_SHED));
 const underDeck = s => DECK_Z.some(z => s > z[0] && s < z[1]);
 const roofAt = s => ROOF_Z.find(z => s > z[0] && s < z[1]) || null;
@@ -691,10 +693,11 @@ function chainPose(ch, jF, jR, xc, P, Q){   // a car on the chord between its jo
 }
 const OUR = mkChain(), LEAD_J = {};               // ours; the leading car's rear joint by mode (its frame is the scene's)
 /* ---- the outside camera's fence (Orbit.fence, 03b-scene.js): never under the ground or the rails, nor inside a hill. A camera in a tunnel's
-   rock is drawn into the tube. While the train it looks at is in a tunnel or 40 m from one, it keeps to the tube's shape, in the tube and
-   before its mouths, so the hill never stands between them. It eases into that shape over the 2 s before (80 m at least), so it never jumps
-   there at speed: from where the open camera would be, lifts and all, round what it looks at (camEase). Anywhere else the lowest height it
-   may take is returned, 0.6 m over the ground, the bed or a bridge deck */
+   rock is drawn into the tube. While the train it looks at is in a tunnel, a station's trench or under its slab, or 40 m from one, it keeps
+   to the tube's shape, in the tube and before its mouths, so the hill, the trench's walls or the slab never stand between them; under a slab
+   no higher than its soffit. It eases into that shape and under that soffit over the 2 s before (80 m at least), so it never jumps there at
+   speed: from where the open camera would be, lifts and all, round what it looks at (camEase). Anywhere else the lowest height it may take is
+   returned, 0.6 m over the ground, the bed or a bridge deck */
 const _fx = new THREE.Vector3(), _ff = mkFrame();
 function groundRow(G, k, w){   // the ground's height (absolute) at w across row k
   const o = k * G.nc; let c = 0;
@@ -718,21 +721,38 @@ function camPlace(p){   // p in scene coordinates: _fx gets it in route coordina
   CP.s = s; CP.w = w; CP.G = G; CP.lo = lo; CP.hi = hi; CP.t = t; CP.yG = a + (groundRow(G, hi, w) - a) * t;
   return true;
 }
-function tunnelGap(s, d){ const i1 = ROUTE.idx(Math.min(ROUTE.L, s + d)); let g = d; for (let i = ROUTE.idx(Math.max(0, s - d)); i <= i1; i++) if (ROUTE.KD[i] === 2) g = Math.min(g, Math.abs(i * ROUTE.DS - s)); return g; }   // m to the nearest tunnel sample, d at most
+const zoneGap = (s, z0, z1) => Math.max(z0 - s, s - z1, 0);
+function tubeGap(s, d){   // m to the nearest stretch where the camera keeps to the tube: a tunnel sample, a station's trench or slab; d at most
+  const i1 = ROUTE.idx(Math.min(ROUTE.L, s + d)); let g = d;
+  for (let i = ROUTE.idx(Math.max(0, s - d)); i <= i1; i++) if (ROUTE.KD[i] === 2) g = Math.min(g, Math.abs(i * ROUTE.DS - s));
+  for (const z of TRENCH_Z) g = Math.min(g, zoneGap(s, z.a, z.b));
+  for (const z of DECK_Z) g = Math.min(g, zoneGap(s, z[0], z[1]));
+  return g;
+}
 const inTube = () => CP.G.kind[CP.lo] === 2 || CP.G.kind[CP.hi] === 2;   // after camPlace: in the tube, its lining one sample past the tagged tunnel, or in its mouth
+const belowCrown = () => { const { G, lo, hi, t } = CP; return _fx.y - G.rail[lo] - (G.rail[hi] - G.rail[lo]) * t - 0.3 <= G.rr[t < 0.5 ? lo : hi]; };   // after camPlace: no higher than the tube's crown, wherever across (the train, even 85 m back on a curve; not Massy's hall)
 function tubeShape(){   // after camPlace: _fx drawn into the tube's shape there; out of a tunnel, the same shape before its mouth, still over the ground
   const { w, G, lo, hi, t } = CP, lerp = (A, B) => A + (B - A) * t;
   const k = t < 0.5 ? lo : hi, u = w - G.wc[k], R = G.rr[k] - 0.7, yc = lerp(G.rail[lo], G.rail[hi]) + 0.3;   // the arch's centre, 0.3 m over the rails
   let v = Math.max(_fx.y - yc, -0.1), du = u;   // no lower than 0.2 m over the rails
   const d = Math.hypot(u, Math.max(v, 0));
   if (d > R){ du = u * R / d; if (v > 0) v *= R / d; }
-  const w2 = G.wc[k] + du, gy = inTube() ? -1e9 : lerp(groundRow(G, lo, w2), groundRow(G, hi, w2)) + 0.6;   // out in the open, still over the ground
-  _fx.copy(_ff.p).addScaledVector(_ff.r, w2); _fx.y = Math.max(yc + v, gy);
+  let w2 = G.wc[k] + du;
+  if (CAM_TUBE.fw) w2 -= Math.max(0, w2 - CAM_TUBE.far) * CAM_TUBE.fw;   // in a station's trench, short of its far track
+  const gy = inTube() ? -1e9 : lerp(groundRow(G, lo, w2), groundRow(G, hi, w2)) + 0.6;   // out in the open, still over the ground
+  let y = Math.max(yc + v, gy);
+  if (CAM_TUBE.tw) y -= Math.max(0, y - (yc - 0.3 + CAM_TUBE.top)) * CAM_TUBE.tw;   // under a slab, or nearing one
+  _fx.copy(_ff.p).addScaledVector(_ff.r, w2); _fx.y = y;
 }
-const CAM_TUBE = { w:0, p:new THREE.Vector3() };   // how far the camera has eased into the tube's shape before a mouth, and where that shape puts it (camEase)
+const CAM_TUBE = { w:0, p:new THREE.Vector3(), top:0, tw:0, far:0, fw:0 };   // how far the camera has eased into the tube's shape, where that shape puts it (camEase); a slab's soffit over the rails, less 0.7 m, and how far it has eased under it; a trench's farthest w across, and how far it has eased short of it
 function camFence(p){   // p: the camera in scene coordinates
-  const e = Math.max(80, 2 * S.speed), near = camPlace(orbit.target) ? ROUTE.sstep((40 + e - tunnelGap(CP.s, 40 + e)) / e) : 0;   // what it looks at: 1 in a tunnel or 40 m from one, 0 from 2 s further
-  CAM_TUBE.w = 0;
+  const e = Math.max(80, 2 * S.speed), ease = g => ROUTE.sstep((40 + e - g) / e);   // 1 within 40 m, 0 from 2 s further
+  let near = 0; CAM_TUBE.w = CAM_TUBE.tw = CAM_TUBE.fw = 0;
+  if (camPlace(orbit.target) && belowCrown()){   // what it looks at: near a tunnel, a trench or a slab
+    near = ease(tubeGap(CP.s, 40 + e));
+    for (const z of DECK_Z){ const g = zoneGap(CP.s, z[0], z[1]); if (g < 40 + e && ease(g) > CAM_TUBE.tw){ CAM_TUBE.tw = ease(g); CAM_TUBE.top = z[4] - 0.7; } }
+    for (const z of TRENCH_Z){ const g = zoneGap(CP.s, z.a, z.b); if (g < 40 + e && ease(g) > CAM_TUBE.fw){ CAM_TUBE.fw = ease(g); CAM_TUBE.far = z.far; } }
+  }
   if (!camPlace(p)) return null;
   const yG = CP.yG;
   if ((inTube() && _fx.y < yG && !near) || near >= 1){ tubeShape(); p.copy(_fx).sub(P_loco).applyQuaternion(qInv); return null; }   // in the tube or drawn into it
@@ -819,7 +839,19 @@ function camEase(p){   // after the fence and the lifts: on its way into the tub
   p.setFromSpherical(_fe).add(T);
   if (camPlace(p) && !inTube()){ _fx.y = CP.yG + 0.6; p.y = Math.max(p.y, _fx.sub(P_loco).applyQuaternion(qInv).y); }   // over the ground; over a tunnel, on its way into it
 }
-orbit.over = (p, dt, open) => { camOver(p, dt, open); camEase(p); };
+const _wc = new THREE.Vector3(), _wt = new THREE.Vector3();
+function camWalls(p){   // last: a station's wall between the camera and what it looks at is hidden, as a tree (Massy's, between the platform and the through tracks); no p: all back
+  for (const k in landmarks){
+    const C = landmarks[k].userData.cutaway; if (!C) continue;
+    let a = null, b = null;
+    if (p && landmarks[k].visible){ station.updateWorldMatrix(true, false); a = station.worldToLocal(_wc.copy(p)); b = station.worldToLocal(_wt.copy(orbit.target)); }
+    for (const m of C.walls){
+      const z = m.position.z, f = a && (a.z - z) * (b.z - z) < 0 ? (z - a.z) / (b.z - a.z) : -1;   // the line of sight crosses the wall's plane there, from the camera
+      m.visible = !(f >= 0 && a.x + (b.x - a.x) * f > C.x0 && a.x + (b.x - a.x) * f < C.x1 && a.y + (b.y - a.y) * f < C.y1);
+    }
+  }
+}
+orbit.over = (p, dt, open) => { camOver(p, dt, open); camEase(p); camWalls(p); };
 /* ---- the train's lights ("add lights on the train when it's dark or in the tunnels"). As it gets dark around the camera, at night or deep in a
    tunnel, the lamps glow (halos, 03c-common.js) and the coaches' windows light up; the leading lamps throw a beam down the line at night and
    once the head of the train is in a tunnel. Deep in a tunnel the daylight fades out (DARK.cam, updateWeather), and the tube's own glow with it */

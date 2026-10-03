@@ -366,7 +366,7 @@ const landmarks = {};
       for (const z of [ZW0 - 0.25, ZW1 + 0.25]) G.add(box(25 - DX1, 0.06, 0.08, railM, (25 + DX1) / 2, 9.1, z));
     }
     // under the slab: the concourse wall behind each platform with its window band and the blue name boards, ceiling lights,
-    // the walls between the platform tracks and the through tracks
+    // the walls between the platform tracks and the through tracks (hidden while the outside camera looks at the train across one, camWalls)
     { const wallTex = canvasTex(64, 128, (c) => {
         c.fillStyle = '#d9d6cf'; c.fillRect(0, 0, 64, 128); c.fillStyle = '#3b4a58'; c.fillRect(0, 12, 64, 28);
         c.fillStyle = '#d9d6cf'; c.fillRect(0, 12, 3, 28); c.fillRect(31, 12, 3, 28); c.fillStyle = '#b3afa6'; c.fillRect(0, 84, 64, 2);
@@ -384,7 +384,8 @@ const landmarks = {};
       const lm = [];
       for (let x = DX0 + 5, k = 0; x < DX1 - 2; x += 12, k++){ lm.push(M4(x, YC - 0.02, -4.9), M4(x, YC - 0.02, 21.9)); if (k % 2 === 0) lm.push(M4(x, YC - 0.02, 8.5)); }
       inst(new THREE.CircleGeometry(0.6, 16).rotateX(Math.PI / 2), lightM, lm, G);
-      for (const z of [3.1, 13.9]) G.add(box(DX1 + 460, YC + 0.42, 0.5, concM, (DX1 - 460) / 2, (YC - 0.42) / 2, z));
+      const cut = [3.1, 13.9].map(z => box(DX1 + 460, YC + 0.42, 0.5, concM, (DX1 - 460) / 2, (YC - 0.42) / 2, z));
+      G.add(...cut); G.userData.cutaway = { x0:-460, x1:DX1, y1:YC, walls:cut };
     }
     // the hall across the trench: glazed on all four sides, the white roof curving down to both long sides, hung from three masts on each
     const HX0 = -447, HX1 = -415, HXC = (HX0 + HX1) / 2, HZ0 = -12, HZ1 = 30, HZC = (HZ0 + HZ1) / 2, HE = 12.5, HR = 7;   // walls 12.5 m high, crown 7 m above them
