@@ -31,7 +31,6 @@ Nothing open: the film, outside only, is under Done.
 - [ ] A train for the other direction standing across the platform at a station (2026-09-26). Today oncoming TGVs run through the stations and stop only at the termini.
 
 ## Known bugs, found while testing
-- In the 🎬 film the shot passing the train can be hidden by something light grey (9a9da1, 1.4 to 1.9 m up) 400 to 800 m past Bordeaux Saint-Jean: 12 frames of 528 in the sweep, there before the dark wall fix too (found 2026-10-03).
 - Railway reads none of railway.json's deploy settings for this service: the /version.txt healthcheck of 964d84b never ran, so a deploy switches without waiting for it. Config as code (railway.json) is deprecated and stops being read on 2026-12-01; Railway now wants .railway/railway.ts, applied with its CLI.
 - Right after pairing, the iPad's 3D desk boots inside the iPad's own page and holds it about 1.4 s (two long tasks, 0.45 and 0.9 s, in headless Chrome on the Mac): a tap then waits, and in the test a synthetic tap sent then could vanish (found 2026-10-03). Not seen on the real iPad yet.
 - After the TV's page reloads, its sound waits for one click on the TV: browsers play no sound before a gesture on the page. The iPad shows a hint when that happens.
@@ -40,6 +39,7 @@ Nothing open: the film, outside only, is under Done.
 ## Done
 
 ### 2026-10-03
+- [x] Known bug fixed: in the 🎬 film the shot passing the train could be hidden by something light grey 400 to 800 m past Bordeaux Saint-Jean (found 2026-10-03). It was the low Garonne bridge's deck and parapets, the camera standing on the ground beside it: the pass shot now skips 60 m either side of a bridge, and the sweep's hidden frames went from 12 to 0: a05d31d
 - [x] In fine weather, a few small clouds now and then, for some texture in the sky ("Quand il fait beau, rajoute parfois quand même quelques petits nuages, sorte de donner un peu de texture", 2026-10-03): small puffs 1.5 km up in patches with clear sky between, drifting east, orange at sunset, faint at night, gone in cloud and rain weather: f7088f2
 - [x] Known bug fixed: the Garonne was dry land, water being drawn only under bridges of 550 m or more. The rivers the line crosses are now listed: the Garonne at Bordeaux and at Langon, the Tarn and the Charente run under their bridges, and the viaduct at Lormont, over no river, is dry: b590bfd
 - [x] Known bug fixed: in the 🎬 film the shots at the train's side could stand behind a town's wall beside the line, which then filled half the view (found 2026-10-03, 2.2 km before Poitiers). They now skip those stretches: f240ff5
