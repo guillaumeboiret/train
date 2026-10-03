@@ -140,13 +140,9 @@ const ROUTE = (() => {
   const gradeAt = s => { const i = idx(s); return TY[i] / (Math.hypot(TX[i], TZ[i]) || 1); };
   const VOLT = D.volt || [[0, 25000]];   // electrification runs [from s, volts]: 1.5 kV DC on the classic lines, 25 kV AC on the LGV
   const voltAt = s => { let v = VOLT[0][1]; for (const [a, k] of VOLT){ if (a > s) break; v = k; } return v; };
-  const ladders = Object.keys(LADDER);
-  const tracksAt = s => {   // the tracks drawn here: the data's through tracks, the far face of the island ('B') or the two side loops, the ladder tracks
-    const i = idx(s); let n = NT[i] + (SU[i] > 0.5 ? (SS[i] < 0 ? 2 : 1) : 0);
-    for (const k of ladders) if (laneE(k, s) > 0.5) n++;
-    return n;
-  };
-  return { L, N, DS, X, Y, Z, NT, VM, KD, SU, SS, SD, stations, frameAt, laneW, laneE, stationU, gradeAt, terAt, elAt, sstep, idx, voltAt, ladders, tracksAt,
+  const lanes = [0, 1, 2, 3, 4, 5, 6, 7, 'B', 'C', ...Object.keys(LADDER)];
+  const tracksAt = s => lanes.filter(k => laneE(k, s) > 0.5).length;   // the tracks drawn here, as the chunks lay them: a lane more than half there, the island's far face ('B') and the ladder tracks with them
+  return { L, N, DS, X, Y, Z, NT, VM, KD, SU, SS, SD, stations, frameAt, laneW, laneE, stationU, gradeAt, terAt, elAt, sstep, idx, voltAt, lanes, tracksAt,
     vmax:D.vmax, lineLimit: s => VM[idx(s)], kindAt: s => KD[idx(s)], altAt: s => Y[idx(s)], src:D.src, name:D.name };
 })();
 
@@ -315,7 +311,7 @@ terminusCity('par', landmarks.par, 70, 1350, -760, 760, [[100, 150, 44, 112]]); 
   terminusCity('par', G, -620, -495, 90, 263, [], { y:7.8, pave:false }); }
 
 /* ---- chunks: 1 km of track, ballast, sleepers, catenary, terrain, trees, houses, bridges and tunnels, built on demand */
-const CH = 1000, chunks = new Map(), LANES = [0, 1, 2, 3, 4, 5, 6, 7, 'B', 'C', ...ROUTE.ladders];
+const CH = 1000, chunks = new Map(), LANES = ROUTE.lanes;
 const _cf = mkFrame(), _cm = new THREE.Matrix4(), _cp = new THREE.Vector3(), _cq = new THREE.Quaternion(), _cs = new THREE.Vector3(1, 1, 1), X_AX = new THREE.Vector3(1, 0, 0);
 function instanced(geo, mat, mats, parent, shadow){
   if (!mats.length) return null;
@@ -345,7 +341,7 @@ function buildChunk(ci){
   const ch = { ci, group:g, cat, origin:O, geos:[], s0, s1 };
   const frameFor = s => {
     const f = mkFrame(); ROUTE.frameAt(Math.max(0, Math.min(ROUTE.L, s)), f); f.p.sub(O);
-    f.s = s; f.u = ROUTE.stationU(s); f.up = new THREE.Vector3().crossVectors(f.r, f.t); f.n = ROUTE.tracksAt(s); f.kind = ROUTE.kindAt(s); f.yAbs = f.p.y + O.y;
+    f.s = s; f.u = ROUTE.stationU(s); f.up = new THREE.Vector3().crossVectors(f.r, f.t); f.kind = ROUTE.kindAt(s); f.yAbs = f.p.y + O.y;
     return f;
   };
   const SM = [];
