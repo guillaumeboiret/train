@@ -8,8 +8,6 @@ Nothing leaves this file: a request is added the moment it is made, and a done i
 ### 0. Now (asked 2026-10-03)
 - [ ] Code every open item of this file, each one challenged first since some are old ("code all the features in your todo, challenge them before coding some are a bit old", 2026-10-03). Covers the move to EU West below, which was waiting for a yes.
 - [ ] The remote's delay: 157 to 159 ms from the iPad to the TV on the live site (measured 2026-10-03), because the app runs in us-west2 (California) behind Railway's Paris edge (cdg1, about 200 ms to the first byte). Moving its one replica to EU West (Amsterdam) should bring it near 20 ms. Yes given with "code all the features in your todo" (2026-10-03). Tried in cb85925 with multiRegionConfig in railway.json: Railway ignores that file's deploy settings for this service, so it stayed in California (reverted). The move is a service setting, `railway service scale eu-west=1 us-west=0`, which the permission check stopped as a production change: waiting for you to run it or allow it.
-- [ ] The glass turns into very bright panels seen from a distance, too strong and from too close: take that out. Seen at night: past 60 m from the camera a coach's windows become solid panels lit at full strength ("the glass transform into very bright panel at distance its too much and too close if you can remove it it's better", 2026-10-03).
-- [ ] The windows are too dark: half as tinted in the dark ("the glass is too dark make it twice less tinted in dark", 2026-10-03).
 
 ### 1. World (asked 2026-10-02)
 Nothing open: the clock, the sun, the lights and the weather schedule are under Done.
@@ -41,10 +39,13 @@ Nothing open: the film, outside only, is under Done.
 - The cab's line screen shows the wall clock, not the time of day picked for the world (loco/03h-ui.js:767; found 2026-10-03).
 - On the playground at 1366 × 1024 (an iPad), looking down at the driver's desk, the speed lever's panel covers the left edge of the cab's line screen: the next station's first letter and its distance (found 2026-10-03).
 - After the TV's page reloads, its sound waits for one click on the TV: browsers play no sound before a gesture on the page. The iPad shows a hint when that happens.
+- By day, seen 52 degrees off the side, a coach's windows past 120 m are a lighter grey than the real glass nearer (55 against 40 at 125 m), so they darken a step when the coach comes within 120 m (found 2026-10-03).
 
 ## Done
 
 ### 2026-10-03
+- [x] The glass turns into very bright panels seen from a distance, too strong and from too close: take that out ("the glass transform into very bright panel at distance its too much and too close if you can remove it it's better", 2026-10-03). The real glass and saloon now show up to 120 m from the camera, not 60; further out a window glows as the saloon looks through the glass there, from the sky by day and the lamps at night, dimmer as it turns edgeways. Side on at 125 m at night, 70 near and 70 far, where the far panel was 203: ea32660
+- [x] The windows are too dark: half as tinted in the dark ("the glass is too dark make it twice less tinted in dark", 2026-10-03). The clear glass goes from opacity 0.45 by day to 0.225 at night: ea32660
 - [x] A 3D button in the cockpit to switch the lights on and off ("Add a button to open and close the lights even in the cockpit, a 3D button", 2026-10-03). On every driver's desk, between the horn and the pantograph, with a bulb on its cap; the iPad desk has it too. Off: our train's lamps, beam, window glow and saloon light (one coach at night, 110 m: 50.1 lit, 21.5 off); the other trains stay lit. On a cold train it turns the battery on: 35e96d1
 - [x] Many automatic horns with no train passing the other way ("Il y a beaucoup de clackson automatiques alors qu'aucun trains ne passent en face", 2026-10-03). An oncoming train horned 3 s before meeting in every view, though the passenger, outside and cine views showed 0 px of it then. It now horns only in the driver's place, once it is on screen and nearer than mid fog; the other views stay silent. Running backwards it horned 1.2 to 1.4 s before meeting, now 3.0 s: dddc1ba
 - [x] On the curves the coaches come apart at their joints ("Il y a un bug dans les tournants, les wagons se discocient sur les jonctions", 2026-10-03). Each car now lies between its joints, placed at their real distance along its own track: the worst gap went from 4.8 m (Montauban) and 1.1 m (lane 1 at Poitiers) to 0.04 m (0.06 m for the diesel's wagons, 0.03 m in the double set): 2d9a3fc
