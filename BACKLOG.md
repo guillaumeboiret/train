@@ -35,13 +35,14 @@ Nothing open: the clock, the sun, the lights and the weather schedule are under 
 ## Known bugs, found while testing
 - Railway reads none of railway.json's deploy settings for this service: the /version.txt healthcheck of 964d84b never ran, so a deploy switches without waiting for it. Config as code (railway.json) is deprecated and stops being read on 2026-12-01; Railway now wants .railway/railway.ts, applied with its CLI.
 - The Garonne is dry land: water is drawn only under bridges of 550 m or more.
-- The Angoulême tunnel ends about 100 m early.
+- In a city the outside camera's side and far angles can stand inside a building, so the screen shows a wall (found 2026-10-03, around Angoulême: from 44 m past the tunnel's east mouth, and 46 to 70 m before its west one). City blocks start 16 m from the track; the side angle is 26 m out.
 - The HUD's track count includes the far face of island platforms, one too many.
 - After the TV's page reloads, its sound waits for one click on the TV: browsers play no sound before a gesture on the page. The iPad shows a hint when that happens.
 
 ## Done
 
 ### 2026-10-03
+- [x] Known bug fixed: the Angoulême tunnel ended about 100 m early. Its mouth is now 665 m before the station, the data's is 656 m; it was cut at 755 m by the station's zone: 27d2a63
 - [x] Known bug fixed: in a tunnel the outside camera stayed above the hill, so the train was out of sight (found 2026-10-03). While the train is in a tunnel or 40 m from one, the camera keeps to the tube's shape, in the tube and in front of its mouths: ce23fba
 - [x] Known bug fixed: on a phone held sideways the remote's buttons were 38 px tall and its camera buttons smaller still, under the 44 px a finger needs (found 2026-10-03). Now 54 px, the cameras 44 px in one row: d38480d
 - [x] A weather system, set by hand or on a schedule ("I would like to have a weather system too and I want to be able to schedule that or to change that if I want to", 2026-10-02). Sun, Clouds, Rain or Auto. Auto follows a plan for the day, one weather every 3 hours, blending into each; a tap on a box changes it. On the explainer, the playground's menu and the remote's menu, which now scrolls on a phone held sideways: 852e08a
