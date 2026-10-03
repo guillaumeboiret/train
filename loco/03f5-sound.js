@@ -12,6 +12,16 @@ const SND = { ctx:null, master:null, muted:false, v:null, off:false,   // off: a
   setMuted(m){ SND.muted = m; if (SND.master) SND.master.gain.setTargetAtTime(m ? 0 : 0.9, SND.ctx.currentTime, 0.05); } };
 const _sc = (v, a, b) => Math.max(a, Math.min(b, v));
 const _sv1 = new THREE.Vector3(), _sv2 = new THREE.Vector3();
+const _os = new THREE.Vector3(), _osph = new THREE.Sphere(), _ofr = new THREE.Frustum(), _om = new THREE.Matrix4();
+function oppSeen(o){   // on screen: a car of it inside the view and short of mid-fog (the fog thickens with depth along the view, not with distance)
+  _ofr.setFromProjectionMatrix(_om.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse));
+  const mid = (scene.fog.near + scene.fog.far) / 2;
+  for (const k of o.coaches){
+    k.pvs[0].getWorldPosition(_os);
+    if (_ofr.intersectsSphere(_osph.set(_os, 12)) && -_os.applyMatrix4(camera.matrixWorldInverse).z - 12 < mid) return true;
+  }
+  return false;
+}
 function audioCtx(){
   if (SND.ctx || SND.off) return SND.ctx;
   const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return null;
@@ -307,8 +317,10 @@ function updateSound(dt){
     const r = aim(vo, _sv2, r => 0.5 * Math.min(1, o.v / 60) / (1 + r / 15));
     const u = (sN - ourS) / r, dop = (340 + sp * S.dir * u) / Math.max(60, 340 + o.v * o.dir * u);   // Doppler: both trains move, only along the line of sight counts
     set(vo.f.frequency, 600 * dop);
-    const gap = (o.s - S.dist) * S.dir - 2 * TGV.TIP_F, hornLvl = 0.45 * Math.min(1, 500 / r);   // nose to nose; full level for any train close enough to meet, about our horn once panned
-    if (!o.horned && o.dir === -S.dir && gap > 0 && gap < 3 * (o.v + sp)){ o.horned = true; oppHorn(vo, hornLvl, dop ** 0.35); }   // hello, 3 s before we meet; the pitch rise kept mild
+    const gap = (a - S.dist - (S.dir > 0 ? head : tail)) * S.dir, hornLvl = 0.45 * Math.min(1, 500 / r);   // its nose to our leading end (the rear one when we run backwards); full level for any train close enough to meet, about our horn once panned
+    // hello, from 3 s before we meet, heard in the driver's place once it shows ahead: from the other places it only shows once past our nose,
+    // if at all (behind our own train, out of the shot), and a horn from a train out of view or lost in the fog sounds like one for nothing
+    if (!o.horned && o.dir === -S.dir && gap > 0 && gap < 3 * (o.v + sp) && orbit.fp?.name === 'driver' && oppSeen(o)){ o.horned = true; oppHorn(vo, hornLvl, dop ** 0.35); }   // the pitch rise kept mild
     if (vo.horn){ if (now > vo.horn.until) vo.horn = null; else vo.horn.g.gain.setTargetAtTime(hornLvl, now, 0.05); }
   }
 }
