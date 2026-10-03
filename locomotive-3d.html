@@ -5983,6 +5983,7 @@ function poseStation(){
   }
 }
 /* other TGVs: one parked on the far face of the island platform or at the far side platform (facing the other way, doors open) and two running against us.
+   On the way to Paris the parked one leaves for Toulouse PARK_WAIT s after we stop, once the other track is clear: doors shut, then it pulls out.
    Like ours they run on the rear pantograph under 25 kV and raise the front one too under 1.5 kV DC (pantos[1] is the front power car's). */
 const dcUp = s => ROUTE.voltAt(s) < 3000 ? 1 : 0;
 function extraSet(firstCar, parent){
@@ -6006,10 +6007,10 @@ for (const n of [31, 41]){ const g = new THREE.Group(); g.visible = false; world
   for (const set of tgvSets) for (const d of set.doors){ d.x0 = d.g.position.x; d.z0 = d.g.position.z; }
   for (const w of wagons.children) cars.push({ xc:w.position.x, jF:w.userData.j[0], jR:w.userData.j[1], pv:w, tag:0 });
   for (const o of [parked, ...opp]) for (const g of Object.values(o.G)) carify(g, R, 'x', o.cars);
-  byCar(cars, coaches); for (const o of opp){ o.coaches = byCar(o.cars, []); o.ch = mkChain(); }
+  byCar(cars, coaches); for (const o of [parked, ...opp]){ o.coaches = byCar(o.cars, []); o.ch = mkChain(); }
   LEAD_J.tgv = R[0].jR; LEAD_J.loco = wagons.children[0].userData.j[0];
   for (const d of parked.set.doors){ d.x0 = d.g.position.x; d.z0 = d.g.position.z; }
-  parked.side = 0;
+  Object.assign(parked, { st:null, off:0, v:0, wait:0, door:1, go:false, gone:false, hl0:parked.set.lamps.front.hl.emissiveIntensity });
   parked.set.lamps.rear.tl.emissiveIntensity = 1.4;
   for (const o of opp){ o.set.lamps.front.hl.emissiveIntensity = 2.2; o.set.lamps.rear.tl.emissiveIntensity = 1.4; }
 }
@@ -6024,7 +6025,7 @@ function updateOpposing(dt){
   if (oppTimer <= 0){
     oppTimer = 90 + Math.random() * 150;
     const free = opp.find(o => !o.active), sp = camS + reach * S.dir;
-    if (free && trackSettled() && !opp.some(o => o.active && o.v < 0.1) && sp > oppEnd(-1) && sp < oppEnd(1)){   // out of sight ahead, running against us on the other track; none while one stands at a terminus
+    if (free && trackSettled() && !(parked.go && !parked.gone) && !opp.some(o => o.active && o.v < 0.1) && sp > oppEnd(-1) && sp < oppEnd(1)){   // out of sight ahead, running against us on the other track; none while one stands at a terminus
       free.active = true; free.group.visible = true; free.lane = 1 - trk.to; free.s = sp; free.dir = -S.dir; free.horned = false;
       free.v = Math.min(300, ROUTE.lineLimit(free.s)) / 3.6; posePanto(free.set.pantos[1], dcUp(free.s));
     }
@@ -6043,6 +6044,24 @@ function updateOpposing(dt){
     chainBuild(o.ch, o.lane, o.s, o.dir, TGV.TIP_F + 10, TGV.TIP_R - 10);
     for (const k of o.coaches){ chainPose(o.ch, k.jF, k.jR, k.xc, _chP, _chQ).sub(P_loco); for (const pv of k.pvs){ pv.position.copy(_chP); pv.quaternion.copy(_chQ); } }
   }
+}
+const PARK_WAIT = 25;
+function updateParked(dt){   // the train on the other face of the platform belongs to the TGV scene; at each station a fresh one stands there
+  const st = nearestStation(), lane = st.side < 0 ? 'C' : 'B', P = parked;
+  if (P.st !== st){ Object.assign(P, { st, off:0, v:0, wait:0, door:1, go:false, gone:false, side:0 }); P.set.lamps.front.hl.emissiveIntensity = P.hl0; }
+  parkedG.visible = S.mode === 'tgv' && !P.gone;
+  if (P.gone) return;
+  if (!P.go && S.mode === 'tgv' && S.dir > 0 && st !== ROUTE.stations[0] && S.atStation && Math.abs(S.speed) < 0.3) P.wait += dt;   // never at Toulouse: it would run into the buffers
+  const leave = P.wait >= PARK_WAIT, door = approach(P.door, leave ? 0 : 1, dt / 3);
+  if (P.side !== st.side || door !== P.door){ P.side = st.side; P.door = door;   // turned round, it faces its platform with the doors on the same side number as ours
+    for (const d of P.set.doors){ const k = d.s === st.side ? door : 0; d.g.position.z = d.z0 + 0.13 * k * d.s; d.g.position.x = d.x0 + 1.35 * k; } }
+  if (leave && !P.go && door === 0 && P.wait >= PARK_WAIT + 4 && !opp.some(o => o.active)){ P.go = true; P.set.lamps.front.hl.emissiveIntensity = 2.2; }   // once the other track is clear
+  if (P.go){ P.v = approach(P.v, Math.min(300, ROUTE.lineLimit(st.s - 187 - P.off)) / 3.6, dt * 0.5); P.off += P.v * dt; for (const ax of P.ax) ax.rotation.z -= (P.v / (ax.userData.r || WHEEL_R)) * dt; }
+  const so = st.s - 187 - P.off;   // its leading power car's origin; it faces toward Toulouse
+  if (P.go && so - TGV.TIP_R < S.dist + camera.position.x - 2 * scene.fog.far){ P.gone = true; parkedG.visible = false; return; }   // its tail out of sight behind the camera
+  chainBuild(P.ch, lane, so, -1, TGV.TIP_F + 10, TGV.TIP_R - 10);
+  for (const k of P.coaches){ chainPose(P.ch, k.jF, k.jR, k.xc, _chP, _chQ).sub(P_loco); for (const pv of k.pvs){ pv.position.copy(_chP); pv.quaternion.copy(_chQ); } }
+  if (P.set.pantos[1].f !== dcUp(so)) posePanto(P.set.pantos[1], dcUp(so));
 }
 function updateRoute(dt){
   S.track = trk.to; S.trackF = trackFAt(S.dist);
@@ -6063,11 +6082,7 @@ function updateRoute(dt){
     for (const pv of k.pvs){ pv.position.copy(_chP); pv.quaternion.copy(_chQ); }
   }
   poseStation(); fitShadow();
-  parkedG.visible = S.mode === 'tgv';   // the train on the other face of the platform belongs to the TGV scene
-  { const st = nearestStation(), so = st.s - 187, lane = st.side < 0 ? 'C' : 'B';
-    for (const c of parked.cars){ const s = so - c.xc; poseWorld(c.pv, s, ROUTE.laneW(lane, s), true); }
-    if (parked.side !== st.side){ parked.side = st.side; for (const d of parked.set.doors){ const k = d.s === st.side ? 1 : 0; d.g.position.z = d.z0 + 0.13 * k * d.s; d.g.position.x = d.x0 + 1.35 * k; } }   // turned round, it faces its platform with the doors on the same side number as ours
-    if (parked.set.pantos[1].f !== dcUp(so)) posePanto(parked.set.pantos[1], dcUp(so)); }
+  updateParked(dt);
   updateOpposing(dt); updateWind(dt); updateSights(dt);
 }
 scene.remove(sky, stars); world.add(sky, stars);   // the sky and the stars turn with the world so its horizon stays level
