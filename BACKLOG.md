@@ -22,7 +22,6 @@ Nothing open: the film, outside only, is under Done.
 Nothing open: stepping off is under Done.
 
 ### 5. Other open requests
-- [ ] Gangway doors (sas) between coaches that open as you walk past (2026-10-02).
 - [ ] Random landscape so the country is not empty (2026-10-02).
 - [ ] Better looking human 3D models, free ones from the internet (2026-10-02). CC0 or similar, self hosted.
 - [ ] Stations that look like the real ones (2026-09-28). Done: Paris Montparnasse, Massy TGV, Bordeaux Saint-Jean, Toulouse Matabiau. Still a generic building: Vendôme, Saint-Pierre-des-Corps, Châtellerault, Futuroscope, Poitiers, Angoulême, Libourne, Agen, Montauban.
@@ -37,6 +36,7 @@ Nothing open: stepping off is under Done.
 ## Done
 
 ### 2026-10-03
+- [x] Gangway doors (sas) between coaches that open as you walk past (2026-10-02): two leaves in each end wall on the upper deck, open within 2 m and shut behind; a door still shut holds you short of it: 79b0e03
 - [x] A "super hero futuriste" button that runs the whole line in 5 minutes (2026-10-02): 45b380d
 - [x] Step off the train at a station ("I want the user to be able to go outside of the train but the train can't go back without the user inside", 2026-10-02): walking as the passenger, out through an open doorway onto the platform and along it, bounded by its edges, stair heads and posts, back in through any car's doorway. While someone is out or in a doorway the doors stay open and there is no traction; a close asked meanwhile happens once they are aboard: 85cf0b0
 - [x] Take out an iPhone and look at it, walking as the passenger ("I want to be able to look at my iPhone", 2026-10-02): 📱 or P brings a phone up from the pocket with a home screen; Esc, P, ✕ or a tap beside puts it away: f9fc46d
