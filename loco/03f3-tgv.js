@@ -1465,7 +1465,7 @@ function paxExchange(dt){
   if (S.speed > 0.3 || S.coupling < 0 || !S.doors){ paxAbort(); return; }
   const t = PX.t, h = PX.h, open = S.doorsF > 0.9;
   PX.hold = PX.plan === 'terminus' && t < 90;   // at the terminus the doors wait for everyone (90 s at most)
-  if (!PX.hold && PX.closeWhenDone && PX.plan === 'terminus'){ PX.closeWhenDone = false; S.doors = false; syncControls(); return; }
+  if (!PX.hold && PX.closeWhenDone && PX.plan === 'terminus' && !paxHolding()){ PX.closeWhenDone = false; S.doors = false; syncControls(); return; }
   let all = true;
   for (const e of PX.list){
     if (e.done) continue;
@@ -1502,7 +1502,7 @@ function paxExchange(dt){
   }
   if (all){
     PX.phase = 'done'; PX.hold = false;
-    if (PX.closeWhenDone){ PX.closeWhenDone = false; S.doors = false; syncControls(); }
+    if (PX.closeWhenDone && !paxHolding()){ PX.closeWhenDone = false; S.doors = false; syncControls(); }   // the passenger still off the train: simulateTgv closes them once they are back
   }
 }
 function paxAbort(){   // doors closing or the train moving: whoever is inside goes back to a seat, the platform steps back
@@ -1565,7 +1565,7 @@ function updatePax(dt){
     if (c.colDirty){ B.paxCol.needsUpdate = B.paxLook.needsUpdate = true; c.colDirty = false; }
   }
 }
-function paxHolding(){ return PX.phase === 'exchange' && PX.hold; }
+function paxHolding(){ return PX.phase === 'exchange' && PX.hold || WK.out || WK.door !== 0; }   // or the passenger off the train, or in its doorway: the doors wait for them (simulateTgv)
 function paxResolve(reset = false){   // settle everyone at once (teleport, reset, mode switch): walkers sit down or are gone, the crowd is rebuilt
   for (const set of tgvSets) for (const c of set.coaches){
     c.walk.length = 0; c.crowd[0].length = c.crowd[1].length = 0;
@@ -1574,6 +1574,7 @@ function paxResolve(reset = false){   // settle everyone at once (teleport, rese
   }
   poolClear(); PX.list.length = 0;
   Object.assign(PX, { phase:'idle', hold:false, closeWhenDone:false, rebuild:true, visited:null });
+  walkAboard(false);
 }
 
 function coachLod(){   // lod 0 far: opaque glass, plugged doorway, no interior; 1 near: interior, lining, clear glass; 2 own sets in x-ray: interior only
@@ -1612,7 +1613,7 @@ function driverView(){   // first person in the driver's place, the page's contr
 /* ---- walking through set 1 in first person (CAMS.walk): up the stair at a car's rear end, over the bridge and through the upper-deck
    gangway into the next car, either way, and into any free seat (occ 4 while taken). The walker stands at x from the rear end of car
    WK.i, on floor y, at z across, inside the boxes of that car's floor plan (walkZones). keepWalker (03h) drives it every frame */
-const WK = { on:false, back:false, i:0, x:0, y:0, z:0, ey:0, yaw:0, pitch:0, seat:-1, stool:-1, hold:false };   // back: walked before, Passenger again resumes there; ey: the eye's floor, eased up and down the stair; yaw, pitch: the look, kept each frame (03h) for coming back; stool: the bar car's stool sat on; hold: forward still held from before sitting
+const WK = { on:false, back:false, i:0, x:0, y:0, z:0, ey:0, yaw:0, pitch:0, seat:-1, stool:-1, hold:false, out:false, door:0, shut:false, wells:[] };   // back: walked before, Passenger again resumes there; ey: the eye's floor, eased up and down the stair; yaw, pitch: the look, kept each frame (03h) for coming back; stool: the bar car's stool sat on; hold: forward still held from before sitting; out: on the platform, x y z then in the station's frame (WK.i the car left); door: standing in car WK.i's doorway, on that side; shut: the doors were to close meanwhile; wells: the open doorways along the platform, [x0, x1, car]
 const WALK_EYE = 1.33, WALK_R = 0.35, WALK_REACH = 2.2;   // eye over the floor; room kept from anyone walking in the car; how far a seat can be taken from
 const _wk = new THREE.Vector3(), _wk2 = new THREE.Vector3(), _wkQ = new THREE.Quaternion(), _wkQ2 = new THREE.Quaternion();
 const WALK_Z = {};
@@ -1665,21 +1666,102 @@ function walkMove(dt, f, s, v){   // f, s: forward and to the right, -1..1 (the 
   const n = Math.hypot(f, s);
   if (n > 1){ f /= n; s /= n; }   // a diagonal is no faster
   if (n){
-    const c = tgvSets[0].coaches[WK.i], Z = walkZones(WK.i), cy = Math.cos(fp.yaw), sy = Math.sin(fp.yaw), d = v * dt,
-      dx = (cy * f + sy * s) * d, dz = (cy * s - sy * f) * d,
-      zc = WK.z - Math.sign(WK.z) * Math.min(Math.abs(WK.z), Math.hypot(dx, dz));   // drawn toward the middle, where the aisles, the bridge and the gangways are
-    const tries = [[WK.x + dx, WK.z + dz], [WK.x + dx, WK.z], [WK.x, WK.z + dz]];   // straight on, or sliding along what is in the way
-    if (Math.abs(dx) >= Math.abs(dz)) tries.push([WK.x + dx, zc], [WK.x, zc]);   // or eased into the opening pushed against; not when stepping mostly across, where it would fight the step and shake
-    for (const [x, z] of tries){
-      if (Math.abs(x - WK.x) + Math.abs(z - WK.z) < 1e-6) continue;
-      const y = walkFloor(Z, x, z, WK.y);
-      if (isNaN(y) || walkCrowded(c, x, z)) continue;
-      WK.x = x; WK.z = z; WK.y = y; break;
+    const cy = Math.cos(fp.yaw), sy = Math.sin(fp.yaw), d = v * dt, dx = (cy * f + sy * s) * d, dz = (cy * s - sy * f) * d;
+    if (WK.out) walkPlat(dx, dz);
+    else {
+      const c = tgvSets[0].coaches[WK.i], D = walkDoorway(WK.i), Z = D ? walkZones(WK.i).concat([D]) : walkZones(WK.i),
+        zc = WK.z - Math.sign(WK.z) * Math.min(Math.abs(WK.z), Math.hypot(dx, dz));   // drawn toward the middle, where the aisles, the bridge and the gangways are
+      const tries = [[WK.x + dx, WK.z + dz], [WK.x + dx, WK.z], [WK.x, WK.z + dz]];   // straight on, or sliding along what is in the way
+      if (Math.abs(dx) >= Math.abs(dz)) tries.push([WK.x + dx, zc], [WK.x, zc]);   // or eased into the opening pushed against; not when stepping mostly across, where it would fight the step and shake
+      for (const [x, z] of tries){
+        if (Math.abs(x - WK.x) + Math.abs(z - WK.z) < 1e-6) continue;
+        const y = walkFloor(Z, x, z, WK.y);
+        if (isNaN(y) || walkCrowded(c, x, z)) continue;
+        WK.x = x; WK.z = z; WK.y = y; break;
+      }
+      WK.door = D && WK.z * platSide > 0.97 ? platSide : 0;   // past the vestibule, in the doorway
+      if (D && WK.z * platSide > 1.6) walkOut(); else walkCar();
     }
-    walkCar();
   }
   WK.ey += (WK.y - WK.ey) * Math.min(1, dt * 12);
-  fp.eye.set(tgvSets[0].coaches[WK.i].xr + WK.x, WK.ey + WALK_EYE, WK.z);
+  if (WK.out) fp.eye.set(WK.x, WK.ey + WALK_EYE, WK.z);
+  else fp.eye.set(tgvSets[0].coaches[WK.i].xr + WK.x, WK.ey + WALK_EYE, WK.z);
+}
+/* ---- off the train at a platform: through car WK.i's open doorway (the bar car has none) onto our platform, and back in through any open
+   doorway of set 1. Out there the walker stands in the station's frame, on the slab clear of its stair heads, posts and the people on it;
+   the doors stay open until they are back aboard and out of the doorway, so the train never leaves without them (simulateTgv) */
+const _wd = new THREE.Vector3(), _wd2 = new THREE.Vector3();
+function walkDoorway(i){   // car i's doorway, its doors open beside the platform: [x0, x1, z0, z1, floor, floor] out through it to the step, or null
+  const c = tgvSets[0].coaches[i], s = platSide, Lp = S.sets === 2 ? 400 : 200;
+  if (c.bar || S.doorsF < 0.9) return null;
+  platG.updateWorldMatrix(true, false); c.g.updateWorldMatrix(true, false);
+  const T = platG.worldToLocal(c.g.localToWorld(_wd.set(c.xr + 1.65, DECK.lo, 1.25 * s)));
+  if (Math.abs(T.z - 1.25) > 0.4 || T.x > -1 || T.x < -Lp + 1) return null;   // this doorway is not along the platform (as paxActivate)
+  return [1.2, 2.1, s > 0 ? 0.9 : -1.65, s > 0 ? 1.65 : -0.9, DECK.lo, DECK.lo];   // the leaf's opening, x 1.0 to 2.3, 0.2 m clear of its frame
+}
+function walkFrame(from, to, x, y, z){   // a point and the look's heading from one frame to another, through the world (the car may stand on a curve): into _wd, and the new yaw
+  from.updateWorldMatrix(true, false); to.updateWorldMatrix(true, false);
+  to.worldToLocal(from.localToWorld(_wd.set(x, y, z)));
+  const f = orbit.fp;
+  _wd2.set(Math.cos(f.yaw), 0, -Math.sin(f.yaw)).applyQuaternion(from.getWorldQuaternion(_wkQ)).applyQuaternion(to.getWorldQuaternion(_wkQ2).invert());
+  return Math.atan2(-_wd2.z, _wd2.x);
+}
+function walkOut(){   // down the step onto the platform: the station takes over, in its own frame; the eye eases down the step
+  const c = tgvSets[0].coaches[WK.i], f = orbit.fp;
+  WK.wells = [];
+  for (let i = 0; i < tgvSets[0].coaches.length; i++){
+    const b = tgvSets[0].coaches[i]; if (!walkDoorway(i)) continue;
+    const xs = [1.2, 2.1].map(x => (walkFrame(b.g, station, b.xr + x, DECK.lo, 0), _wd.x));
+    WK.wells.push([Math.min(...xs), Math.max(...xs), i]);
+  }
+  f.yaw = walkFrame(c.g, station, c.xr + WK.x, WK.y, WK.z);
+  Object.assign(WK, { out:true, door:0, x:_wd.x, z:_wd.z, y:0.55, ey:_wd.y });
+  f.obj = station;
+  walkSay('walk_out', 0, 4000);
+}
+function walkIn(i, yaw){   // up the step through car i's doorway (where walkFrame put the walker, _wd): that car takes over, in its own frame
+  const c = tgvSets[0].coaches[i], f = orbit.fp;
+  Object.assign(WK, { out:false, i, door:platSide, x:THREE.MathUtils.clamp(_wd.x - c.xr, 1.2, 2.1), z:platSide * Math.min(1.5, Math.abs(_wd.z)), y:DECK.lo, ey:_wd.y });
+  f.obj = c.g; f.yaw = yaw;
+  walkSay('walk_car', c.id);
+}
+function platRoom(x, z){   // room to stand at (x, z), station frame: on our platform's slab, clear of its stair heads, posts and boards, or in the well of an open doorway
+  const pz = z * platSide, Lp = S.sets === 2 ? 400 : 200, R = 0.25;
+  const clear = (cx, cz, hx, hz) => Math.abs(x - cx) >= hx + R || Math.abs(pz - cz) >= hz + R;
+  if (x < -Lp + 0.4 || x > -0.4 || pz > 7.6) return false;   // the ends; the far face, over the other track
+  if (pz < 1.95) return pz > 0.5 && WK.wells.some(([x0, x1]) => x > x0 && x < x1);   // the platform's edge: only from or to a doorway
+  for (let sx = -30; sx > -Lp + 20; sx -= 60) if (!clear(sx, 4.9, 2, 1.1)) return false;   // the stair heads
+  if (platRoof){ for (let px = -6; px > -Lp + 4; px -= 12) if (!clear(px, 6.5, 0.125, 0.125)) return false; }   // the canopy's posts
+  else for (let s = 0; s < S.sets; s++) for (const [xr, Lc] of TGV.TRAILERS) if (!clear(xr + Lc / 2 + (s ? TGV.SET2_X : 0) - TGV.PLAT_FRONT, 2.6, 0.03, 0.03)) return false;   // or the letters' posts
+  const a = nameTexs[0].userData.aspect;
+  if (a) for (let bx = -12; bx > -Lp + 10; bx -= 48) for (const k of [-1, 1]) if (!clear(bx + k * (0.35 * a - 0.3), 6.5, 0.04, 0.04)) return false;   // the name boards' posts
+  for (const [cx, cz, r] of landmarks[nearestStation().id]?.userData.posts || []) if (Math.hypot(x - cx, z - cz) < r + R) return false;   // a real station's columns
+  return true;
+}
+function platCrowded(x, z){   // someone on the platform stands within WALK_R of (x, z), station frame, and that step does not take the walker away from them
+  const s = platSide;
+  for (let j = 0; j <= pool.hi; j++){
+    const a = pool.a[j]; if (!a || a.y < 0.3) continue;   // not down the stair
+    const d = Math.hypot(x - a.x, z - a.z * s);
+    if (d < WALK_R && d < Math.hypot(WK.x - a.x, WK.z - a.z * s)) return true;
+  }
+  return false;
+}
+function walkPlat(dx, dz){   // a step on the platform: straight on, or sliding along what is in the way; at the edge of an open doorway, back in
+  for (const [x, z] of [[WK.x + dx, WK.z + dz], [WK.x + dx, WK.z], [WK.x, WK.z + dz]]){
+    if (Math.abs(x - WK.x) + Math.abs(z - WK.z) < 1e-6 || !platRoom(x, z) || platCrowded(x, z)) continue;
+    WK.x = x; WK.z = z; break;
+  }
+  const w = WK.z * platSide < 1.95 && WK.wells.find(([x0, x1]) => WK.x > x0 && WK.x < x1);
+  if (!w) return;
+  const c = tgvSets[0].coaches[w[2]], yaw = walkFrame(station, c.g, WK.x, WK.y, WK.z);
+  if (_wd.z * platSide < 1.5) walkIn(w[2], yaw);   // inside the car's side (it steps out at 1.6): aboard
+}
+function walkAboard(keep){   // a jump, a reset or another view while off the train or in its doorway: back in the vestibule of the car left, its doors free; keep: a close asked meanwhile still waits for the walker (another view), else it is dropped (a jump)
+  if (!keep) WK.shut = false;
+  if (!WK.out && !WK.door) return;
+  Object.assign(WK, { out:false, door:0, x:1.0, z:0, y:DECK.lo, ey:DECK.lo, seat:-1, stool:-1 });
+  if (WK.on && orbit.fp?.name === 'walk'){ orbit.look(tgvSets[0].coaches[WK.i].g, new THREE.Vector3(tgvSets[0].coaches[WK.i].xr + WK.x, WK.y + WALK_EYE, WK.z), 0, -0.05); orbit.fp.name = 'walk'; }
 }
 function walkCar(){   // half way through a gangway the next car takes over, in its own frame (on a curve the two turn apart)
   const n = TGV.TRAILERS.length, L = TGV.TRAILERS[WK.i][1], j = WK.x > L + 0.3 && WK.i > 0 ? WK.i - 1 : WK.x < -0.3 && WK.i < n - 1 ? WK.i + 1 : -1;
@@ -1709,6 +1791,7 @@ function walkStand(){   // up into the aisle beside the seat, facing along it th
   orbit.look(c.g, new THREE.Vector3(c.xr + WK.x, WK.y + WALK_EYE, WK.z), c.face[i] > 0 ? 0 : Math.PI, -0.05); orbit.fp.name = 'walk';
 }
 function walkSitNear(){   // Sit (or E, or Enter): the nearest free seat within reach on this deck, one ahead rather than one behind; seated: stand up. The bar car: at the counter, order; else the nearest free stool
+  if (WK.out) return;   // no seat on the platform
   if (WK.seat >= 0 || WK.stool >= 0){ walkStand(); return; }
   const c = tgvSets[0].coaches[WK.i], d = WK.y > 1.7 ? 1 : 0, fx = Math.cos(orbit.fp.yaw), fz = -Math.sin(orbit.fp.yaw);
   if (c.bar){
@@ -1735,6 +1818,7 @@ function walkSitNear(){   // Sit (or E, or Enter): the nearest free seat within 
 }
 function walkPick(ray){   // a tap on a seat of the walker's car (not through the floor): taken if it is free and within reach, else a word why not
   const c = tgvSets[0].coaches[WK.i];
+  if (WK.out) return;
   if (c.bar){ barPick(c, ray); return; }
   const h = ray.intersectObjects([c.seats, ...c.solid], false)[0];
   if (!h || h.object !== c.seats || h.instanceId === WK.seat) return;
@@ -1743,7 +1827,7 @@ function walkPick(ray){   // a tap on a seat of the walker's car (not through th
   else if (c.occ[i] !== 0) walkSay('walk_taken');
   else walkSit(i);
 }
-function walkAway(){ WK.on = false; WK.back = true; }   // off to another view: the spot, the look and the seat or stool (still occ 4, taken 4: nobody sits there) wait for the passenger
+function walkAway(){ walkAboard(true); WK.on = false; WK.back = true; }   // off to another view (off the train: back aboard first): the spot, the look and the seat or stool (still occ 4, taken 4: nobody sits there) wait for the passenger
 function walkView(){   // the passenger: first seated by the window on coach 1's upper deck, facing the way the train runs (a seat no traveller takes); back from another view, where they were, looking the same way; already walking: stay put
   if (S.mode !== 'tgv' || WK.on) return null;
   if (!WK.back){

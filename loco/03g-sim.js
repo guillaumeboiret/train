@@ -40,6 +40,9 @@ function simulateTgv(dt){
   const v = S.speed, aB = 0.85;
   // doors: platform side, only at standstill; about 3 s to open or close
   if (S.doors && v > 0.1) S.doors = false;
+  // the passenger off the train or in its doorway (walkOut, 03f3): the doors stay open, so no traction; a close asked meanwhile waits until they are back aboard
+  if (WK.out || WK.door){ if (!S.doors){ S.doors = true; WK.shut = true; } }
+  else if (WK.shut || PX.closeWhenDone && PX.phase !== 'exchange'){ WK.shut = false; if (paxHolding()) PX.closeWhenDone = true; else { PX.closeWhenDone = false; S.doors = false; } syncControls(); }
   S.doorsF = approach(S.doorsF, S.doors ? 1 : 0, dt / 3);
   // coupling: the second set rolls in from behind at walking pace, or backs away
   if (S.coupling !== 0 && v > 0.05) S.coupling = 0;

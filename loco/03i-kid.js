@@ -5,14 +5,14 @@
 const KID_T = {
   fr:{ title:"Jouer au train", diesel:"Diesel", electric:"Électrique", tgv:"TGV", stop:"Stop", horn:"Klaxon", lever:"Manette", station:"Prochaine gare", service:"Toute la ligne",
        back:"Retour à Bordeaux", auto:"Pilote auto…", doors:"Portes", wx:"Météo", wx_plan:"Météo programmée", tod:"Heure", xray:"Rayons X", hint:"Pousse la manette pour partir !", lever_drag:"Glisse la manette vers le haut pour avancer, vers le bas pour freiner !",
-       hint_doors:"Ferme les portes… et c'est parti !", hint_pax:"Attends, tout le monde descend !", hint_end:"Terminus ! Appuie sur 🔄 pour faire demi-tour.", hint_stopped:"Le train doit être arrêté.", service_on:"🔁 Toute la ligne, en boucle", service_off:"Boucle arrêtée", service_last:"Boucle arrêtée : la prochaine gare est la dernière",
+       hint_doors:"Ferme les portes… et c'est parti !", hint_pax:"Attends, tout le monde descend !", hint_out:"Le train attend que tu remontes !", hint_end:"Terminus ! Appuie sur 🔄 pour faire demi-tour.", hint_stopped:"Le train doit être arrêté.", service_on:"🔁 Toute la ligne, en boucle", service_off:"Boucle arrêtée", service_last:"Boucle arrêtée : la prochaine gare est la dernière",
        terminus:"Terminus", next:"Prochaine gare", full:"Version complète ↗", game:"Jeu des aiguillages ↗", lang:"Langue",
        panto:"Pantographe", dir_par:"Vers Paris", dir_tls:"Vers Toulouse", turn:"Demi-tour", hint_panto:"Lève le pantographe !", hint_wait:"Le pantographe monte…", sound:"Son",
        v_driver:"Conducteur", v_pax:"Passager", v_out:"Dehors", v_cine:"Cinéma", pax_tgv:"Le passager voyage en TGV : choisis le TGV 🚄",
        o_overview:"Ensemble", o_side:"Profil", o_train:"Tout le train", o_far:"Paysage", o_door:"Portes" },
   en:{ title:"Train playground", diesel:"Diesel", electric:"Electric", tgv:"TGV", stop:"Stop", horn:"Horn", lever:"Lever", station:"Next station", service:"Whole line",
        back:"Back to Bordeaux", auto:"Autopilot…", doors:"Doors", wx:"Weather", wx_plan:"Weather schedule", tod:"Time of day", xray:"X-ray", hint:"Push the lever to go!", lever_drag:"Slide the lever up to go, down to brake!",
-       hint_doors:"Closing the doors… off we go!", hint_pax:"Wait, everyone is getting off!", hint_end:"End of the line! Press 🔄 to turn around.", hint_stopped:"The train must be stopped first.", service_on:"🔁 The whole line, again and again", service_off:"Loop stopped", service_last:"Loop stopped: the next station is the last",
+       hint_doors:"Closing the doors… off we go!", hint_pax:"Wait, everyone is getting off!", hint_out:"The train waits for you to get back on!", hint_end:"End of the line! Press 🔄 to turn around.", hint_stopped:"The train must be stopped first.", service_on:"🔁 The whole line, again and again", service_off:"Loop stopped", service_last:"Loop stopped: the next station is the last",
        terminus:"Terminus", next:"Next station", full:"Full version ↗", game:"Switch game ↗", lang:"Language",
        panto:"Pantograph", dir_par:"To Paris", dir_tls:"To Toulouse", turn:"Turn around", hint_panto:"Raise the pantograph!", hint_wait:"Pantograph rising…", sound:"Sound",
        v_driver:"Driver", v_pax:"Passenger", v_out:"Outside", v_cine:"Cinema", pax_tgv:"Passengers ride the TGV: pick the TGV 🚄",
@@ -255,7 +255,7 @@ function kidLever(v){
   manual(); kidPower();
   S.notch = v; S.brake = v === 0 ? 4 : 0;
   if (v > 0){
-    if (paxHolding()){ kidToast('hint_pax', 3000); PX.closeWhenDone = true; }   // terminus: the doors close by themselves once everyone is through
+    if (paxHolding()){ kidToast(WK.out || WK.door ? 'hint_out' : 'hint_pax', 3000); PX.closeWhenDone = true; }   // terminus: the doors close by themselves once everyone is through
     else {
       if (S.doorsF > 0.02) kidToast('hint_doors', 3000);
       else if (S.mode !== 'diesel' && !S.panto) kidToast('hint_panto', 3000);
@@ -285,14 +285,14 @@ function kidStation(){   // a tap: on to the next station at the train's own pac
   const st = nextStation() || nextStation(0);         // the last platform too close to stop at this speed: braked for all the same
   if (!st){ kidTurn(); return; }                     // terminus: turn around
   kidPower(true);
-  if (paxHolding()) kidToast('hint_pax', 3000);      // terminus: the doors close by themselves once everyone is through
+  if (paxHolding()) kidToast(WK.out || WK.door ? 'hint_out' : 'hint_pax', 3000);      // terminus: the doors close by themselves once everyone is through
   goNextStation(st);
 }
 function kidService(){ kidPower(true); serviceOn(); kidToast('service_on', 3000); }   // held down: the whole line, again and again
 function kidDoors(stay){   // stay: pressed from the cab desk, the view stays in the cab
   if (S.mode !== 'tgv') return;
   if (S.speed > 0.1){ kidToast('hint_stopped', 2500); return; }
-  if (S.doors && paxHolding()){ kidToast('hint_pax', 3000); PX.closeWhenDone = true; return; }
+  if (S.doors && paxHolding()){ kidToast(WK.out || WK.door ? 'hint_out' : 'hint_pax', 3000); PX.closeWhenDone = true; return; }
   S.doors = !S.doors; syncControls();
   if (S.doors && !stay && !kidCine) kidGo('door');   // opening: land beside the first door to watch it (the 🎬 view films it itself)
 }

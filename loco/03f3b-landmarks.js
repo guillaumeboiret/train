@@ -167,7 +167,7 @@ const landmarks = {};
     G.add(box(DL, 0.3, DW - 8, grassM, DXC, DY + 2.55, 0));                                                              // Jardin Atlantique
     G.add(box(DL, 1.2, 0.5, concM, DXC, DY + 3.0, DZ0 + 0.25), box(DL, 1.2, 0.5, concM, DXC, DY + 3.0, DZ1 - 0.25));   // parapets
     G.add(box(DL - 40, 0.35, 6, concM, DXC, DY + 2.75, 0), box(DL - 40, 0.35, 6, concM, DXC, DY + 2.75, -28), box(DL - 40, 0.35, 6, concM, DXC, DY + 2.75, 28));   // garden paths
-    { const cm = []; for (let x = DX0 + 15; x < DX1; x += 30) for (const z of [-52, -38, -23.6, -9.35, 4.9, 19, 33.2, 50]) cm.push(M4(x, DY / 2, z));
+    { const cm = []; G.userData.posts = []; for (let x = DX0 + 15; x < DX1; x += 30) for (const z of [-52, -38, -23.6, -9.35, 4.9, 19, 33.2, 50]){ cm.push(M4(x, DY / 2, z)); G.userData.posts.push([x, z, 0.5]); }   // posts: in the walker's way (platRoom)
       inst(new THREE.CylinderGeometry(0.5, 0.5, DY, 12), concM, cm, G, true); }                                          // columns on the platforms and beyond the outer tracks
     { const lm = []; for (const z of [-23.6, -9.35, 4.9, 19, 33.2]) lm.push(M4(DXC, DY - 0.15, z)); inst(new THREE.BoxGeometry(DL - 4, 0.12, 0.35), lightM, lm, G); }   // strip lights over the platforms
     // a platform for every track: islands between lanes 4 and 2, 1 and 3, 5 and 7 (the route spreads those pairs apart) and a side platform along lane 6,

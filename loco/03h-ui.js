@@ -576,7 +576,7 @@ holdable($('cabNext'), () => cabActions.next(), () => cabActions.service());   /
 /* ---- walking through the train (CAMS.walk, 03f3), as in a game: the page's controls step aside for Sit and ✕; WASD or the arrows walk and
    a click on the view hands the mouse to the head (pointer lock, Esc frees it); on a touch screen the left stick walks and the right one
    looks. A tap on a free seat, or a click with the crosshair on it, sits there */
-let walking = false, walkSayT = 0;
+let walking = false, walkSayT = 0, walkDoorsT = false;   // walkDoorsT: the doors were open at a platform, said once per stop
 function walkSay(key, n, ms = 2200){   // a word over the view: the car just entered, why that seat cannot be taken, how to walk; no key: away
   const el = $('walkSay'); clearTimeout(walkSayT);
   if (!key){ el.hidden = true; return; }
@@ -588,7 +588,7 @@ function keepWalker(dt){
   const on = orbit.fp?.name === 'walk';
   if (on !== walking){
     walking = on; document.body.classList.toggle('walking', on);
-    if (on){ document.activeElement?.blur?.(); walkSay(document.body.classList.contains('touch') ? 'walk_hint_touch' : 'walk_hint', 0, 8000); }   // off the Passenger button: Enter now sits
+    if (on){ document.activeElement?.blur?.(); walkSay(document.body.classList.contains('touch') ? 'walk_hint_touch' : 'walk_hint', 0, 8000); walkDoorsT = S.doorsF > 0.9; }   // off the Passenger button: Enter now sits; the doors' word waits for the next stop
     else { barClose(); walkAway(); walkSay(null); keys.clear(); stickReset(); }
   }
   if (!on) return;
@@ -602,6 +602,10 @@ function keepWalker(dt){
   if (f || s || mv.on || lk.on) idleT = Math.min(idleT, 0);   // walking or looking round: the controls stay up
   const sit = barNear() ? 'bar_order' : WK.seat >= 0 || WK.stool >= 0 ? 'walk_stand' : 'walk_sit', b = $('walkSit');
   if (b.dataset.i18n !== sit){ b.dataset.i18n = sit; b.textContent = t(sit); }
+  b.style.display = WK.out ? 'none' : '';   // no seat on the platform
+  const doors = S.doorsF > 0.9 && PX.list.length > 0;   // open at a platform (paxActivate found doorways along it)
+  if (doors && !walkDoorsT && !WK.out) walkSay('walk_doors', 0, 4000);
+  walkDoorsT = doors;
 }
 const STICK = {};   // {x, y}: where the stick is pushed, -1..1 each way (y down); on: held; id: by which finger
 const PAD = { move:{ x:0, y:0, on:false }, look:{ x:0, y:0, on:false } };   // the same two sticks held on a remote (03j), shaped there
@@ -1125,4 +1129,4 @@ resize();
 setShell(0.18); setCut('none'); setExplode(0);
 setMode('diesel');
 requestAnimationFrame(loop);
-window.locoDebug = { BAR, BAR_MENU, barOpen, barClose, barBuy, barEat, barNear, barIsOpen, walkSitStool, updateBar, CAB, driverSeat, cabActions, cabLever, S, simulate, animate, updateFlows, updateGauges, orbit, renderer, scene, camera, goStep, setMode, setCut, setExplode, setShell, select, parts, TGV, tgvSets, station, updateTgv, syncControls, tick:window.tick, ROUTE, horn, chunks, requestTrack, trk, opp, parked, cars, curveLocal, updateHud, jumpToStation, jumpTo, setWeather, WX_PLAN, wxPick, wxPlanCycle, wxShow, CLOCK, setClock, setTod, todPick, todIcon, hhmm, solarNoon, sunTime, sunHAt, SUN_R, LIGHT_DIR, sky:() => ({ sunH, weatherId, wxW:{ ...wxW }, P:[...PAL] }), sun, hemi, fill, stars, DARK, beam, halos, winMats, SALOON, tunnelIn, updateLights, tunnelM, pcHosts, pcShells, flowObjs, landmarks, flyPreset, SND, PX, pool, paxResolve, paxHolding, allCoaches, world, keys, WK, walkMove, walkSitNear, walkPick, walkStand, walkZones, STICK, walkView, nextStation, goNextStation, serviceOn, serviceOff, driverLever, cabRowX, CAB_ROW_Y, OVER };
+window.locoDebug = { BAR, BAR_MENU, barOpen, barClose, barBuy, barEat, barNear, barIsOpen, walkSitStool, updateBar, CAB, driverSeat, cabActions, cabLever, S, simulate, animate, updateFlows, updateGauges, orbit, renderer, scene, camera, goStep, setMode, setCut, setExplode, setShell, select, parts, TGV, tgvSets, station, updateTgv, syncControls, tick:window.tick, ROUTE, horn, chunks, requestTrack, trk, opp, parked, cars, curveLocal, updateHud, jumpToStation, jumpTo, setWeather, WX_PLAN, wxPick, wxPlanCycle, wxShow, CLOCK, setClock, setTod, todPick, todIcon, hhmm, solarNoon, sunTime, sunHAt, SUN_R, LIGHT_DIR, sky:() => ({ sunH, weatherId, wxW:{ ...wxW }, P:[...PAL] }), sun, hemi, fill, stars, DARK, beam, halos, winMats, SALOON, tunnelIn, updateLights, tunnelM, pcHosts, pcShells, flowObjs, landmarks, flyPreset, SND, PX, pool, paxResolve, paxHolding, allCoaches, world, keys, WK, walkMove, walkSitNear, walkPick, walkStand, walkZones, STICK, walkView, nextStation, goNextStation, serviceOn, serviceOff, driverLever, cabRowX, CAB_ROW_Y, OVER, walkDoorway, walkAway, get platSide(){ return platSide; } };
