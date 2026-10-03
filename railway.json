@@ -1,1 +1,1 @@
-{"$schema":"https://railway.com/railway.schema.json","build":{"builder":"DOCKERFILE","dockerfilePath":"Dockerfile"},"deploy":{"healthcheckPath":"/version.txt"}}
+{"$schema":"https://railway.com/railway.schema.json","build":{"builder":"DOCKERFILE","dockerfilePath":"Dockerfile"},"deploy":{"healthcheckPath":"/version.txt","multiRegionConfig":{"europe-west4-drams3a":{"numReplicas":1}}}}
