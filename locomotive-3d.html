@@ -112,6 +112,7 @@ input[type=range]{width:100%;accent-color:var(--accent);margin:2px 0}
 .infocard .legend:empty{display:none}
 .legend span{display:inline-flex;align-items:center;gap:6px}
 .legend i{width:16px;height:3px;border-radius:2px;display:inline-block}
+.legend i.shim{height:6px;border-radius:0;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='6'%3E%3Cpath d='M0 3q2-3 4 0t4 0 4 0 4 0' fill='none' stroke='%2398a2b3' stroke-width='1.3'/%3E%3C/svg%3E") center/16px 6px no-repeat}
 .infocard .close{grid-column:2;grid-row:1/3;align-self:start;background:transparent;border:1px solid var(--line);color:var(--muted);border-radius:6px;width:26px;height:26px;cursor:pointer;font-size:15px;line-height:1}
 .gauges{position:absolute;top:12px;right:76px;display:grid;grid-auto-flow:column;gap:8px}   /* the compass keeps the corner */
 .compass{position:absolute;top:19px;right:12px;width:56px;height:56px;box-sizing:border-box;border-radius:50%;background:var(--panel);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid var(--line);pointer-events:none}
@@ -1905,28 +1906,45 @@ const flowObjs = [];        // {def, mesh, line, curve, phase, level, mat}
 const N_PART = 26;
 const sphereGeo = new THREE.SphereGeometry(1, 10, 8);
 let hostedShown = null;   // last `show` state pushed to the flows that live inside power car groups
-/* Heat plume: soft warm puffs rise from every source, widen, sway, drift back in the train's airflow and fade from orange to red.
-   Their edges ripple the way air shimmers above a radiator. Sizes are in metres (the vertex shader projects them). */
+/* Heat plume: the air above a hot grid or radiator bends the light, and that is all: no smoke, no colour ("something that makes the feeling of
+   heat but it's transparent... It just makes waves... the images are blurred in a way"). Each puff is a soft lens that rises, widens and sways;
+   through it what lies behind wavers and blurs, in ripples that climb. The frame drawn so far is copied once, as the first puff is about to be
+   drawn, and the puffs draw that copy again, displaced. Sizes are in metres (the vertex shader projects them). */
 const PLUME_N = 28;   // puffs per source
+const heatTex = new THREE.FramebufferTexture(1, 1), _heatSz = new THREE.Vector2();
+heatTex.minFilter = heatTex.magFilter = THREE.LinearFilter;
+let heatFrame = -1;
+function heatGrab(){   // what lies behind the hot air: the frame as drawn so far, copied once a frame whatever the number of plumes
+  if (heatFrame === renderer.info.render.frame) return;
+  heatFrame = renderer.info.render.frame;
+  renderer.getDrawingBufferSize(_heatSz);
+  if (heatTex.image.width !== _heatSz.x || heatTex.image.height !== _heatSz.y){ heatTex.dispose(); heatTex.image.width = _heatSz.x; heatTex.image.height = _heatSz.y; }
+  renderer.copyFramebufferToTexture(heatTex);
+}
 const plumeMat = () => new THREE.ShaderMaterial({
   transparent:true, depthWrite:false,
-  uniforms:{ uA:{ value:new THREE.Color() }, uB:{ value:new THREE.Color() }, uTime:{ value:0 }, uH:{ value:400 } },
-  vertexShader:`uniform float uH; attribute float aSize; attribute float aAlpha; attribute float aT; attribute float aSeed;
-    varying float vA; varying float vT; varying float vSeed;
-    void main(){ vA = aAlpha; vT = aT; vSeed = aSeed;
+  uniforms:{ uScene:{ value:heatTex }, uRes:{ value:_heatSz }, uTime:{ value:0 }, uH:{ value:400 } },
+  vertexShader:`uniform float uH; attribute float aSize; attribute float aAlpha; attribute float aSeed;
+    varying float vA; varying float vSeed; varying float vPx;
+    void main(){ vA = aAlpha; vSeed = aSeed;
       vec4 mv = modelViewMatrix * vec4(position, 1.0);
-      gl_PointSize = aSize * projectionMatrix[1][1] * uH / max(0.05, -mv.z);
+      vPx = aSize * projectionMatrix[1][1] * uH / max(0.05, -mv.z);
+      gl_PointSize = vPx;
       gl_Position = projectionMatrix * mv; }`,
-  fragmentShader:`uniform vec3 uA; uniform vec3 uB; uniform float uTime; varying float vA; varying float vT; varying float vSeed;
-    void main(){ vec2 p = gl_PointCoord - 0.5;
-      p.x += 0.07 * sin(p.y * 11.0 + uTime * 7.0 + vSeed * 40.0);   // ripples travel up the puff
+  fragmentShader:`uniform sampler2D uScene; uniform vec2 uRes; uniform float uTime; varying float vA; varying float vSeed; varying float vPx;
+    void main(){ vec2 q = gl_PointCoord, p = q - 0.5;
       p.x *= 1.45;                                                   // taller than wide
       float r = length(p) * 2.0; if (r >= 1.0) discard;
-      float a = 1.0 - r * r;
-      gl_FragColor = vec4(mix(uA, uB, vT), a * a * vA); }`,
+      float m = 1.0 - r * r; m *= m;                                 // the lens: strongest in its middle, nothing at its rim
+      float ph = vSeed * 40.0, k = m * min(1.0, vA * 2.5);
+      vec2 d = vec2(sin(q.y * 14.0 + uTime * 6.0 + ph) + 0.5 * sin(q.y * 23.0 + uTime * 9.0 + ph * 1.7),   // ripples climbing the puff
+                    0.6 * sin(q.x * 12.0 + uTime * 5.0 + ph));
+      float bend = min(0.1 * vPx, 0.005 * uRes.y);                  // how far the light bends, in pixels: the same angle near or far, as what is behind is far; less on a puff too small to carry it
+      vec2 uv = (gl_FragCoord.xy + d * k * bend) / uRes, b = vec2(k * 0.6 * bend) / uRes;   // what is behind, moved by up to 1.5 bends (0.75 % of the screen's height), softened over 0.6
+      vec3 c = 0.4 * texture2D(uScene, uv).rgb + 0.15 * (texture2D(uScene, uv + vec2(b.x, 0.0)).rgb + texture2D(uScene, uv - vec2(b.x, 0.0)).rgb
+             + texture2D(uScene, uv + vec2(0.0, b.y)).rgb + texture2D(uScene, uv - vec2(0.0, b.y)).rgb);
+      gl_FragColor = vec4(c, k); }`,
 });
-const _white = new THREE.Color(1, 0.9, 0.62), _red = new THREE.Color(0.78, 0.16, 0.1);
-function plumeColors(f){ f.mat.uniforms.uA.value.copy(f.color).lerp(_white, 0.35); f.mat.uniforms.uB.value.copy(f.color).lerp(_red, 0.55); }
 function buildFlows(){
   for (const f of flowObjs){
     const root = f.host || flowRoot; root.remove(f.mesh); f.mat.dispose();
@@ -1941,14 +1959,14 @@ function buildFlows(){
       u[i] = Math.cos(a) * r; v[i] = Math.sin(a) * r; o[i] = (i + Math.random() * 0.8) / n; seed[i] = Math.random();
     }
     g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(n * 3), 3));
-    for (const k of ['aSize', 'aAlpha', 'aT']) g.setAttribute(k, new THREE.BufferAttribute(new Float32Array(n), 1));
+    for (const k of ['aSize', 'aAlpha']) g.setAttribute(k, new THREE.BufferAttribute(new Float32Array(n), 1));
     g.setAttribute('aSeed', new THREE.BufferAttribute(seed, 1));
     g.setDrawRange(0, 0);
     const m = plumeMat(), mesh = new THREE.Points(g, m);
-    mesh.frustumCulled = false; mesh.renderOrder = 5;
+    mesh.renderOrder = 5;
+    mesh.onBeforeRender = (r, sc, cam, geo) => { if (geo.drawRange.count) heatGrab(); };   // in view and hot: what is behind, copied
     (host || flowRoot).add(mesh);
-    const f = { def, mesh, mat:m, color:new THREE.Color(cssColor(def.token)), phase:Math.random(), level:0, host, set2:false, plume:{ n, u, v, o, time:0 } };
-    plumeColors(f); flowObjs.push(f);
+    flowObjs.push({ def, mesh, mat:m, phase:Math.random(), level:0, host, set2:false, plume:{ n, u, v, o, time:0 } });
   };
   // host: a group the flow is parented to (a copied power car's internals, in car coordinates); set2: shifted onto the second set
   const make = (def, host = null, set2 = false) => {
@@ -1990,10 +2008,10 @@ function updatePlume(f, lv, dt){
     pos[i * 3 + 2] = sc[1] + P.v[i] * sc[3] * spread + Math.cos(P.time * 1.3 + e * 4.1 + t * 4) * sway + _wv.z * t;
     A.aSize.array[i] = (0.35 + 0.8 * t) * (0.75 + 0.25 * lv);
     A.aAlpha.array[i] = Math.min(1, t * 7) * Math.pow(1 - t, 1.5) * (0.3 + 0.4 * lv);
-    A.aT.array[i] = t;
   }
   g.setDrawRange(0, P.n);
-  for (const k of ['position', 'aSize', 'aAlpha', 'aT']) A[k].needsUpdate = true;
+  for (const k of ['position', 'aSize', 'aAlpha']) A[k].needsUpdate = true;
+  g.computeBoundingSphere(); g.boundingSphere.radius += 1.2;   // with the puffs' own size: out of view, nothing is drawn and nothing copied
 }
 function updateFlows(dt){
   const show = S.flowsOn && S.explode < 0.02;
@@ -2027,7 +2045,7 @@ function updateFlows(dt){
     f.lmat.opacity = 0.1 + 0.25 * lv;
   }
 }
-function recolorFlows(){ for (const f of flowObjs){ f.color.set(cssColor(f.def.token)); if (f.plume){ plumeColors(f); continue; } f.mat.color.copy(f.color); f.lmat.color.copy(f.color); } }
+function recolorFlows(){ for (const f of flowObjs){ if (f.plume) continue; f.color.set(cssColor(f.def.token)); f.mat.color.copy(f.color); f.lmat.color.copy(f.color); } }   // heat has no colour
 
 /* ------------------------------------------------------------- smoke */
 const SMOKE_N = 260;
@@ -6276,7 +6294,7 @@ function legendFor(partIds){
   for (const f of FLOW_DEFS[S.mode]){
     if (!partIds || !flowLive(f) || !f.parts.some(p => partIds.includes(p))) continue;
     if (seen.has(f.key)) continue; seen.add(f.key);
-    out.push(`<span><i style="background:var(${f.token})"></i>${t(f.key)}</span>`);
+    out.push(`<span><i ${f.plume ? 'class="shim"' : `style="background:var(${f.token})"`}></i>${t(f.key)}</span>`);   // heat has no colour: a wavy line
   }
   return out.join('');
 }

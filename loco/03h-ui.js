@@ -123,7 +123,7 @@ function legendFor(partIds){
   for (const f of FLOW_DEFS[S.mode]){
     if (!partIds || !flowLive(f) || !f.parts.some(p => partIds.includes(p))) continue;
     if (seen.has(f.key)) continue; seen.add(f.key);
-    out.push(`<span><i style="background:var(${f.token})"></i>${t(f.key)}</span>`);
+    out.push(`<span><i ${f.plume ? 'class="shim"' : `style="background:var(${f.token})"`}></i>${t(f.key)}</span>`);   // heat has no colour: a wavy line
   }
   return out.join('');
 }
