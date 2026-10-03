@@ -36,7 +36,6 @@ Nothing open: the film, outside only, is under Done.
 - The Garonne is dry land: water is drawn only under bridges of 550 m or more.
 - Under Massy's slab (510 to 68 m before the station) and Montparnasse's garden (the last 366 m), the far, overview and train angles show the slab, not the train; only the side angle sees it (found 2026-10-03). In a tunnel the camera goes into the tube; under a slab it stays above.
 - The outside camera cuts in one frame into the tunnel's shape 40 m before a mouth, and out of it 40 m after, so at speed it jumps 12 to 24 degrees (found 2026-10-03 leaving the tunnel 1252 m before Poitiers, side angle).
-- The cab's line screen shows the wall clock, not the time of day picked for the world (loco/03h-ui.js:767; found 2026-10-03).
 - On the playground at 1366 × 1024 (an iPad), looking down at the driver's desk, the speed lever's panel covers the left edge of the cab's line screen: the next station's first letter and its distance (found 2026-10-03).
 - After the TV's page reloads, its sound waits for one click on the TV: browsers play no sound before a gesture on the page. The iPad shows a hint when that happens.
 - By day, seen 52 degrees off the side, a coach's windows past 120 m are a lighter grey than the real glass nearer (55 against 40 at 125 m), so they darken a step when the coach comes within 120 m (found 2026-10-03).
@@ -44,6 +43,7 @@ Nothing open: the film, outside only, is under Done.
 ## Done
 
 ### 2026-10-03
+- [x] The cab's line screen showed the wall clock, not the time of day picked for the world (found 2026-10-03). It now shows the world's time, as the sky and the remote do: 23:00 picked shows 23:00 with the device at 14:15: d2d0e4d
 - [x] The glass turns into very bright panels seen from a distance, too strong and from too close: take that out ("the glass transform into very bright panel at distance its too much and too close if you can remove it it's better", 2026-10-03). The real glass and saloon now show up to 120 m from the camera, not 60; further out a window glows as the saloon looks through the glass there, from the sky by day and the lamps at night, dimmer as it turns edgeways. Side on at 125 m at night, 70 near and 70 far, where the far panel was 203: ea32660
 - [x] The windows are too dark: half as tinted in the dark ("the glass is too dark make it twice less tinted in dark", 2026-10-03). The clear glass goes from opacity 0.45 by day to 0.225 at night: ea32660
 - [x] A 3D button in the cockpit to switch the lights on and off ("Add a button to open and close the lights even in the cockpit, a 3D button", 2026-10-03). On every driver's desk, between the horn and the pantograph, with a bulb on its cap; the iPad desk has it too. Off: our train's lamps, beam, window glow and saloon light (one coach at night, 110 m: 50.1 lit, 21.5 off); the other trains stay lit. On a cold train it turns the battery on: 35e96d1
