@@ -4725,8 +4725,11 @@ const ROUTE = (() => {
   { let j = 0; for (let i = 0; i < N; i++){ const s = i * DS; while (j < D.tracks.length - 1 && D.tracks[j + 1][0] <= s) j++; NT[i] = Math.max(2, Math.min(8, D.tracks[j][1])); } }
   { let j = 0; for (let i = 0; i < N; i++){ const s = i * DS; while (j < D.vmax.length - 1 && D.vmax[j + 1][0] <= s) j++; VM[i] = D.vmax[j][1]; } }
   const inStationZone = s => stations.some(st => s > st.s - 760 && s < st.s + 320);
+  // the rivers the line crosses, found from where its bridges stand on the map: OSM names a rail bridge after its line, not after what it spans,
+  // and cuts one bridge into several ways (Bordeaux's over the Garonne is four, none of them 550 m), so a bridge's length cannot tell water under it
+  const RIVERS = [[76480, 76806], [214754, 215286], [258106, 258893], [290526, 291714], [420893, 421377], [596387, 597109], [615529, 616289]];   // the Tarn at Moissac, the Garonne at Langon and at Bordeaux, the Dordogne at Arveyres, the Charente at Luxé, the Indre at Monts, the Loire at Montlouis
   for (const [s0, s1, k] of D.structs){
-    const kind = k === 'b' ? (s1 - s0 >= 550 ? 4 : 1) : k === 't' ? 2 : 3;   // 1 bridge, 4 bridge over water, 2 tunnel, 3 cutting
+    const kind = k === 'b' ? (RIVERS.some(([a, b]) => s0 < b && s1 > a) ? 4 : 1) : k === 't' ? 2 : 3;   // 1 bridge, 4 bridge over water, 2 tunnel, 3 cutting
     for (let i = Math.max(0, Math.ceil(s0 / DS)); i <= Math.min(N - 1, Math.floor(s1 / DS)); i++) if (!inStationZone(i * DS)) KD[i] = kind;
   }
   // LGV stations (Futuroscope, Vendôme, Massy): two side platforms on loops off the through tracks. Ours (lane 0) and the other
