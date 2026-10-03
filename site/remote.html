@@ -313,7 +313,7 @@ body.desk .cam .kt{min-height:60px}
          sit:"Sit down", stand:"Stand up", order:"Order", pocket:"Pocket money +10€", close:"Close", tray:"Tap to enjoy:", tray0:"Nothing on the tray yet." },
   };
   const $ = id => document.getElementById(id), root = document.documentElement, body = document.body;
-  const CODE = /^[A-Z]{4}$/, WX = { sun:'☀️', cloud:'☁️', rain:'🌧️', auto:'🗓️' }, WX_ORDER = Object.keys(WX), TOD = ['now', 'morning', 'noon', 'evening', 'night'];
+  const CODE = /^[A-Z]{4}$/, WX = { sun:'☀️', cloud:'☁️', rain:'🌧️', auto:'🗓️' };
   const clamp01 = v => Math.min(1, Math.max(0, v));
   let L = T[root.lang] ? root.lang : 'en';
   const t = k => T[L][k] ?? k;
@@ -528,11 +528,11 @@ body.desk .cam .kt{min-height:60px}
   $('bPanto').addEventListener('click', () => send('panto'));
   $('bDoors').addEventListener('click', () => send('doors'));
   $('bXray').addEventListener('click', () => send('xray'));
-  $('bWx').addEventListener('click', () => { const i = WX_ORDER.indexOf(R.st?.wx); send('wx', WX_ORDER[(i + 1) % WX_ORDER.length]); });
+  $('bWx').addEventListener('click', () => send('wx', 'next'));   // the TV steps from its own weather and time: a tap before its state reached the iPad still counts
   $('mPlan').innerHTML = [0, 1, 2, 3, 4, 5, 6, 7].map(i => `<button type="button" data-slot="${i}"><small>${i * 3}h</small><span>☀️</span></button>`).join('');
   $('mPlan').addEventListener('click', e => { const b = e.target.closest('button'); if (b) send('plan', +b.dataset.slot); });   // the TV turns that slot to its next weather, and follows the plan
-  $('bTod').addEventListener('click', () => send('tod', TOD[(TOD.indexOf(R.st?.tod) + 1) % TOD.length]));   // now, morning, noon, evening, night
-  $('trains').addEventListener('click', e => { const b = e.target.closest('[data-mode]'); if (b && b.dataset.mode !== R.st?.mode) send('train', b.dataset.mode); });
+  $('bTod').addEventListener('click', () => send('tod', 'next'));   // now, morning, noon, evening, night
+  $('trains').addEventListener('click', e => { const b = e.target.closest('[data-mode]'); if (b) send('train', b.dataset.mode); });   // the TV skips its own train: TGV and back before its state came still counts
   $('views').addEventListener('click', e => { const b = e.target.closest('[data-view]'); if (b) send('view', b.dataset.view); });
   $('angles').addEventListener('click', e => { const b = e.target.closest('[data-cam]'); if (b && !b.disabled) send('cam', b.dataset.cam); });
 
@@ -597,8 +597,8 @@ body.desk .cam .kt{min-height:60px}
   addEventListener('resize', menuFit);
   $('chip').addEventListener('click', () => menu($('menu').hidden));
   document.addEventListener('pointerdown', e => { if (!$('menu').hidden && !e.target.closest('#menu,#chip')) menu(false); });
-  $('mGui').addEventListener('click', () => send('nogui', R.st?.nogui ? 0 : 1));
-  $('mSnd').addEventListener('click', () => send('mute', R.st?.mute ? 0 : 1));
+  $('mGui').addEventListener('click', () => send('nogui', 'flip'));   // the TV switches its own, as above
+  $('mSnd').addEventListener('click', () => send('mute', 'flip'));
   $('mOther').addEventListener('click', () => {
     menu(false); drop(); Object.assign(R, { code:'', joined:false, typed:false, look:0, lookT0:0, st:null, line:null });
     try { localStorage.removeItem('remote.code'); } catch (e) {}

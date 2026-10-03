@@ -234,17 +234,17 @@ function rmCmd(c, v){
     case 'service': kidService(); break;
     case 'turn': kidTurn(); break;
     case 'doors': kidDoors(); break;
-    case 'wx': setWeather(v); break;
+    case 'wx': if (v === 'next') kidWx(); else setWeather(v); break;   // next: from the TV's own, a tap before the iPad heard the last one still counts
     case 'plan': wxPlanCycle(v); break;
-    case 'tod': if (TOD.includes(v)){ setTod(v); updateWeather(0); kidTick(); } break;
+    case 'tod': if (v === 'next') kidTod(); else if (TOD.includes(v)){ setTod(v); updateWeather(0); kidTick(); } break;
     case 'xray': kidXray(); break;
     case 'view': if (v === 'driver' || v === 'pax' || v === 'cine') kidView(v); else if (v === 'out' && kidWhere() !== 'out') kidGo(kidOut); break;
     case 'cam': if (RM_CAMS.includes(v)) kidGo(v); break;
     case 'train': if (RM_MODES.includes(v) && v !== S.mode) kidTrain(v); break;
     case 'station': { const st = ROUTE.stations.find(x => x.id === v); if (st) jumpToStation(st); break; }
     case 'at': { const f = +v; if (Number.isFinite(f)) jumpTo(RB.s(clamp(f, 0, 1))); break; }
-    case 'nogui': setNoGui(!!v); break;
-    case 'mute': kidMute(!!v); break;
+    case 'nogui': setNoGui(v === 'flip' ? !noGui : !!v); break;
+    case 'mute': kidMute(v === 'flip' ? !SND.muted : !!v); break;
     case 'walk': rmWalk(v); return;   // up to 20 times a second while a stick is held: the state follows by itself
     case 'act': if (walking && !barIsOpen()) walkSitNear(); break;   // the walker's own button: sit, stand up, or order at the counter
     case 'buy': if (barIsOpen() && barItem(v)) barBuy(v); break;
