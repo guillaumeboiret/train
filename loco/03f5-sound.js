@@ -233,6 +233,12 @@ function doorsUnlock(ctx){   // the doors starting to open: the lock lets go (a 
   puff(ctx, SND.v.door.g, 'bandpass', 2600, 1.5, 0.6, 0.002, 0, 0.012); knock(ctx, 120, 0.18);
   puff(ctx, SND.v.door.g, 'highpass', 2000, 0.7, 0.16, 0.05, 0.15, 0.25);
 }
+function gangSound(open){   // a gangway door by the walker, setting off: its motor's air, then the leaves on their stops
+  const ctx = SND.ctx; if (!ctx || !SND.v) return;
+  const out = ctx.createGain(); out.gain.value = 0.12; out.connect(SND.master); out.connect(SND.v.room);
+  puff(ctx, out, 'bandpass', open ? 1500 : 1200, 0.8, 0.5, 0.06, 0.35, 0.12);
+  puff(ctx, out, 'lowpass', 500, 0.7, 1, 0.004, 0, 0.04, GW_T);
+}
 function doorsHome(ctx){ knock(ctx, 85, 0.2); puff(ctx, SND.v.door.g, 'lowpass', 700, 0.7, 0.15, 0.004, 0, 0.03); }   // the leaves open, on their end stops
 
 /* ---- per frame: levels follow the sim, places follow the camera */

@@ -1086,6 +1086,16 @@ const GANGWAY = (() => {
   g.addGroup(0, 6, 0); g.addGroup(6, 12, 1); g.addGroup(18, 6, 2);
   return g;
 })();
+/* the gangway doors (buildSet): in set 1, two leaves in each end wall's opening on the upper deck, between the cap and the end wall, sliding
+   apart into the wall as the walker comes within GW_NEAR of the opening and shut again once past (walkGang); both ends of a gangway together.
+   GW[g]: how open the gangway from car g's rear into car g + 1 is, 0..1. A leaf: brushed grey, dark rubber on both edges, a tall window */
+const GW = [], GW_NEAR = 2, GW_T = 0.6;   // m from the end wall; s to open or to shut
+const GW_TEX = canvasTex(64, 220, (c, W, H) => {
+  c.fillStyle = '#a3a8ad'; c.fillRect(0, 0, W, H);
+  const x0 = W * 0.16, x1 = W * 0.84, y0 = H * 0.1, y1 = H * 0.58;
+  c.fillStyle = '#2b3238'; c.fillRect(0, 0, 3, H); c.fillRect(W - 3, 0, 3, H); c.fillRect(x0 - 3, y0 - 3, x1 - x0 + 6, y1 - y0 + 6);
+  c.clearRect(x0, y0, x1 - x0, y1 - y0);
+});
 const carNumTex = {};
 function carNumber(n){
   if (!carNumTex[n]) carNumTex[n] = canvasTex(128, 64, (c, W, H) => {
@@ -1098,7 +1108,7 @@ function carNumber(n){
 function buildSet(opts){
   // opts: {mk, groups:{power, trailers, jacobs, doors, roof}, withFront, firstCar}
   const { mk, groups:G, withFront, firstCar, internals = false } = opts;   // internals: full copy of the lead car's equipment
-  const set = { doors:[], hatches:[], lamps:{}, pantos:[] };
+  const set = { doors:[], hatches:[], lamps:{}, pantos:[], gw:[] };
   const bodyM = {}, linM = {};
   for (const L of Object.keys(TR.tex)){
     bodyM[L] = mk(0xffffff, { map:TR.tex[L], alphaTest:0.5, roughness:0.45, metalness:0.2 });   // the openings are cut out (the shadow pass keeps the cut)
@@ -1121,8 +1131,10 @@ function buildSet(opts){
                   bar:mk(0xffffff, { vertexColors:true, roughness:0.7, metalness:0.05 }), glow:new THREE.MeshBasicMaterial({ vertexColors:true, toneMapped:false }),   // the bar car's fittings, and what glows in it
                   fridge:new THREE.MeshBasicMaterial({ map:BAR_TEX.fridge, toneMapped:false }), screen:new THREE.MeshBasicMaterial({ map:internals ? BAR_TEX.live : BAR_TEX.idle, toneMapped:false }) };
   const gangM = [coachM.floor, frameM, coachM.ceil], staffM = mk(LIN.rack, { roughness:0.6, metalness:0.2, emissive:LIN.rack, emissiveIntensity:0.25 }), staffGeo = new THREE.PlaneGeometry(0.9, 4.05 - DECK.up);
-  for (const m of [...Object.values(linM), frameM, leafM[1], staffM, coachM.floor, coachM.ceil, coachM.seat, coachM.people, coachM.bar]) saloonLit(m, internals ? SALOON_OWN : SALOON);
-  if (internals) for (const m of [...Object.values(linM), frameM, leafM[1], staffM, coachM.ceil]){ m.userData.lit = m.emissiveIntensity; ownLit.push(m); }
+  const gwM = mk(0xffffff, { map:GW_TEX, alphaTest:0.5, side:THREE.DoubleSide, roughness:0.5, metalness:0.25, emissive:0xffffff, emissiveMap:GW_TEX, emissiveIntensity:0.25 }), gwGeo = new THREE.PlaneGeometry(0.47, 4.05 - DECK.up).rotateY(Math.PI / 2);
+  if (internals) trShells.mats.push(gwM);
+  for (const m of [...Object.values(linM), frameM, leafM[1], staffM, gwM, coachM.floor, coachM.ceil, coachM.seat, coachM.people, coachM.bar]) saloonLit(m, internals ? SALOON_OWN : SALOON);
+  if (internals) for (const m of [...Object.values(linM), frameM, leafM[1], staffM, gwM, coachM.ceil]){ m.userData.lit = m.emissiveIntensity; ownLit.push(m); }
   const trailerRear = [];
   TGV.TRAILERS.forEach(([xr, L], i) => {
     const g = new THREE.Group(); g.position.x = xr;
@@ -1153,6 +1165,9 @@ function buildSet(opts){
     const c = buildCoach(G.trailers, coachM, xr, L, firstCar + i);
     Object.assign(c, { lining, glass, doorPanes, plug, paneM, own:internals, lod:0 });
     if (i < TGV.TRAILERS.length - 1){ const t = new THREE.Mesh(GANGWAY, gangM); t.position.x = xr; c.g.add(t); }   // through to the next car
+    if (internals) for (const [x, g] of [[0.0075, i], [L - 0.0075, i - 1]]) if (g >= 0 && g < TGV.TRAILERS.length - 1) for (const s of [1, -1]){   // the gangway doors, shut
+      const d = new THREE.Mesh(gwGeo, gwM); d.position.set(xr + x, (DECK.up + 4.05) / 2, s * 0.235); c.g.add(skin(d)); set.gw.push({ m:d, g, s });
+    }
     for (const [end, x, ry] of [[i === 0, xr + L - 0.02, -Math.PI / 2], [i === TGV.TRAILERS.length - 1, xr + 0.02, Math.PI / 2]]) if (end){   // the end against a power car: a staff door shuts the opening
       const d = new THREE.Mesh(staffGeo, staffM); d.position.set(x, (DECK.up + 4.05) / 2, 0); d.rotation.y = ry; c.g.add(d);
     }
@@ -1676,7 +1691,7 @@ function walkMove(dt, f, s, v){   // f, s: forward and to the right, -1..1 (the 
       for (const [x, z] of tries){
         if (Math.abs(x - WK.x) + Math.abs(z - WK.z) < 1e-6) continue;
         const y = walkFloor(Z, x, z, WK.y);
-        if (isNaN(y) || walkCrowded(c, x, z)) continue;
+        if (isNaN(y) || walkCrowded(c, x, z) || gangShut(x, y)) continue;
         WK.x = x; WK.z = z; WK.y = y; break;
       }
       WK.door = D && WK.z * platSide > 0.97 ? platSide : 0;   // past the vestibule, in the doorway
@@ -1762,6 +1777,20 @@ function walkAboard(keep){   // a jump, a reset or another view while off the tr
   if (!WK.out && !WK.door) return;
   Object.assign(WK, { out:false, door:0, x:1.0, z:0, y:DECK.lo, ey:DECK.lo, seat:-1, stool:-1 });
   if (WK.on && orbit.fp?.name === 'walk'){ orbit.look(tgvSets[0].coaches[WK.i].g, new THREE.Vector3(tgvSets[0].coaches[WK.i].xr + WK.x, WK.y + WALK_EYE, WK.z), 0, -0.05); orbit.fp.name = 'walk'; }
+}
+function walkGang(dt){   // the gangway doors open before the walker on the upper deck, within GW_NEAR of an end wall, and shut behind them
+  const on = orbit.fp?.name === 'walk' && !WK.out && WK.y > DECK.up - 0.3, L = TGV.TRAILERS[WK.i][1];
+  for (let g = 0; g < TGV.TRAILERS.length - 1; g++){
+    const near = on && (g === WK.i ? WK.x < GW_NEAR : g === WK.i - 1 && WK.x > L - GW_NEAR), f0 = GW[g] || 0;
+    const f = GW[g] = THREE.MathUtils.clamp(f0 + (near ? dt : -dt) / GW_T, 0, 1);
+    if (on && f !== f0 && f0 === (near ? 0 : 1)) gangSound(near);   // set off: the motor's air
+  }
+  for (const d of tgvSets[0].gw){ const f = GW[d.g], e = f * f * (3 - 2 * f); d.m.position.z = d.s * (0.235 + 0.47 * e); }
+}
+function gangShut(x, y){   // a step at a gangway door not yet open (x, y in car WK.i): within 0.2 m of its end wall, and nearer than before
+  if (y < DECK.up - 0.3) return false;
+  for (const [p, g] of [[0, WK.i], [TGV.TRAILERS[WK.i][1], WK.i - 1]]) if (g >= 0 && g < TGV.TRAILERS.length - 1 && (GW[g] || 0) < 0.8 && Math.abs(x - p) < 0.2 && Math.abs(x - p) < Math.abs(WK.x - p)) return true;
+  return false;
 }
 function walkCar(){   // half way through a gangway the next car takes over, in its own frame (on a curve the two turn apart)
   const n = TGV.TRAILERS.length, L = TGV.TRAILERS[WK.i][1], j = WK.x > L + 0.3 && WK.i > 0 ? WK.i - 1 : WK.x < -0.3 && WK.i < n - 1 ? WK.i + 1 : -1;
@@ -1894,5 +1923,5 @@ function updateTgv(dt){
   const fpCab = orbit.fp?.name === 'driver' ? orbit.fp.obj : null;   // in the driver's place the driver is the viewer: not drawn
   tgvDriver.visible = S.dir > 0 && tgvDriver.parent !== fpCab;   // the driver sits in the leading cab
   for (const h of pcHosts) h.driver.visible = S.dir < 0 && h === (wide ? pcHosts[1] : pcHosts[0]) && h.driver.parent !== fpCab;
-  updatePax(dt); updateBar(dt);
+  walkGang(dt); updatePax(dt); updateBar(dt);
 }
