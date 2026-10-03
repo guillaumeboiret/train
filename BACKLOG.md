@@ -31,10 +31,8 @@ Nothing open: the film, outside only, is under Done.
 - [ ] A train for the other direction standing across the platform at a station (2026-09-26). Today oncoming TGVs run through the stations and stop only at the termini.
 
 ## Known bugs, found while testing
-- In the 🎬 film the shot riding along the train's side can sink behind a dark wall beside the line, which then fills half the view (found 2026-10-03, 2.2 km before Poitiers).
 - In the 🎬 film the shot passing the train can be hidden by something light grey (9a9da1, 1.4 to 1.9 m up) 400 to 800 m past Bordeaux Saint-Jean: 12 frames of 528 in the sweep, there before the dark wall fix too (found 2026-10-03).
 - Railway reads none of railway.json's deploy settings for this service: the /version.txt healthcheck of 964d84b never ran, so a deploy switches without waiting for it. Config as code (railway.json) is deprecated and stops being read on 2026-12-01; Railway now wants .railway/railway.ts, applied with its CLI.
-- The Garonne is dry land: water is drawn only under bridges of 550 m or more.
 - Right after pairing, the iPad's 3D desk boots inside the iPad's own page and holds it about 1.4 s (two long tasks, 0.45 and 0.9 s, in headless Chrome on the Mac): a tap then waits, and in the test a synthetic tap sent then could vanish (found 2026-10-03). Not seen on the real iPad yet.
 - After the TV's page reloads, its sound waits for one click on the TV: browsers play no sound before a gesture on the page. The iPad shows a hint when that happens.
 - By day, seen 52 degrees off the side, a coach's windows past 120 m are a lighter grey than the real glass nearer (55 against 40 at 125 m), so they darken a step when the coach comes within 120 m (found 2026-10-03).
@@ -42,6 +40,8 @@ Nothing open: the film, outside only, is under Done.
 ## Done
 
 ### 2026-10-03
+- [x] Known bug fixed: the Garonne was dry land, water being drawn only under bridges of 550 m or more. The rivers the line crosses are now listed: the Garonne at Bordeaux and at Langon, the Tarn and the Charente run under their bridges, and the viaduct at Lormont, over no river, is dry: b590bfd
+- [x] Known bug fixed: in the 🎬 film the shots at the train's side could stand behind a town's wall beside the line, which then filled half the view (found 2026-10-03, 2.2 km before Poitiers). They now skip those stretches: f240ff5
 - [x] The game loads without a first look that then changes ("when loading, there is a page that is loaded then the design changes. Can you load the game properly?", 2026-10-03): the playground now opens on its own loading screen, then the game as it stays, never the explainer's panels, and its camera no longer glides in: 5e73fd5
 - [x] The tests run in a muted browser, so they no longer sound the horn on the Mac ("Can you start in mute, pls the tests make the train to horn all the time", 2026-10-03): the test harness only, outside this repo, no commit.
 - [x] Known bug fixed: on the playground at 1366 × 1024 (an iPad), looking down at the driver's desk, the speed lever's panel covered the left edge of the cab's line screen (found 2026-10-03). The driver's lens now fits the whole desk between the lever and the views: 793063d
