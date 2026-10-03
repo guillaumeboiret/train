@@ -1,0 +1,13 @@
+<style>
+/* the playground's loading screen, there from the first byte while three.js and the scene load, so the explainer's panels under it never
+   show; the kid layer (03i-kid.js) fades it out once it has drawn a frame. No words: it is the same in every language */
+.kid-boot{position:fixed;inset:0;z-index:100;display:grid;place-items:center;align-content:center;gap:26px;background:linear-gradient(#1d3557,#3f6f95);pointer-events:none;transition:opacity .35s}
+.kid-boot.out{opacity:0}
+.kid-boot span{font-size:96px;line-height:1;animation:kidBootRun 1.2s ease-in-out infinite alternate}
+.kid-boot i{position:relative;width:180px;height:10px;border-radius:5px;background:rgba(255,255,255,.25);overflow:hidden}
+.kid-boot i::after{content:'';position:absolute;inset:0;width:40%;border-radius:5px;background:#f28c28;animation:kidBootBar 1.1s ease-in-out infinite}
+@keyframes kidBootRun{from{transform:translateX(-30px)}to{transform:translateX(30px)}}
+@keyframes kidBootBar{from{transform:translateX(-100%)}to{transform:translateX(250%)}}
+@media (prefers-reduced-motion:reduce){.kid-boot span,.kid-boot i::after{animation:none}}
+</style>
+<div class="kid-boot" id="kidBoot" aria-hidden="true"><span>🚄</span><i></i></div>

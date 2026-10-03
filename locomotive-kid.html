@@ -308,6 +308,19 @@ body.nogui.ng-calm #c3d{cursor:none}
   :is(#btnStation,#cabNext,#kidStation).holding{animation:none;background-size:100% 100%}
 }
 </style>
+<style>
+/* the playground's loading screen, there from the first byte while three.js and the scene load, so the explainer's panels under it never
+   show; the kid layer (03i-kid.js) fades it out once it has drawn a frame. No words: it is the same in every language */
+.kid-boot{position:fixed;inset:0;z-index:100;display:grid;place-items:center;align-content:center;gap:26px;background:linear-gradient(#1d3557,#3f6f95);pointer-events:none;transition:opacity .35s}
+.kid-boot.out{opacity:0}
+.kid-boot span{font-size:96px;line-height:1;animation:kidBootRun 1.2s ease-in-out infinite alternate}
+.kid-boot i{position:relative;width:180px;height:10px;border-radius:5px;background:rgba(255,255,255,.25);overflow:hidden}
+.kid-boot i::after{content:'';position:absolute;inset:0;width:40%;border-radius:5px;background:#f28c28;animation:kidBootBar 1.1s ease-in-out infinite}
+@keyframes kidBootRun{from{transform:translateX(-30px)}to{transform:translateX(30px)}}
+@keyframes kidBootBar{from{transform:translateX(-100%)}to{transform:translateX(250%)}}
+@media (prefers-reduced-motion:reduce){.kid-boot span,.kid-boot i::after{animation:none}}
+</style>
+<div class="kid-boot" id="kidBoot" aria-hidden="true"><span>🚄</span><i></i></div>
 <div id="app">
   <header class="topbar">
     <div class="brand"><span data-i18n="title">Anatomie d'une locomotive</span><small data-i18n="subtitle">Modèle 3D pédagogique</small></div>
@@ -8197,9 +8210,13 @@ document.querySelectorAll('.cl-end').forEach((el, i) => { el.textContent = i ? '
 
 /* ---- start: a TGV at Bordeaux, powered up, body opaque, ready to go */
 setMode('tgv'); Object.assign(SIM_MUL, KID_MUL.tgv); setShell(1); kidPower(true); S.brake = 4; syncControls();
-kidGo('overview'); orbit.autoRotate = false;
+kidGo('overview'); orbit.autoRotate = false; orbit.sph.copy(orbit.tSph); orbit.target.copy(orbit.tTarget);   // the first frame already at the overview, no glide in from the explainer's angle
 kidLang(); kidTick(); setInterval(kidTick, 100);
 kidToast('hint', 6000);
+// the loading screen (kid-boot.html) goes once a frame of all this is drawn and the fonts are in (1.5 s at most): the first look is the game's
+Promise.race([document.fonts.ready, new Promise(r => setTimeout(r, 1500))]).then(() => requestAnimationFrame(() => requestAnimationFrame(() => {
+  const b = $('kidBoot'); b.classList.add('out'); setTimeout(() => b.remove(), 400);
+})));
 Object.assign(window.locoDebug, { kidLever, kidStop, kidStation, kidService, kidDoors, kidView, kidGo, kidWhere, kidWx, kidTod, kidXray, kidTrain, kidTick, kidPanto, kidTurn, kidMute });
 
 /* ============================================================ CINEMA (kid build, after the kid layer): the 🎬 view, for long trips */

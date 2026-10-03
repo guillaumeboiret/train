@@ -399,7 +399,11 @@ document.querySelectorAll('.cl-end').forEach((el, i) => { el.textContent = i ? '
 
 /* ---- start: a TGV at Bordeaux, powered up, body opaque, ready to go */
 setMode('tgv'); Object.assign(SIM_MUL, KID_MUL.tgv); setShell(1); kidPower(true); S.brake = 4; syncControls();
-kidGo('overview'); orbit.autoRotate = false;
+kidGo('overview'); orbit.autoRotate = false; orbit.sph.copy(orbit.tSph); orbit.target.copy(orbit.tTarget);   // the first frame already at the overview, no glide in from the explainer's angle
 kidLang(); kidTick(); setInterval(kidTick, 100);
 kidToast('hint', 6000);
+// the loading screen (kid-boot.html) goes once a frame of all this is drawn and the fonts are in (1.5 s at most): the first look is the game's
+Promise.race([document.fonts.ready, new Promise(r => setTimeout(r, 1500))]).then(() => requestAnimationFrame(() => requestAnimationFrame(() => {
+  const b = $('kidBoot'); b.classList.add('out'); setTimeout(() => b.remove(), 400);
+})));
 Object.assign(window.locoDebug, { kidLever, kidStop, kidStation, kidService, kidDoors, kidView, kidGo, kidWhere, kidWx, kidTod, kidXray, kidTrain, kidTick, kidPanto, kidTurn, kidMute });
