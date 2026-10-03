@@ -51,7 +51,7 @@ Adding a language: its code in `OK` in `site/lang.js`, a button in each switcher
 - `03f5-sound.js`: Web Audio ambience (rolling noise, inverter whine, diesel, birds, rain, oncoming TGVs with Doppler shift and horn)
 - `03g-sim.js`, `03h-ui.js`: physics and autopilot, UI, HUD, main loop
 - `03i-kid.js`: the kid layer, appended only to `locomotive-kid.html`
-- `03i2-cine.js`: the kid build's 🎬 view, a camera that films the trip (shots riding with the train, from the ground, inside), after the kid layer
+- `03i2-cine.js`: the kid build's 🎬 view, a camera that films the trip (shots riding with the train and from the ground, never inside), after the kid layer
 - `03j-remote.js`: the TV side of the remote (pairing card and QR code, the relay link, the iPad's commands), after the kid layer
 - `04-end.html`: closing tags
 

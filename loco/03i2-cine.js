@@ -1,13 +1,13 @@
 
 /* ============================================================ CINEMA (kid build, after the kid layer): the 🎬 view, for long trips */
-/* "movie-like movements that can switch from the outside to the inside", "the camera movement for long term travels", "a wallpaper for the
-   whole line". A director cuts every 9 to 16 s (from the ground, as the train goes by or pulls in, longer) between shots riding with the train (ahead of its nose, along its side, from the air, low by
-   the rails, chasing it, a crane rising off it), shots from the ground (beside the line as it goes by, on the platform it pulls into, at the
-   door that opens) and shots inside (from the driver's seat, from a window seat, down an aisle). Riding shots glide into one another,
-   the others cut through black. A drag, a pinch, the wheel, a key or Esc hands the camera back where it is (inside: to the driver's seat or
-   the passenger's); a tap on 🎬 cuts to the next shot */
+/* "movie-like movements", "the camera movement for long term travels", "a wallpaper for the whole line", then "in the cinematic mode forget
+   the inside views". A director cuts every 9 to 16 s (from the ground, as the train goes by or pulls in, longer) between shots riding with
+   the train (ahead of its nose, along its side, from the air, low by the rails, chasing it, a crane rising off it; in a tunnel or under a
+   slab, low ahead of its nose) and shots from the ground (beside the line as it goes by, on the platform it pulls into, at the door that
+   opens). Riding shots glide into one another, the others cut through black. A drag, a pinch, the wheel, a key or Esc hands the camera back
+   where it is; a tap on 🎬 cuts to the next shot */
 const CN_DEG = Math.PI / 180, CN_GLIDE = 2.5, CN_OUT = 0.35, CN_IN = 0.5, CINE_FOV = orbit.fov;   // s: a glide between riding shots, a cut's fade to black and back
-const CINE = { sh:null, prev:null, gl:1, ph:'run', next:null, fade:0, fo:-1, last:'', chk:0, lastDist:0, lastDir:1, lastMode:'', platS:NaN, doorS:-Infinity, wT:new THREE.Vector3(), fp:null };   // sh the shot, prev the one it glides from (gl 0..1), ph run, out (to black, then next) or in
+const CINE = { sh:null, prev:null, gl:1, ph:'run', next:null, fade:0, fo:-1, last:'', chk:0, lastDist:0, lastDir:1, lastMode:'', platS:NaN, doorS:-Infinity, wT:new THREE.Vector3() };   // sh the shot, prev the one it glides from (gl 0..1), ph run, out (to black, then next) or in
 const _cnE = new THREE.Vector3(), _cnT = new THREE.Vector3(), _cnE2 = new THREE.Vector3(), _cnT2 = new THREE.Vector3(), _cnV = new THREE.Vector3(), _cnS = new THREE.Spherical(), _cnS2 = new THREE.Spherical();
 const cnEnds = () => { const f = S.mode === 'tgv' ? TGV.TIP_F : 10.2, r = -tailLen(); return S.dir > 0 ? { f, r, head:f, tail:r } : { f, r, head:r, tail:f }; };   // the train's ends in its own x, and which one leads
 function cnKd(s0, s1, test){ const i1 = ROUTE.idx(Math.min(ROUTE.L, Math.max(s0, s1))); for (let i = ROUTE.idx(Math.max(0, Math.min(s0, s1))); i <= i1; i++) if (test(ROUTE.KD[i])) return true; return false; }   // a kind of line between s0 and s1 (2 a tunnel, 1 and 4 a bridge)
@@ -56,8 +56,7 @@ function cnPlatPose(sh, u, E, T, dt){   // the nose followed in; the shot ends 4
   cnScene(sh.P, E); curveLocal(cnEnds().head - S.dir * 8, 2.6, 0, T); return cnLens(E, T, 10);   // head on, the nose and a car fill the view
 }
 const cnDoorsDue = () => Math.abs(S.dist - CINE.doorS) >= 50 && CN.doors.ok();   // doors open at a stop not filmed yet
-function cnCoach(){ const cs = tgvSets[0].coaches, pool = cs.map((c, i) => i).filter(i => !cs[i].bar); return pool[Math.floor(Math.random() * pool.length)]; }   // any coach but the bar
-const CN = {   // the shots: att rides with the train, in is inside (first person), the others stand on the ground; w how often, d about how long (s)
+const CN = {   // the shots: att rides with the train, the others stand on the ground; w how often, d about how long (s)
   nose:{ att:true, w:1, d:12, ok:() => cnOut(true), pose(sh, u, E, T){   // ahead of the leading nose, swinging round to its side
     const e = cnEnds(), d = S.dir, R = (S.mode === 'tgv' ? 16 : 12) * (1 + 0.25 * u), a = (40 + 35 * u) * CN_DEG, x = e.head - d * 3;
     curveLocal(x, 2.2, 0, T); curveLocal(x + d * R * Math.cos(a), 2.5 + 2 * u, sh.sd * R * Math.sin(a), E); return CINE_FOV; } },
@@ -82,38 +81,29 @@ const CN = {   // the shots: att rides with the train, in is inside (first perso
   doors:{ w:1, d:12, ok:() => S.mode === 'tgv' && S.speed < 0.1 && S.doorsF > 0.3 && Math.abs(stationOffset()) < 30, make:() => { CINE.doorS = S.dist; return true; }, pose(sh, u, E, T){   // on the platform by coach 1's door (CAMS.door), drifting in
     const x = TGV.TRAILERS[0][0] + TR.doorX, k = nearestStation().side;
     curveLocal(x + 7 - 2.5 * u, 2.9, 6 * k, E); curveLocal(x, 1.7, 1.5 * k, T); return CINE_FOV; } },
-  cab:{ in:true, w:1, d:14, ok:() => true, make:sh => !!(sh.obj = driverSeat()), look(sh, u, f){   // in the driver's place, the look drifting across the line coming
-    const v = driverView(); f.eye.copy(v.eye); f.yaw = v.yaw + 0.12 - 0.24 * u; f.pitch = v.pitch; } },
-  window:{ in:true, w:1, d:14, ok:() => S.mode === 'tgv', make(sh){   // a window seat upstairs facing the way the train runs, the look turning out to the landscape
-    const ci = cnCoach(), c = tgvSets[0].coaches[ci], seat = c.view[2 + (S.dir < 0 ? 1 : 0)];
-    if (seat === undefined) return false;
-    Object.assign(sh, { ci, seat, obj:c.g }); return true; },
-    look(sh, u, f){ const c = tgvSets[0].coaches[sh.ci], i = sh.seat, k = c.face[i], z = c.seat[3 * i + 2];
-      f.eye.set(c.seat[3 * i] + 0.12 * k, c.seat[3 * i + 1] + 1.16, z - Math.sign(z) * 0.3); f.yaw = (k > 0 ? 0 : Math.PI) - Math.sign(z) * k * (0.6 + 0.6 * u); f.pitch = -0.1; } },   // leaning toward the aisle: the window whole, not its pillar
-  aisle:{ in:true, w:0.6, d:12, ok:() => S.mode === 'tgv' && S.speed > 1, make(sh){   // down the upper aisle toward the front, at a slow walk
-    const ci = cnCoach(), c = tgvSets[0].coaches[ci];
-    Object.assign(sh, { ci, x0:3.6 + Math.random() * Math.max(0, c.L - 9.5), obj:c.g }); sh.ax = sh.x0; return true; },
-    look(sh, u, f){ const c = tgvSets[0].coaches[sh.ci]; sh.ax = sh.x0 + 5.5 * (S.dir > 0 ? u : 1 - u); f.eye.set(c.xr + sh.ax, DECK.up + WALK_EYE, 0); f.yaw = S.dir > 0 ? 0 : Math.PI; f.pitch = -0.05; } },
+  tube:{ att:true, w:0, d:12, ok:() => true, pose(sh, u, E, T){   // when nothing else can be taken (in a tunnel, under a slab or a shed): low ahead of the nose, inside the tube's arch, the train gaining on it
+    const d = S.dir, h = cnEnds().head;
+    curveLocal(h + d * (30 - 10 * u), 2.6, -sh.sd * 1.2, E); curveLocal(h - d * 6, 2.0, 0, T); return CINE_FOV; } },
 };
 const CN_HOLD = { att:true, pose:(sh, u, E, T) => { E.copy(sh.E0); T.copy(sh.T0); return CINE_FOV; } };   // where the camera was outside, for the first glide
 function cnMake(name){   // a shot of that kind, if it can be taken now
   const def = CN[name], sh = { n:name, def, t:0, d:def.d * (0.85 + 0.3 * Math.random()), sd:cnSide(), still:0 };
   return def.ok(sh) && (!def.make || def.make(sh)) ? sh : null;
 }
-function cnPick(){   // the platform the train pulls into, then the door opening there, else any shot that can be taken, rarely the same twice running; near a tunnel, mostly the cab
+function cnPick(){   // the platform the train pulls into, then the door opening there, else any shot that can be taken, rarely the same twice running
   if (cnPlatOk()){ const sh = cnMake('platform'); if (sh) return sh; }
   if (cnDoorsDue()){ const sh = cnMake('doors'); if (sh) return sh; }
-  const tun = tunnelNear(S.dist + cnEnds().head, 300), skip = new Set([CINE.last]);
+  const skip = new Set([CINE.last]);
   for (let pass = 0; pass < 2; pass++, skip.clear()){
     for (;;){
       let pick = null, tot = 0;
-      for (const n in CN){ const w = CN[n].w * (n === 'cab' && tun ? 3 : 1); if (!w || skip.has(n)) continue; tot += w; if (Math.random() * tot < w) pick = n; }
+      for (const n in CN){ const w = CN[n].w; if (!w || skip.has(n)) continue; tot += w; if (Math.random() * tot < w) pick = n; }
       if (!pick) break;
       const sh = cnMake(pick); if (sh) return sh;
       skip.add(pick);
     }
   }
-  return cnMake('cab');
+  return cnMake('tube');
 }
 function cnNext(sh){   // on to shot sh: a riding shot glides into a riding shot, anything else cuts through black
   if (!sh) return;
@@ -121,11 +111,7 @@ function cnNext(sh){   // on to shot sh: a riding shot glides into a riding shot
   if (cur?.def.att && sh.def.att && CINE.gl >= 1 && CINE.ph === 'run'){ CINE.prev = cur; CINE.gl = 0; cnSet(sh); return; }
   CINE.next = sh; CINE.ph = 'out';
 }
-function cnSet(sh){   // shot sh takes the camera: inside, the eye rides its car (no glide in); outside, the orbit is free
-  CINE.sh = sh; CINE.last = sh.n; CINE.chk = 1;
-  if (sh.def.in){ orbit.look(sh.obj, new THREE.Vector3(), 0, 0); orbit.fp.name = 'cine'; orbit.fp.t = 1; CINE.fp = orbit.fp; }
-  else { orbit.fp = null; CINE.fp = null; }
-}
+function cnSet(sh){ CINE.sh = sh; CINE.last = sh.n; CINE.chk = 1; orbit.fp = null; }   // shot sh takes the camera (out of a seat, the orbit free)
 function cnBlend(Ea, Ta, Eb, Tb, b){   // pose a to pose b, into b: the target in a straight line, the eye round it (distance, height and bearing eased apart)
   _cnS.setFromVector3(_cnV.subVectors(Ea, Ta)); _cnS2.setFromVector3(_cnV.subVectors(Eb, Tb));
   let dth = _cnS2.theta - _cnS.theta; dth -= Math.round(dth / (2 * Math.PI)) * 2 * Math.PI;
@@ -134,11 +120,6 @@ function cnBlend(Ea, Ta, Eb, Tb, b){   // pose a to pose b, into b: the target i
 }
 function cnApply(dt, snap){   // the camera where the shot puts it (gliding from the last one); snap: just cut, the lens too at once
   const sh = CINE.sh; if (!sh) return;
-  if (sh.def.in){
-    sh.def.look(sh, sh.t / sh.d, orbit.fp);
-    if (snap){ camera.fov = fpFov(camera.aspect) * orbit.fpZoom; camera.updateProjectionMatrix(); }
-    return;
-  }
   let fov = sh.def.pose(sh, sh.t / sh.d, _cnE, _cnT, dt);
   if (CINE.prev){
     const p = CINE.prev, f0 = p.def.pose(p, p.t / p.d, _cnE2, _cnT2, dt), b = CINE.gl * CINE.gl * (3 - 2 * CINE.gl);
@@ -150,12 +131,12 @@ function cnApply(dt, snap){   // the camera where the shot puts it (gliding from
 function cnFade(){ const o = Math.round(CINE.fade * 50) / 50; if (o !== CINE.fo){ CINE.fo = o; $('kidFade').style.opacity = o; } }
 function cineTick(dt){
   if (!kidCine) return;
-  if ((orbit.ptrs.size && orbit.moved >= 6) || (keys.size && !(keys.size === 1 && keys.has('shift')))){ cineOff(true); return; }   // a drag, a pinch, a key: the camera is theirs
+  if ((orbit.ptrs.size && orbit.moved >= 6) || (keys.size && !(keys.size === 1 && keys.has('shift')))){ cineOff(); return; }   // a drag, a pinch, a key: the camera is theirs
   let snap = false;
   const jump = Math.abs(S.dist - CINE.lastDist) > 200 || S.dir !== CINE.lastDir || S.mode !== CINE.lastMode;   // a jump along the line, a turn round, another train: black at once, then a new shot
   CINE.lastDist = S.dist; CINE.lastDir = S.dir; CINE.lastMode = S.mode;
   if (jump){ Object.assign(CINE, { fade:1, ph:'in', prev:null, gl:1, next:null }); cnSet(cnPick()); snap = true; }
-  else if (CINE.sh && (CINE.sh.def.in ? orbit.fp !== CINE.fp : orbit.fp || orbit.tTarget.distanceToSquared(CINE.wT) > 1e-6)){ cineOff(); return; }   // something else took the camera (a view button, the guide's arrows): let it
+  else if (CINE.sh && (orbit.fp || orbit.tTarget.distanceToSquared(CINE.wT) > 1e-6)){ cineOff(); return; }   // something else took the camera (a view button, the guide's arrows): let it
   const sh0 = CINE.sh;
   if (sh0 && CINE.ph !== 'out' && (CINE.chk -= dt) <= 0){   // each second: a train pulling in or doors opening come first; a shot that can no longer be taken ends
     CINE.chk = 1;
@@ -174,42 +155,29 @@ function cineTick(dt){
   }
   cnFade();
 }
-function cineOn(){   // 🎬: X-ray off (the train whole, as inside), the first shot glides in from outside or cuts in from a seat
+function cineOn(){   // 🎬: X-ray off (the train whole), the first shot glides in from outside, or cuts in from a seat
   kidCine = true;
   if (shellLevel < 1){ setShell(1); $('kidXray').setAttribute('aria-pressed', 'false'); }
-  Object.assign(CINE, { sh:null, prev:null, gl:1, ph:'run', next:null, fade:0, last:'', lastDist:S.dist, lastDir:S.dir, lastMode:S.mode, fp:null });
+  Object.assign(CINE, { sh:null, prev:null, gl:1, ph:'run', next:null, fade:0, last:'', lastDist:S.dist, lastDir:S.dir, lastMode:S.mode });
   const sh = cnPick();
-  if (!orbit.fp && sh.def.att){ CINE.prev = { def:CN_HOLD, t:0, d:1, E0:camera.position.clone(), T0:orbit.target.clone() }; CINE.gl = 0; cnSet(sh); }
+  if (!orbit.fp && sh.def.att){ CINE.prev = { def:CN_HOLD, t:0, d:1, E0:camera.position.clone(), T0:orbit.target.clone() }; CINE.gl = 0; cnSet(sh); cnApply(0); }   // applied now: the camera is the film's from this frame on
   else cnNext(sh);
 }
-function cineOff(hand){   // hand: they took the camera (a drag, the wheel, a key, Esc): outside it stays where it is; inside, the driver's seat or the passenger's, looking the same way
+function cineOff(){   // a drag, the wheel, a key, Esc or another view: the camera stays where it is
   if (!kidCine) return;
   kidCine = false;
-  const sh = CINE.sh, ours = sh?.def.in && orbit.fp === CINE.fp;
-  Object.assign(CINE, { sh:null, prev:null, next:null, ph:'run', fade:0, fp:null }); cnFade();
+  Object.assign(CINE, { sh:null, prev:null, next:null, ph:'run', fade:0 }); cnFade();
   orbit.fov = CINE_FOV;
-  if (!ours) return;
-  if (!hand) orbit.free();   // the caller moves the camera next
-  else if (sh.n === 'cab') kidView('driver');
-  else cnToWalker(sh);
-}
-function cnToWalker(sh){   // from a window seat or the aisle, the passenger there: seated in that seat, or standing in the aisle, the look kept
-  const cs = tgvSets[0].coaches, old = cs[WK.i], { yaw, pitch } = orbit.fp;
-  if (WK.seat >= 0) old.occ[WK.seat] = 0;
-  if (WK.stool >= 0) old.bar.taken[WK.stool] = 0;
-  Object.assign(WK, { on:true, back:true, i:sh.ci, seat:-1, stool:-1 });
-  if (sh.n === 'window') walkSit(sh.seat);
-  else { const c = cs[sh.ci]; Object.assign(WK, { x:sh.ax, y:DECK.up, ey:DECK.up, z:0 }); orbit.look(c.g, new THREE.Vector3(c.xr + sh.ax, DECK.up + WALK_EYE, 0), yaw, pitch); orbit.fp.name = 'walk'; }
-  Object.assign(orbit.fp, { yaw, pitch, t:1 }); WK.yaw = yaw; WK.pitch = pitch;
 }
 function cineSkip(){ if (kidCine && CINE.ph === 'run') cnNext(cnPick()); }   // 🎬 again: the next shot
 function cineShot(name){   // tests: that shot at once, no fade; false if it cannot be taken now
+  if (!CN[name]) return false;
   if (!kidCine) cineOn();
   const sh = cnMake(name); if (!sh) return false;
   Object.assign(CINE, { prev:null, gl:1, ph:'run', next:null, fade:0, lastDist:S.dist, lastDir:S.dir, lastMode:S.mode }); cnSet(sh); cnApply(0, true); cnFade();
   return true;
 }
-canvas.addEventListener('wheel', () => { if (kidCine) cineOff(true); }, { passive:true });   // after the orbit's own: the zoom it made stays
-window.addEventListener('keydown', e => { if (kidCine && e.key === 'Escape' && !e.target.matches('input,textarea,select')) cineOff(true); });
+canvas.addEventListener('wheel', () => { if (kidCine) cineOff(); }, { passive:true });   // after the orbit's own: the zoom it made stays
+window.addEventListener('keydown', e => { if (kidCine && e.key === 'Escape' && !e.target.matches('input,textarea,select')) cineOff(); });
 { const f0 = frameHook; frameHook = dt => { f0?.(dt); cineTick(dt); }; }
 Object.assign(window.locoDebug, { cineOn, cineOff, cineSkip, cineShot, CINE, CN });
