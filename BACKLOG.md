@@ -35,12 +35,14 @@ Nothing open: the clock, the sun, the lights and the weather schedule are under 
 ## Known bugs, found while testing
 - Railway reads none of railway.json's deploy settings for this service: the /version.txt healthcheck of 964d84b never ran, so a deploy switches without waiting for it. Config as code (railway.json) is deprecated and stops being read on 2026-12-01; Railway now wants .railway/railway.ts, applied with its CLI.
 - The Garonne is dry land: water is drawn only under bridges of 550 m or more.
-- In a city the outside camera's side and far angles can stand inside a building, so the screen shows a wall (found 2026-10-03, around Angoulême: from 44 m past the tunnel's east mouth, and 46 to 70 m before its west one). City blocks start 16 m from the track; the side angle is 26 m out.
+- Under Massy's slab (510 to 68 m before the station) and Montparnasse's garden (the last 366 m), the far, overview and train angles show the slab, not the train; only the side angle sees it (found 2026-10-03). In a tunnel the camera goes into the tube; under a slab it stays above.
+- The outside camera cuts in one frame into the tunnel's shape 40 m before a mouth, and out of it 40 m after, so at speed it jumps 12 to 24 degrees (found 2026-10-03 leaving the tunnel 1252 m before Poitiers, side angle).
 - After the TV's page reloads, its sound waits for one click on the TV: browsers play no sound before a gesture on the page. The iPad shows a hint when that happens.
 
 ## Done
 
 ### 2026-10-03
+- [x] Known bugs fixed: in a city the outside camera could stand inside a building, lose the train behind buildings in the middle distance, or stand inside a tree crown (found 2026-10-03). A building or house on the line of sight now lifts the camera over its roof, rising a second before it gets there; a tree in the way is hidden. The train out of sight in 51 of 1612 kid views around the 13 stations, was 204; all 51 are under the Massy and Montparnasse slabs, still open below: 87d7495
 - [x] Known bug fixed: the HUD's track count was off where tracks fade in or out (Agen showed 5 for 3 laid). Logged as the island's far face counted once too many; that face is laid, so it stays counted. It now counts the tracks laid, as the chunks lay them, checked at all 13 stations: 5c7a14d
 - [x] Known bug fixed: the Angoulême tunnel ended about 100 m early. Its mouth is now 665 m before the station, the data's is 656 m; it was cut at 755 m by the station's zone: 27d2a63
 - [x] Known bug fixed: in a tunnel the outside camera stayed above the hill, so the train was out of sight (found 2026-10-03). While the train is in a tunnel or 40 m from one, the camera keeps to the tube's shape, in the tube and in front of its mouths: ce23fba
