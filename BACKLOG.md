@@ -17,8 +17,7 @@ Nothing open: the clock, the sun, the lights and the weather schedule are under 
 - [ ] Games on it: Tetris, Snake and 2048.
 
 ### 3. Cinematic camera, for long trips (asked 2026-10-02)
-- [ ] With the endless Next stop (done, 607ef93), a wallpaper for the whole line: the camera turns, goes inside the train, comes back out and follows it ("we could have a wallpaper for the whole line in a very nice way").
-- [ ] A camera mode that changes the point of view by itself: all the points of view, with aesthetic camera moves, "like a cinematic". First asked for streaming on YouTube; clarified the same day: "I don't need you to stream it's just the camera movement for long term travels". Asked about again on 2026-10-03: "movie-like movements that can switch from the outside to the inside and make elegant movements".
+Nothing open: the 🎬 view is under Done.
 
 ### 4. Step off the train at a station (asked 2026-10-02)
 - [ ] The passenger can get off onto the platform and walk there, and the train never leaves without them: no departure until they are back aboard ("I want the user to be able to go outside of the train but the train can't go back without the user inside").
@@ -42,6 +41,9 @@ Nothing open: the clock, the sun, the lights and the weather schedule are under 
 ## Done
 
 ### 2026-10-03
+- [x] A camera that films the trip by itself, for long trips ("movie-like movements that can switch from the outside to the inside and make elegant movements", 2026-10-03; first asked 2026-10-02 for streaming, then "I don't need you to stream it's just the camera movement for long term travels"). 🎬 in the playground's views and on the remote: a director cuts every 9 to 16 s between shots riding with the train, from the ground and inside, gliding into each other or cutting through black, and films the platform and the doors at each stop. A drag, a pinch, the wheel, a key or Esc hands the camera over where it is; 🎬 again cuts to the next shot: d283102
+- [x] The wallpaper for the whole line ("we could have a wallpaper for the whole line in a very nice way", 2026-10-02): the endless Next stop (607ef93) with 🎬 on, the camera turns, goes inside the train, comes back out and follows it: d283102
+- [x] Known bug fixed: in the kid game ← → ran the explainer guide's steps, and a step could move the train (km 60 to 257.9, which ended the whole line) (found 2026-10-03). They do nothing there now; the explainer keeps them: d283102
 - [x] Known bugs fixed: in a city the outside camera could stand inside a building, lose the train behind buildings in the middle distance, or stand inside a tree crown (found 2026-10-03). A building or house on the line of sight now lifts the camera over its roof, rising a second before it gets there; a tree in the way is hidden. The train out of sight in 51 of 1612 kid views around the 13 stations, was 204; all 51 are under the Massy and Montparnasse slabs, still open below: 87d7495
 - [x] Known bug fixed: the HUD's track count was off where tracks fade in or out (Agen showed 5 for 3 laid). Logged as the island's far face counted once too many; that face is laid, so it stays counted. It now counts the tracks laid, as the chunks lay them, checked at all 13 stations: 5c7a14d
 - [x] Known bug fixed: the Angoulême tunnel ended about 100 m early. Its mouth is now 665 m before the station, the data's is 656 m; it was cut at 755 m by the station's zone: 27d2a63
