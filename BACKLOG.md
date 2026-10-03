@@ -35,7 +35,8 @@ Nothing open: the film, outside only, is under Done.
 - Railway reads none of railway.json's deploy settings for this service: the /version.txt healthcheck of 964d84b never ran, so a deploy switches without waiting for it. Config as code (railway.json) is deprecated and stops being read on 2026-12-01; Railway now wants .railway/railway.ts, applied with its CLI.
 - The Garonne is dry land: water is drawn only under bridges of 550 m or more.
 - Under Massy's slab (510 to 68 m before the station) and Montparnasse's garden (the last 366 m), the far, overview and train angles show the slab, not the train; only the side angle sees it (found 2026-10-03). In a tunnel the camera goes into the tube; under a slab it stays above.
-- The outside camera cuts in one frame into the tunnel's shape 40 m before a mouth, and out of it 40 m after, so at speed it jumps 12 to 24 degrees (found 2026-10-03 leaving the tunnel 1252 m before Poitiers, side angle).
+- Leaving the tunnel into Massy's trench (814753), the outside camera still turns 8 to 12 degrees in one frame at 80 m/s: the trench's wall stands in the way of its ease out of the tube (found 2026-10-03).
+- On the iPad remote, a tap on the weather or time of day button, or on no GUI or sound in the menu, is lost when it comes before the TV's first state after pairing, or within the round trip after another tap: the iPad picks the next value from the last state it heard (found 2026-10-03 by the weather test, 2 runs of 4).
 - On the playground at 1366 × 1024 (an iPad), looking down at the driver's desk, the speed lever's panel covers the left edge of the cab's line screen: the next station's first letter and its distance (found 2026-10-03).
 - After the TV's page reloads, its sound waits for one click on the TV: browsers play no sound before a gesture on the page. The iPad shows a hint when that happens.
 - By day, seen 52 degrees off the side, a coach's windows past 120 m are a lighter grey than the real glass nearer (55 against 40 at 125 m), so they darken a step when the coach comes within 120 m (found 2026-10-03).
@@ -43,6 +44,7 @@ Nothing open: the film, outside only, is under Done.
 ## Done
 
 ### 2026-10-03
+- [x] Known bug fixed: the outside camera cut in one frame into the tunnel's shape 40 m before a mouth, and out of it 40 m after, so at speed it jumped (found 2026-10-03). It now eases in over the 2 s before a mouth and out over the 2 s after: at 80 m/s 49 of 50 mouths turn the view 2.6 degrees a frame at most, against 39 to 77 at each angle's worst mouth before. Massy's trench is left, above: 1571240
 - [x] The cab's line screen showed the wall clock, not the time of day picked for the world (found 2026-10-03). It now shows the world's time, as the sky and the remote do: 23:00 picked shows 23:00 with the device at 14:15: d2d0e4d
 - [x] The glass turns into very bright panels seen from a distance, too strong and from too close: take that out ("the glass transform into very bright panel at distance its too much and too close if you can remove it it's better", 2026-10-03). The real glass and saloon now show up to 120 m from the camera, not 60; further out a window glows as the saloon looks through the glass there, from the sky by day and the lamps at night, dimmer as it turns edgeways. Side on at 125 m at night, 70 near and 70 far, where the far panel was 203: ea32660
 - [x] The windows are too dark: half as tinted in the dark ("the glass is too dark make it twice less tinted in dark", 2026-10-03). The clear glass goes from opacity 0.45 by day to 0.225 at night: ea32660
