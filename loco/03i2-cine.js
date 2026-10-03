@@ -31,6 +31,7 @@ function cnLowOk(sh){   // the low shot: in the open, on no bridge for the next 
 function cnPassMake(sh){   // a spot beside the line ahead that the train reaches in about 4.5 s, on ground near the rails' height, in the open all the way there
   const e = cnEnds(), d = S.dir, h = S.dist + e.head, sc = h + d * THREE.MathUtils.clamp(S.speed * 4.5, 50, 400);
   if (sc < 200 || sc > ROUTE.L - 200 || cnStation(sc - 20, sc + 20) || cnKd(h, sc + d * 60, k => k === 2) || cnRoof(h, sc + d * 60) || cnWall(h, sc + d * 60)) return false;   // walls: the spot is out behind them
+  if (cnKd(sc - 60, sc + 60, k => k === 1 || k === 4)) return false;   // nor beside a bridge: on ground near its deck, the camera would look up at its edge and parapets
   if (S.autoStop && (S.stopS + e.head - sc) * d < 30) return false;   // the autopilot stops it short of the spot
   for (const k of [sh.sd, -sh.sd]){
     if (!camPlace(routeLocal(sc, 0, k * (14 + 6 * Math.random()), _cnV)) || Math.abs(CP.yG - cnRail()) > 6) continue;
