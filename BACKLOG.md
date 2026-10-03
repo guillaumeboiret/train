@@ -10,7 +10,7 @@ Nothing leaves this file: a request is added the moment it is made, and a done i
 - [ ] The remote's delay: 157 to 159 ms from the iPad to the TV on the live site (measured 2026-10-03), because the app runs in us-west2 (California) behind Railway's Paris edge (cdg1, about 200 ms to the first byte). Moving its one replica to EU West (Amsterdam) should bring it near 20 ms. Yes given with "code all the features in your todo" (2026-10-03). Tried in cb85925 with multiRegionConfig in railway.json: Railway ignores that file's deploy settings for this service, so it stayed in California (reverted). The move is a service setting, `railway service scale eu-west=1 us-west=0`, which the permission check stopped as a production change: waiting for you to run it or allow it.
 
 ### 1. World (asked 2026-10-02)
-- [ ] In fine weather, a few small clouds now and then, for some texture in the sky ("Quand il fait beau, rajoute parfois quand même quelques petits nuages, sorte de donner un peu de texture", 2026-10-03).
+Nothing open: the clouds are under Done.
 
 ### 2. The passenger's iPhone (asked 2026-10-02)
 - [ ] Take out an iPhone and look at it ("I want to be able to look at my iPhone").
@@ -40,6 +40,7 @@ Nothing open: the film, outside only, is under Done.
 ## Done
 
 ### 2026-10-03
+- [x] In fine weather, a few small clouds now and then, for some texture in the sky ("Quand il fait beau, rajoute parfois quand même quelques petits nuages, sorte de donner un peu de texture", 2026-10-03): small puffs 1.5 km up in patches with clear sky between, drifting east, orange at sunset, faint at night, gone in cloud and rain weather: f7088f2
 - [x] Known bug fixed: the Garonne was dry land, water being drawn only under bridges of 550 m or more. The rivers the line crosses are now listed: the Garonne at Bordeaux and at Langon, the Tarn and the Charente run under their bridges, and the viaduct at Lormont, over no river, is dry: b590bfd
 - [x] Known bug fixed: in the 🎬 film the shots at the train's side could stand behind a town's wall beside the line, which then filled half the view (found 2026-10-03, 2.2 km before Poitiers). They now skip those stretches: f240ff5
 - [x] The game loads without a first look that then changes ("when loading, there is a page that is loaded then the design changes. Can you load the game properly?", 2026-10-03): the playground now opens on its own loading screen, then the game as it stays, never the explainer's panels, and its camera no longer glides in: 5e73fd5
