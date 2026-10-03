@@ -8,7 +8,7 @@ Nothing leaves this file: a request is added the moment it is made, and a done i
 ### 0. Now (asked 2026-10-03)
 - [ ] Code every open item of this file, each one challenged first since some are old ("code all the features in your todo, challenge them before coding some are a bit old", 2026-10-03). Covers the move to EU West below, which was waiting for a yes.
 - [ ] Heat as a transparent shimmer instead of the orange smoke: the hot air bends and blurs what is behind it, in waves ("Can you change the orange smoke to something that makes the feeling of heat but it's transparent? It just makes waves"). Changes the warm haze of 73a8dd0.
-- [ ] The remote's delay: 163 ms from the iPad to the TV on the live site, because the app runs far from Railway's Paris edge (cdg1, 200 ms to the first byte). Moving the service to EU West (europe-west4-drams3a, with multiRegionConfig in railway.json) should bring it near 20 ms. Waiting for a yes (2026-10-03).
+- [ ] The remote's delay: 157 to 159 ms from the iPad to the TV on the live site (measured 2026-10-03), because the app runs in us-west2 (California) behind Railway's Paris edge (cdg1, about 200 ms to the first byte). Moving its one replica to EU West (Amsterdam) should bring it near 20 ms. Yes given with "code all the features in your todo" (2026-10-03). Tried in cb85925 with multiRegionConfig in railway.json: Railway ignores that file's deploy settings for this service, so it stayed in California (reverted). The move is a service setting, `railway service scale eu-west=1 us-west=0`, which the permission check stopped as a production change: waiting for you to run it or allow it.
 
 ### 1. World (asked 2026-10-02)
 - [ ] A real clock to set the time of day.
@@ -37,6 +37,7 @@ Nothing leaves this file: a request is added the moment it is made, and a done i
 - [ ] A train for the other direction standing across the platform at a station (2026-09-26). Today oncoming TGVs run through the stations and stop only at the termini.
 
 ## Known bugs, found while testing
+- Railway reads none of railway.json's deploy settings for this service: the /version.txt healthcheck of 964d84b never ran, so a deploy switches without waiting for it. Config as code (railway.json) is deprecated and stops being read on 2026-12-01; Railway now wants .railway/railway.ts, applied with its CLI.
 - The Garonne is dry land: water is drawn only under bridges of 550 m or more.
 - The Angoulême tunnel ends about 100 m early.
 - The HUD's track count includes the far face of island platforms, one too many.
