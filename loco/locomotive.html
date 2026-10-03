@@ -150,6 +150,9 @@ body:not([data-mode="tgv"]) .tgv-only{display:none}
 #routeBar{position:relative;height:32px;margin-top:6px;cursor:pointer;touch-action:none}
 #rbTip{position:absolute;top:-22px;transform:translateX(-50%);background:var(--accent);color:var(--accent-ink);font:600 10px/1 var(--font-mono);padding:3px 6px;border-radius:3px;pointer-events:none;white-space:nowrap;display:none}
 .pk-row{align-items:center}
+.wx-plan{display:grid;grid-template-columns:repeat(8,1fr);gap:3px}.wx-plan[hidden]{display:none}   /* the day's weather plan, under Auto */
+.wx-plan button{display:flex;flex-direction:column;align-items:center;gap:3px;padding:5px 0 4px;border:1px solid var(--line);border-radius:6px;background:var(--panel-2);color:var(--muted);font:500 10.5px/1 var(--font-mono);cursor:pointer}
+.wx-plan button span{font-size:16px;line-height:1}.wx-plan button[aria-current="time"]{border-color:var(--accent);color:var(--ink)}
 .tod-row{align-items:center;flex-wrap:nowrap}#todIn{flex:1;min-width:0;accent-color:var(--accent)}#todOut{font-family:var(--font-mono);font-size:13px;min-width:42px}
 .hud .hud-clock{font-family:var(--font-mono);font-weight:600}
 #pkIn{width:110px;background:var(--panel-2);border:1px solid var(--line);border-radius:6px;padding:7px 9px;font-family:var(--font-mono);font-size:13px;color:var(--ink)}

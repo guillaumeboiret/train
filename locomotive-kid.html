@@ -150,6 +150,9 @@ body:not([data-mode="tgv"]) .tgv-only{display:none}
 #routeBar{position:relative;height:32px;margin-top:6px;cursor:pointer;touch-action:none}
 #rbTip{position:absolute;top:-22px;transform:translateX(-50%);background:var(--accent);color:var(--accent-ink);font:600 10px/1 var(--font-mono);padding:3px 6px;border-radius:3px;pointer-events:none;white-space:nowrap;display:none}
 .pk-row{align-items:center}
+.wx-plan{display:grid;grid-template-columns:repeat(8,1fr);gap:3px}.wx-plan[hidden]{display:none}   /* the day's weather plan, under Auto */
+.wx-plan button{display:flex;flex-direction:column;align-items:center;gap:3px;padding:5px 0 4px;border:1px solid var(--line);border-radius:6px;background:var(--panel-2);color:var(--muted);font:500 10.5px/1 var(--font-mono);cursor:pointer}
+.wx-plan button span{font-size:16px;line-height:1}.wx-plan button[aria-current="time"]{border-color:var(--accent);color:var(--ink)}
 .tod-row{align-items:center;flex-wrap:nowrap}#todIn{flex:1;min-width:0;accent-color:var(--accent)}#todOut{font-family:var(--font-mono);font-size:13px;min-width:42px}
 .hud .hud-clock{font-family:var(--font-mono);font-weight:600}
 #pkIn{width:110px;background:var(--panel-2);border:1px solid var(--line);border-radius:6px;padding:7px 9px;font-family:var(--font-mono);font-size:13px;color:var(--ink)}
@@ -444,7 +447,9 @@ body.nogui.ng-calm #c3d{cursor:none}
               <button type="button" data-wx="sun" aria-pressed="true" data-i18n="wx_sun">Soleil</button>
               <button type="button" data-wx="cloud" aria-pressed="false" data-i18n="wx_cloud">Nuages</button>
               <button type="button" data-wx="rain" aria-pressed="false" data-i18n="wx_rain">Pluie</button>
+              <button type="button" data-wx="auto" aria-pressed="false" data-i18n="wx_auto" data-i18n-title="wx_auto_t">Auto</button>
             </div>
+            <div class="wx-plan" id="wxPlan" role="group" data-i18n-aria="wx_plan" data-i18n-title="wx_plan" hidden></div>
           </div>
           <div class="field">
             <button type="button" class="btn horn" id="btnHorn" data-i18n="horn">Klaxon (H)</button>
@@ -600,7 +605,7 @@ const T = {
     walk_bar:"Bar", bar_title:"Le bar", bar_order:"Commander", bar_close:"Fermer le menu", bar_wallet:"Porte-monnaie", bar_tray:"Mon plateau", bar_tray_hint:"Choisis-en un pour le déguster.", bar_empty:"Rien pour l'instant.", bar_pocket:"Argent de poche +10€", bar_pocket_say:"Et 10€ de plus !", bar_broke:"Pas assez de sous", bar_thanks:"Voilà ! Merci.", bar_yum:"Miam !", bar_gulp:"Glou glou !", bar_free:"Gratuit", bar_full:"Plateau plein, goûte d'abord !", bar_speed:"Vitesse du train",
     bar_i_espresso:"Café", bar_i_choco:"Chocolat chaud", bar_i_tea:"Thé", bar_i_soda:"Soda", bar_i_juice:"Jus de pomme", bar_i_water:"Verre d'eau", bar_i_club:"Club sandwich", bar_i_croque:"Croque-monsieur", bar_i_burger:"Burger", bar_i_cookie:"Cookie", bar_i_muffin:"Muffin", bar_i_painchoc:"Pain au chocolat", bar_i_chocolatine:"Chocolatine", bar_i_madeleine:"Madeleines", bar_i_chips:"Chips", bar_i_sweets:"Bonbons",
     ctl_track:"Voie", track_hint:"Changement par une communication 400 m devant la rame.", track_busy:"Communication déjà engagée, attendez.", track_occupied:"Voie occupée par un train en face.", track_2:"Voie 2 (sens Paris)", track_1:"Voie 1 (sens Toulouse)",
-    ctl_time:"Vitesse du temps", horn:"Klaxon (H)", hud_pk:"PK", hud_alt:"Alt.", hud_grade:"Pente", hud_tracks:"Voies", hud_limit:"Limite", hud_next:"Prochaine gare", hud_end:"Terminus", hud_tp:"Aller au PK", hud_go:"Go", rb_title:"Cliquez ou glissez sur la ligne pour vous téléporter", ctl_weather:"Météo", wx_sun:"Soleil", wx_cloud:"Nuages", wx_rain:"Pluie", ctl_tod:"Heure", tod_now:"Maintenant", hud_bridge:"Pont", hud_tunnel:"Tunnel", hud_cutting:"Tranchée", hud_viaduct:"Viaduc",
+    ctl_time:"Vitesse du temps", horn:"Klaxon (H)", hud_pk:"PK", hud_alt:"Alt.", hud_grade:"Pente", hud_tracks:"Voies", hud_limit:"Limite", hud_next:"Prochaine gare", hud_end:"Terminus", hud_tp:"Aller au PK", hud_go:"Go", rb_title:"Cliquez ou glissez sur la ligne pour vous téléporter", ctl_weather:"Météo", wx_sun:"Soleil", wx_cloud:"Nuages", wx_rain:"Pluie", wx_auto:"Auto", wx_auto_t:"Suivre le programme de la journée", wx_plan:"Le temps de la journée, 3 heures par case : touchez une case pour le changer", ctl_tod:"Heure", tod_now:"Maintenant", hud_bridge:"Pont", hud_tunnel:"Tunnel", hud_cutting:"Tranchée", hud_viaduct:"Viaduc",
     cam_hint:"Clavier: W A S D déplacent le point de visée le long de la rame, R/F (ou E/Q) montent et descendent, Maj accélère. H ou Espace: klaxon. Aux places et au poste de conduite, glisser ou W A S D tournent la tête. Au poste, ↑ et ↓ manœuvrent le manipulateur.",
     route_src:"Ligne Toulouse Matabiau à Paris Montparnasse par Bordeaux Saint-Jean, 829,5 km. Tracé, gares, nombre de voies, éoliennes et monuments: © OpenStreetMap contributors (ODbL); formes des monuments simplifiées d'après Wikipédia. Relief: Mapzen/AWS Terrain Tiles (SRTM). Profil de la voie lissé et limité à 2,5 %. Champs, maisons et arbres générés; trains en face à intervalles aléatoires. Sons du TGV enregistrés par bruno.auzet et noisymichael (Freesound) et Joseph Sardin (BigSoundBank), CC0; le reste est synthétisé.",
     aria_traction:"Type de traction", aria_lang:"Langue", aria_canvas:"Locomotive 3D", aria_compass:"Boussole", cmp_w:"O", aria_line:"Ligne", aria_fold:"Replier", aria_hide:"Masquer", tip_hide:"Masquer / afficher",
@@ -638,7 +643,7 @@ const T = {
     walk_bar:"Bar", bar_title:"The bar", bar_order:"Order", bar_close:"Close the menu", bar_wallet:"Wallet", bar_tray:"My tray", bar_tray_hint:"Pick one to enjoy it.", bar_empty:"Nothing yet.", bar_pocket:"Pocket money +10€", bar_pocket_say:"Here's 10€ more!", bar_broke:"Not enough money", bar_thanks:"Here you go! Thanks.", bar_yum:"Yum!", bar_gulp:"Gulp!", bar_free:"Free", bar_full:"Tray full, enjoy something first!", bar_speed:"Train speed",
     bar_i_espresso:"Espresso", bar_i_choco:"Hot chocolate", bar_i_tea:"Tea", bar_i_soda:"Soda", bar_i_juice:"Apple juice", bar_i_water:"Glass of water", bar_i_club:"Club sandwich", bar_i_croque:"Croque-monsieur", bar_i_burger:"Burger", bar_i_cookie:"Cookie", bar_i_muffin:"Muffin", bar_i_painchoc:"Pain au chocolat", bar_i_chocolatine:"Chocolatine", bar_i_madeleine:"Madeleines", bar_i_chips:"Crisps", bar_i_sweets:"Sweets",
     ctl_track:"Track", track_hint:"Changes over a crossover 400 m ahead of the train.", track_busy:"Crossover already in use, wait.", track_occupied:"Track occupied by an oncoming train.", track_2:"Track 2 (to Paris)", track_1:"Track 1 (to Toulouse)",
-    ctl_time:"Time scale", horn:"Horn (H)", hud_pk:"km", hud_alt:"Alt.", hud_grade:"Grade", hud_tracks:"Tracks", hud_limit:"Limit", hud_next:"Next station", hud_end:"Terminus", hud_tp:"Go to km", hud_go:"Go", rb_title:"Click or drag on the line to teleport", ctl_weather:"Weather", wx_sun:"Sun", wx_cloud:"Clouds", wx_rain:"Rain", ctl_tod:"Time of day", tod_now:"Now", hud_bridge:"Bridge", hud_tunnel:"Tunnel", hud_cutting:"Cutting", hud_viaduct:"Viaduct",
+    ctl_time:"Time scale", horn:"Horn (H)", hud_pk:"km", hud_alt:"Alt.", hud_grade:"Grade", hud_tracks:"Tracks", hud_limit:"Limit", hud_next:"Next station", hud_end:"Terminus", hud_tp:"Go to km", hud_go:"Go", rb_title:"Click or drag on the line to teleport", ctl_weather:"Weather", wx_sun:"Sun", wx_cloud:"Clouds", wx_rain:"Rain", wx_auto:"Auto", wx_auto_t:"Follow the day's plan", wx_plan:"The day's weather, 3 hours a box: tap a box to change it", ctl_tod:"Time of day", tod_now:"Now", hud_bridge:"Bridge", hud_tunnel:"Tunnel", hud_cutting:"Cutting", hud_viaduct:"Viaduct",
     cam_hint:"Keys: W A S D move the focus along the train, R/F (or E/Q) up and down, Shift is faster. H or Space: horn. In a seat or the driver's seat, drag or W A S D turn your head. In the driver's seat, ↑ and ↓ work the lever.",
     route_src:"Toulouse Matabiau to Paris Montparnasse via Bordeaux Saint-Jean, 829.5 km. Alignment, stations, track count, wind turbines and landmarks: © OpenStreetMap contributors (ODbL); landmark shapes simplified from Wikipedia. Relief: Mapzen/AWS Terrain Tiles (SRTM). Track profile smoothed and capped at 2.5%. Fields, houses and trees are generated; oncoming trains run at random intervals. TGV sounds recorded by bruno.auzet and noisymichael (Freesound) and Joseph Sardin (BigSoundBank), CC0; the rest is synthesised.",
     aria_traction:"Traction type", aria_lang:"Language", aria_canvas:"3D locomotive", aria_compass:"Compass", cmp_w:"W", aria_line:"Line", aria_fold:"Collapse", aria_hide:"Hide", tip_hide:"Hide / show",
@@ -1076,6 +1081,7 @@ let rainT = 0;
 const _fillD = new THREE.Vector3();
 function updateWeather(dt){
   CLOCK.min = CLOCK.live ? liveMin() : (CLOCK.min + dt * S.timeScale / 60) % 1440;
+  if (WX_PLAN.auto) weatherId = planWx();
   const [lat, lon] = trainLatLon();
   sunAt(SUN_R, CLOCK.min, lat, lon); sunH = Math.asin(SUN_R.y) * 180 / Math.PI; DARK.night = Math.max(0, Math.min(1, (1 - sunH) / 7));
   // the weather: each one's share moves towards the one asked for
@@ -1125,11 +1131,28 @@ function updateWeather(dt){
 }
 const _tint = new THREE.Color();
 function applyWeather(){ updateWeather(0); }
-function setWeather(id){
-  if (!WEATHER[id]) return;
-  weatherId = id;
-  document.querySelectorAll('#wxSeg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.wx === id)));
+/* ---- the weather's plan for the day ("I want to be able to schedule that or to change that if I want to"): a weather for every 3 hours of the
+   clock, followed while the weather is on Auto (updateWeather). A weather picked by hand leaves Auto, a change to the plan goes back to it.
+   Kept in this browser, so the site's pages share it; the buttons show it (wxShow, 03h-ui.js) */
+const WX_ICO = { sun:'☀️', cloud:'☁️', rain:'🌧️', auto:'🗓️' };   // also the turn the kid's and the iPad's weather button takes
+const WX_PLAN = { auto:false, slots:['sun', 'sun', 'cloud', 'sun', 'sun', 'cloud', 'rain', 'sun'] };   // from midnight
+const planSlot = () => Math.floor(CLOCK.min / 180) % 8, planWx = () => WX_PLAN.slots[planSlot()];
+const wxPick = () => WX_PLAN.auto ? 'auto' : weatherId;
+function setWeather(id){   // sun, cloud, rain, or auto
+  if (!Object.hasOwn(WX_ICO, id)) return;   // also what the iPad sends: its own keys only
+  WX_PLAN.auto = id === 'auto'; weatherId = WX_PLAN.auto ? planWx() : id;
+  try { localStorage.setItem('wx.plan', JSON.stringify(WX_PLAN)); } catch (e) {}
+  wxShow();
 }
+function wxPlanCycle(i){   // that slot's next weather, the plan followed from now on
+  if (!(Number.isInteger(i) && i >= 0 && i < 8)) return;
+  const k = Object.keys(WEATHER); WX_PLAN.slots[i] = k[(k.indexOf(WX_PLAN.slots[i]) + 1) % k.length]; setWeather('auto');
+}
+try {
+  const p = JSON.parse(localStorage.getItem('wx.plan'));
+  if (Array.isArray(p?.slots) && p.slots.length === 8 && p.slots.every(k => Object.hasOwn(WEATHER, k))){ WX_PLAN.slots = p.slots; WX_PLAN.auto = p.auto === true; }
+} catch (e) {}
+if (WX_PLAN.auto){ CLOCK.min = liveMin(); weatherId = planWx(); for (const k in wxW) wxW[k] = +(k === weatherId); }   // the page opens in it, no blend
 function applyTheme(){ applyWeather(); }   // the UI theme no longer drives the sky; kept for the theme observers below
 const darkMq = window.matchMedia('(prefers-color-scheme: dark)');
 darkMq.addEventListener('change', applyTheme);
@@ -7259,6 +7282,19 @@ const RB = (() => {
   const lerp = (a, b, v) => { let i = 0; while (i < a.length - 2 && v > a[i + 1]) i++; const d = a[i + 1] - a[i]; return b[i] + (d > 0 ? (v - a[i]) / d : 0) * (b[i + 1] - b[i]); };
   return { f:v => lerp(s, f, v), s:v => lerp(f, s, v) };   // PK in metres to 0..1 along the bar, and back
 })();
+/* the weather's controls: Sun, Clouds, Rain or Auto, and under Auto the day's plan (03b-scene.js), the slot of the hour ringed */
+let wxHook = null, wxSlotT = -1;   // the kid build shows the pick on its own button too; the slot last ringed
+const wxPlanHtml = () => WX_PLAN.slots.map((w, i) => `<button type="button" data-slot="${i}"><small>${i * 3}h</small><span>${WX_ICO[w]}</span></button>`).join('');
+function wxShow(){
+  const pick = wxPick(); wxSlotT = planSlot();
+  document.querySelectorAll('#wxSeg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.wx === pick)));
+  document.querySelectorAll('.wx-plan').forEach(p => p.querySelectorAll('button').forEach((b, i) => {
+    b.lastChild.textContent = WX_ICO[WX_PLAN.slots[i]]; b.setAttribute('aria-current', i === wxSlotT ? 'time' : 'false');
+  }));
+  $('wxPlan').hidden = !WX_PLAN.auto;
+  if (wxHook) wxHook(pick);
+}
+$('wxPlan').innerHTML = wxPlanHtml();
 let hudClockT = '', todInT = -1e9;   // the clock last shown, and whether it was the real time; when the slider last moved by hand
 function updateHud(){
   const s = S.dist;
@@ -7274,6 +7310,7 @@ function updateHud(){
   const hm = hhmm(CLOCK.min), ti = $('todIn');
   if (hm + CLOCK.live !== hudClockT){ hudClockT = hm + CLOCK.live; $('hudClock').textContent = '🕒 ' + hm; $('todOut').textContent = hm; $('todNow').setAttribute('aria-pressed', String(CLOCK.live)); }
   if (performance.now() - todInT > 1000) ti.value = Math.round(CLOCK.min);   // not under a moving finger
+  if (planSlot() !== wxSlotT) wxShow();
 }
 function distText(d){ return d < 950 ? `${Math.round(d)} m` : `${(d / 1000).toFixed(d < 10000 ? 1 : 0)} km`; }
 function stationText(st){ return st ? `${st.name} · ${distText((st.s - TGV.PLAT_FRONT - S.dist) * S.dir)}` : t('hud_end'); }   // a stop and how far to its mark
@@ -7344,6 +7381,7 @@ const ST_SHORT = { bdx:'Bordeaux', par:'Paris', tls:'Toulouse', pts:'Poitiers', 
   pkIn.addEventListener('keyup', e => e.stopPropagation());
 }
 $('wxSeg').addEventListener('click', e => { const b = e.target.closest('button'); if (b) setWeather(b.dataset.wx); });
+$('wxPlan').addEventListener('click', e => { const b = e.target.closest('button'); if (b) wxPlanCycle(+b.dataset.slot); });
 $('todIn').addEventListener('input', e => { todInT = performance.now(); setClock(+e.target.value); updateHud(); });   // the time of day by hand; Now: the real time again
 $('todNow').addEventListener('click', () => { setClock(null); updateHud(); });
 $('trackSeg').addEventListener('click', e => {
@@ -7515,21 +7553,21 @@ resize();
 setShell(0.18); setCut('none'); setExplode(0);
 setMode('diesel');
 requestAnimationFrame(loop);
-window.locoDebug = { BAR, BAR_MENU, barOpen, barClose, barBuy, barEat, barNear, barIsOpen, walkSitStool, updateBar, CAB, driverSeat, cabActions, cabLever, S, simulate, animate, updateFlows, updateGauges, orbit, renderer, scene, camera, goStep, setMode, setCut, setExplode, setShell, select, parts, TGV, tgvSets, station, updateTgv, syncControls, tick:window.tick, ROUTE, horn, chunks, requestTrack, trk, opp, parked, cars, curveLocal, updateHud, jumpToStation, jumpTo, setWeather, CLOCK, setClock, setTod, todPick, todIcon, hhmm, solarNoon, sunTime, sunHAt, SUN_R, LIGHT_DIR, sky:() => ({ sunH, weatherId, wxW:{ ...wxW }, P:[...PAL] }), sun, hemi, fill, stars, DARK, beam, halos, winMats, SALOON, tunnelIn, updateLights, tunnelM, pcHosts, pcShells, flowObjs, landmarks, flyPreset, SND, PX, pool, paxResolve, paxHolding, allCoaches, world, keys, WK, walkMove, walkSitNear, walkPick, walkStand, walkZones, STICK, walkView, nextStation, goNextStation, serviceOn, serviceOff, driverLever, cabRowX, CAB_ROW_Y };
+window.locoDebug = { BAR, BAR_MENU, barOpen, barClose, barBuy, barEat, barNear, barIsOpen, walkSitStool, updateBar, CAB, driverSeat, cabActions, cabLever, S, simulate, animate, updateFlows, updateGauges, orbit, renderer, scene, camera, goStep, setMode, setCut, setExplode, setShell, select, parts, TGV, tgvSets, station, updateTgv, syncControls, tick:window.tick, ROUTE, horn, chunks, requestTrack, trk, opp, parked, cars, curveLocal, updateHud, jumpToStation, jumpTo, setWeather, WX_PLAN, wxPick, wxPlanCycle, wxShow, CLOCK, setClock, setTod, todPick, todIcon, hhmm, solarNoon, sunTime, sunHAt, SUN_R, LIGHT_DIR, sky:() => ({ sunH, weatherId, wxW:{ ...wxW }, P:[...PAL] }), sun, hemi, fill, stars, DARK, beam, halos, winMats, SALOON, tunnelIn, updateLights, tunnelM, pcHosts, pcShells, flowObjs, landmarks, flyPreset, SND, PX, pool, paxResolve, paxHolding, allCoaches, world, keys, WK, walkMove, walkSitNear, walkPick, walkStand, walkZones, STICK, walkView, nextStation, goNextStation, serviceOn, serviceOff, driverLever, cabRowX, CAB_ROW_Y };
 
 /* ============================================================ KID MODE (separate build: same module scope, appended after the UI) */
 /* One screen, no panels: pick a train, push the lever, honk, stop at stations, change the weather; in the top right corner, always, the
    three places to be: the driver's seat, the passenger's (on foot through the TGV) and outside, whose angles open beside it. */
 const KID_T = {
   fr:{ title:"Jouer au train", diesel:"Diesel", electric:"Électrique", tgv:"TGV", stop:"Stop", horn:"Klaxon", lever:"Manette", station:"Prochaine gare", service:"Toute la ligne",
-       back:"Retour à Bordeaux", auto:"Pilote auto…", doors:"Portes", wx:"Météo", tod:"Heure", xray:"Rayons X", hint:"Pousse la manette pour partir !", lever_drag:"Glisse la manette vers le haut pour avancer, vers le bas pour freiner !",
+       back:"Retour à Bordeaux", auto:"Pilote auto…", doors:"Portes", wx:"Météo", wx_plan:"Météo programmée", tod:"Heure", xray:"Rayons X", hint:"Pousse la manette pour partir !", lever_drag:"Glisse la manette vers le haut pour avancer, vers le bas pour freiner !",
        hint_doors:"Ferme les portes… et c'est parti !", hint_pax:"Attends, tout le monde descend !", hint_end:"Terminus ! Appuie sur 🔄 pour faire demi-tour.", hint_stopped:"Le train doit être arrêté.", service_on:"🔁 Toute la ligne, en boucle", service_off:"Boucle arrêtée", service_last:"Boucle arrêtée : la prochaine gare est la dernière",
        terminus:"Terminus", next:"Prochaine gare", full:"Version complète ↗", game:"Jeu des aiguillages ↗", lang:"Langue",
        panto:"Pantographe", dir_par:"Vers Paris", dir_tls:"Vers Toulouse", turn:"Demi-tour", hint_panto:"Lève le pantographe !", hint_wait:"Le pantographe monte…", sound:"Son",
        v_driver:"Conducteur", v_pax:"Passager", v_out:"Dehors", pax_tgv:"Le passager voyage en TGV : choisis le TGV 🚄",
        o_overview:"Ensemble", o_side:"Profil", o_train:"Tout le train", o_far:"Paysage", o_door:"Portes" },
   en:{ title:"Train playground", diesel:"Diesel", electric:"Electric", tgv:"TGV", stop:"Stop", horn:"Horn", lever:"Lever", station:"Next station", service:"Whole line",
-       back:"Back to Bordeaux", auto:"Autopilot…", doors:"Doors", wx:"Weather", tod:"Time of day", xray:"X-ray", hint:"Push the lever to go!", lever_drag:"Slide the lever up to go, down to brake!",
+       back:"Back to Bordeaux", auto:"Autopilot…", doors:"Doors", wx:"Weather", wx_plan:"Weather schedule", tod:"Time of day", xray:"X-ray", hint:"Push the lever to go!", lever_drag:"Slide the lever up to go, down to brake!",
        hint_doors:"Closing the doors… off we go!", hint_pax:"Wait, everyone is getting off!", hint_end:"End of the line! Press 🔄 to turn around.", hint_stopped:"The train must be stopped first.", service_on:"🔁 The whole line, again and again", service_off:"Loop stopped", service_last:"Loop stopped: the next station is the last",
        terminus:"Terminus", next:"Next station", full:"Full version ↗", game:"Switch game ↗", lang:"Language",
        panto:"Pantograph", dir_par:"To Paris", dir_tls:"To Toulouse", turn:"Turn around", hint_panto:"Raise the pantograph!", hint_wait:"Pantograph rising…", sound:"Sound",
@@ -7537,7 +7575,6 @@ const KID_T = {
        o_overview:"Overview", o_side:"Side", o_train:"Whole train", o_far:"Landscape", o_door:"Doors" },
 };
 const kt = k => KID_T[S.lang][k] ?? k;
-const KID_WX = [['sun', '☀️'], ['cloud', '☁️'], ['rain', '🌧️']];
 Object.assign(CAMS, {
   door: () => {   // on the platform just ahead of coach 1's door, over the heads of the queue: the leaf slides toward the camera
     const x = TGV.TRAILERS[0][0] + TR.doorX, V = THREE.Vector3, k = nearestStation().side;
@@ -7619,6 +7656,9 @@ body.kid #clVal{left:calc(100% + 22px);font:700 16px/1 var(--font-display);lette
 .kid-menu .seg button{flex:1;border:0;background:#fff;padding:8px;font-weight:700;color:#1b2430}
 .kid-menu .seg button[aria-pressed="true"]{background:#1b2430;color:#fff}
 .kid-menu a{display:block;padding:9px 12px;border-radius:10px;background:#f1f4f7;color:#1b2430;text-decoration:none;font-weight:600}
+.kid-menu .wx-plan{display:grid;grid-template-columns:repeat(4,1fr);gap:4px}   /* the day's weather plan, 3 hours a box */
+.kid-menu .wx-plan button{padding:6px 0 5px;border:2px solid #d5dce3;border-radius:10px;background:#fff;color:#1b2430;font:700 12px/1 var(--font-body)}
+.kid-menu .wx-plan button span{font-size:22px}.kid-menu .wx-plan button[aria-current="time"]{border-color:#1b2430}
 .kid-menu .lab{font:700 11px/1 var(--font-display);letter-spacing:.08em;text-transform:uppercase;color:#5d6b78}
 .kid-toast{position:absolute;left:50%;top:38%;transform:translate(-50%,-50%);background:#f28c28;color:#1b1206;font:700 22px/1.2 var(--font-display);padding:14px 22px;border-radius:18px;box-shadow:0 8px 24px rgba(0,0,0,.3);max-width:min(90%,520px);text-align:center;opacity:0;transition:opacity .3s;pointer-events:none}
 .kid-toast.show{opacity:1}
@@ -7713,6 +7753,8 @@ $('c3d').parentElement.insertAdjacentHTML('beforeend', `<div id="kid">
     <div class="seg" id="kidLang"><button type="button" data-lang="fr" aria-pressed="true">Français</button><button type="button" data-lang="en" aria-pressed="false">English</button></div>
     <span class="lab" data-kid="sound"></span>
     <div class="seg" id="kidSound"><button type="button" data-m="0" aria-pressed="true">🔊</button><button type="button" data-m="1" aria-pressed="false">🔇</button></div>
+    <span class="lab" data-kid="wx_plan"></span>
+    <div class="wx-plan" id="kidPlan" role="group"></div>
     <a href="https://claude.ai/artifact/EMVu67YYfT7DzW8UozZAj6" target="_blank" rel="noopener" data-kid="full"></a>
     <a href="https://claude.ai/artifact/YTRJvuYiFZpzyjxXD6vqQR" target="_blank" rel="noopener" data-kid="game"></a>
   </div>
@@ -7807,7 +7849,7 @@ function kidDoors(stay){   // stay: pressed from the cab desk, the view stays in
   S.doors = !S.doors; syncControls();
   if (S.doors && !stay) kidGo('door');   // opening: land beside the first door to watch it
 }
-let kidOut = 'overview', wxIdx = 0;   // kidOut: the angle outside, kept for the way back out
+let kidOut = 'overview';   // the angle outside, kept for the way back out
 const kidWhere = () => orbit.fp?.name === 'driver' ? 'driver' : orbit.fp?.name === 'walk' ? 'pax' : 'out';
 function kidAngles(open){ $('kidAngles').hidden = !open; document.querySelector('#kidViews [data-view="out"]').setAttribute('aria-expanded', String(open)); }
 function kidGo(cam){   // outside, from that angle (the door's on the TGV only)
@@ -7821,8 +7863,8 @@ function kidView(v){   // one tap from anywhere: the driver's seat, the passenge
   if (shellLevel < 1){ setShell(1); $('kidXray').setAttribute('aria-pressed', 'false'); }   // inside, the train whole: the X-ray button is out of sight there
   flyPreset(v === 'pax' ? 'walk' : 'driver');
 }
-function kidWxSet(i){ wxIdx = i; setWeather(KID_WX[i][0]); $('kidWxIco').textContent = KID_WX[i][1]; }
-function kidWx(){ kidWxSet((wxIdx + 1) % KID_WX.length); }
+function kidWx(){ const k = Object.keys(WX_ICO); setWeather(k[(k.indexOf(wxPick()) + 1) % k.length]); }   // sun, clouds, rain, the day's plan, sun again
+wxHook = pick => { $('kidWxIco').textContent = WX_ICO[pick]; };
 function kidTod(){ setTod(TOD[(TOD.indexOf(todPick()) + 1) % TOD.length]); updateWeather(0); kidTick(); }   // now, morning, noon, evening, night, now again
 function kidXray(){ setShell(shellLevel >= 1 ? 0.18 : 1); $('kidXray').setAttribute('aria-pressed', String(shellLevel < 1)); }
 function kidTrain(mode){
@@ -7871,6 +7913,8 @@ $('kidDoors').addEventListener('click', () => kidDoors());
 $('kidViews').addEventListener('click', e => { const b = e.target.closest('[data-view]'); if (b) kidView(b.dataset.view); });
 $('kidAngles').addEventListener('click', e => { const b = e.target.closest('[data-cam]'); if (b) kidGo(b.dataset.cam); });
 $('kidWx').addEventListener('click', kidWx);
+$('kidPlan').innerHTML = wxPlanHtml(); wxShow();
+$('kidPlan').addEventListener('click', e => { const b = e.target.closest('button'); if (b) wxPlanCycle(+b.dataset.slot); });
 $('kidTod').addEventListener('click', kidTod);
 $('kidXray').addEventListener('click', kidXray);
 {
@@ -8114,7 +8158,7 @@ function rmState(){
   const st = nextStation(0), d = st ? (st.s - TGV.PLAT_FRONT - S.dist) * S.dir : 0;
   return JSON.stringify({ t:'state', kmh:Math.round(S.speed * 3.6), notch:Math.round(S.notch), auto:S.autoStop, svc:S.service, mode:S.mode, dir:S.dir,
     panto:!!S.panto, doors:S.doorsF > 0.5, doorsOk:!(S.speed > 0.1 && S.doorsF < 0.02), horn:horn.active, view:kidWhere(), cam:kidOut,
-    wx:KID_WX[wxIdx][0], tod:todPick(), todIco:todIcon(), clock:hhmm(CLOCK.min), xray:shellLevel < 1, nogui:noGui, mute:SND.muted, snd:SND.ctx?.state === 'running',
+    wx:wxPick(), plan:WX_PLAN.slots, tod:todPick(), todIco:todIcon(), clock:hhmm(CLOCK.min), xray:shellLevel < 1, nogui:noGui, mute:SND.muted, snd:SND.ctx?.state === 'running',
     next:st ? st.name : null, dist:st ? distText(d) : '', f:+RB.f(S.dist).toFixed(3) });
 }
 function rmPush(){ if (!RM.n) return; const s = rmState(); if (s !== RM.sent){ RM.sent = s; rmSend(s); } }
@@ -8136,7 +8180,8 @@ function rmCmd(c, v){
     case 'service': kidService(); break;
     case 'turn': kidTurn(); break;
     case 'doors': kidDoors(); break;
-    case 'wx': { const i = KID_WX.findIndex(w => w[0] === v); if (i >= 0) kidWxSet(i); break; }
+    case 'wx': setWeather(v); break;
+    case 'plan': wxPlanCycle(v); break;
     case 'tod': if (TOD.includes(v)){ setTod(v); updateWeather(0); kidTick(); } break;
     case 'xray': kidXray(); break;
     case 'view': if (v === 'driver' || v === 'pax') kidView(v); else if (v === 'out' && kidWhere() !== 'out') kidGo(kidOut); break;
@@ -8181,5 +8226,5 @@ try { const p = JSON.parse(sessionStorage.getItem('remote.tv') || 'null'); if (p
 if (RM.code) $('rmQr').innerHTML = qrSvg(`${location.origin}/remote/#${RM.code}`);
 kidLang(); rmShow();
 if (RM.want) rmConnect();
-Object.assign(window.locoDebug, { RM, rmCmd, rmState, rmLine, qrSvg, kidWxSet, rmStart, rmStop });
+Object.assign(window.locoDebug, { RM, rmCmd, rmState, rmLine, qrSvg, rmStart, rmStop });
 </script>

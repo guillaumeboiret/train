@@ -838,6 +838,19 @@ const RB = (() => {
   const lerp = (a, b, v) => { let i = 0; while (i < a.length - 2 && v > a[i + 1]) i++; const d = a[i + 1] - a[i]; return b[i] + (d > 0 ? (v - a[i]) / d : 0) * (b[i + 1] - b[i]); };
   return { f:v => lerp(s, f, v), s:v => lerp(f, s, v) };   // PK in metres to 0..1 along the bar, and back
 })();
+/* the weather's controls: Sun, Clouds, Rain or Auto, and under Auto the day's plan (03b-scene.js), the slot of the hour ringed */
+let wxHook = null, wxSlotT = -1;   // the kid build shows the pick on its own button too; the slot last ringed
+const wxPlanHtml = () => WX_PLAN.slots.map((w, i) => `<button type="button" data-slot="${i}"><small>${i * 3}h</small><span>${WX_ICO[w]}</span></button>`).join('');
+function wxShow(){
+  const pick = wxPick(); wxSlotT = planSlot();
+  document.querySelectorAll('#wxSeg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.wx === pick)));
+  document.querySelectorAll('.wx-plan').forEach(p => p.querySelectorAll('button').forEach((b, i) => {
+    b.lastChild.textContent = WX_ICO[WX_PLAN.slots[i]]; b.setAttribute('aria-current', i === wxSlotT ? 'time' : 'false');
+  }));
+  $('wxPlan').hidden = !WX_PLAN.auto;
+  if (wxHook) wxHook(pick);
+}
+$('wxPlan').innerHTML = wxPlanHtml();
 let hudClockT = '', todInT = -1e9;   // the clock last shown, and whether it was the real time; when the slider last moved by hand
 function updateHud(){
   const s = S.dist;
@@ -853,6 +866,7 @@ function updateHud(){
   const hm = hhmm(CLOCK.min), ti = $('todIn');
   if (hm + CLOCK.live !== hudClockT){ hudClockT = hm + CLOCK.live; $('hudClock').textContent = '🕒 ' + hm; $('todOut').textContent = hm; $('todNow').setAttribute('aria-pressed', String(CLOCK.live)); }
   if (performance.now() - todInT > 1000) ti.value = Math.round(CLOCK.min);   // not under a moving finger
+  if (planSlot() !== wxSlotT) wxShow();
 }
 function distText(d){ return d < 950 ? `${Math.round(d)} m` : `${(d / 1000).toFixed(d < 10000 ? 1 : 0)} km`; }
 function stationText(st){ return st ? `${st.name} · ${distText((st.s - TGV.PLAT_FRONT - S.dist) * S.dir)}` : t('hud_end'); }   // a stop and how far to its mark
@@ -923,6 +937,7 @@ const ST_SHORT = { bdx:'Bordeaux', par:'Paris', tls:'Toulouse', pts:'Poitiers', 
   pkIn.addEventListener('keyup', e => e.stopPropagation());
 }
 $('wxSeg').addEventListener('click', e => { const b = e.target.closest('button'); if (b) setWeather(b.dataset.wx); });
+$('wxPlan').addEventListener('click', e => { const b = e.target.closest('button'); if (b) wxPlanCycle(+b.dataset.slot); });
 $('todIn').addEventListener('input', e => { todInT = performance.now(); setClock(+e.target.value); updateHud(); });   // the time of day by hand; Now: the real time again
 $('todNow').addEventListener('click', () => { setClock(null); updateHud(); });
 $('trackSeg').addEventListener('click', e => {
@@ -1094,4 +1109,4 @@ resize();
 setShell(0.18); setCut('none'); setExplode(0);
 setMode('diesel');
 requestAnimationFrame(loop);
-window.locoDebug = { BAR, BAR_MENU, barOpen, barClose, barBuy, barEat, barNear, barIsOpen, walkSitStool, updateBar, CAB, driverSeat, cabActions, cabLever, S, simulate, animate, updateFlows, updateGauges, orbit, renderer, scene, camera, goStep, setMode, setCut, setExplode, setShell, select, parts, TGV, tgvSets, station, updateTgv, syncControls, tick:window.tick, ROUTE, horn, chunks, requestTrack, trk, opp, parked, cars, curveLocal, updateHud, jumpToStation, jumpTo, setWeather, CLOCK, setClock, setTod, todPick, todIcon, hhmm, solarNoon, sunTime, sunHAt, SUN_R, LIGHT_DIR, sky:() => ({ sunH, weatherId, wxW:{ ...wxW }, P:[...PAL] }), sun, hemi, fill, stars, DARK, beam, halos, winMats, SALOON, tunnelIn, updateLights, tunnelM, pcHosts, pcShells, flowObjs, landmarks, flyPreset, SND, PX, pool, paxResolve, paxHolding, allCoaches, world, keys, WK, walkMove, walkSitNear, walkPick, walkStand, walkZones, STICK, walkView, nextStation, goNextStation, serviceOn, serviceOff, driverLever, cabRowX, CAB_ROW_Y };
+window.locoDebug = { BAR, BAR_MENU, barOpen, barClose, barBuy, barEat, barNear, barIsOpen, walkSitStool, updateBar, CAB, driverSeat, cabActions, cabLever, S, simulate, animate, updateFlows, updateGauges, orbit, renderer, scene, camera, goStep, setMode, setCut, setExplode, setShell, select, parts, TGV, tgvSets, station, updateTgv, syncControls, tick:window.tick, ROUTE, horn, chunks, requestTrack, trk, opp, parked, cars, curveLocal, updateHud, jumpToStation, jumpTo, setWeather, WX_PLAN, wxPick, wxPlanCycle, wxShow, CLOCK, setClock, setTod, todPick, todIcon, hhmm, solarNoon, sunTime, sunHAt, SUN_R, LIGHT_DIR, sky:() => ({ sunH, weatherId, wxW:{ ...wxW }, P:[...PAL] }), sun, hemi, fill, stars, DARK, beam, halos, winMats, SALOON, tunnelIn, updateLights, tunnelM, pcHosts, pcShells, flowObjs, landmarks, flyPreset, SND, PX, pool, paxResolve, paxHolding, allCoaches, world, keys, WK, walkMove, walkSitNear, walkPick, walkStand, walkZones, STICK, walkView, nextStation, goNextStation, serviceOn, serviceOff, driverLever, cabRowX, CAB_ROW_Y };

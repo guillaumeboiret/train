@@ -214,6 +214,7 @@ let rainT = 0;
 const _fillD = new THREE.Vector3();
 function updateWeather(dt){
   CLOCK.min = CLOCK.live ? liveMin() : (CLOCK.min + dt * S.timeScale / 60) % 1440;
+  if (WX_PLAN.auto) weatherId = planWx();
   const [lat, lon] = trainLatLon();
   sunAt(SUN_R, CLOCK.min, lat, lon); sunH = Math.asin(SUN_R.y) * 180 / Math.PI; DARK.night = Math.max(0, Math.min(1, (1 - sunH) / 7));
   // the weather: each one's share moves towards the one asked for
@@ -263,11 +264,28 @@ function updateWeather(dt){
 }
 const _tint = new THREE.Color();
 function applyWeather(){ updateWeather(0); }
-function setWeather(id){
-  if (!WEATHER[id]) return;
-  weatherId = id;
-  document.querySelectorAll('#wxSeg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.wx === id)));
+/* ---- the weather's plan for the day ("I want to be able to schedule that or to change that if I want to"): a weather for every 3 hours of the
+   clock, followed while the weather is on Auto (updateWeather). A weather picked by hand leaves Auto, a change to the plan goes back to it.
+   Kept in this browser, so the site's pages share it; the buttons show it (wxShow, 03h-ui.js) */
+const WX_ICO = { sun:'☀️', cloud:'☁️', rain:'🌧️', auto:'🗓️' };   // also the turn the kid's and the iPad's weather button takes
+const WX_PLAN = { auto:false, slots:['sun', 'sun', 'cloud', 'sun', 'sun', 'cloud', 'rain', 'sun'] };   // from midnight
+const planSlot = () => Math.floor(CLOCK.min / 180) % 8, planWx = () => WX_PLAN.slots[planSlot()];
+const wxPick = () => WX_PLAN.auto ? 'auto' : weatherId;
+function setWeather(id){   // sun, cloud, rain, or auto
+  if (!Object.hasOwn(WX_ICO, id)) return;   // also what the iPad sends: its own keys only
+  WX_PLAN.auto = id === 'auto'; weatherId = WX_PLAN.auto ? planWx() : id;
+  try { localStorage.setItem('wx.plan', JSON.stringify(WX_PLAN)); } catch (e) {}
+  wxShow();
 }
+function wxPlanCycle(i){   // that slot's next weather, the plan followed from now on
+  if (!(Number.isInteger(i) && i >= 0 && i < 8)) return;
+  const k = Object.keys(WEATHER); WX_PLAN.slots[i] = k[(k.indexOf(WX_PLAN.slots[i]) + 1) % k.length]; setWeather('auto');
+}
+try {
+  const p = JSON.parse(localStorage.getItem('wx.plan'));
+  if (Array.isArray(p?.slots) && p.slots.length === 8 && p.slots.every(k => Object.hasOwn(WEATHER, k))){ WX_PLAN.slots = p.slots; WX_PLAN.auto = p.auto === true; }
+} catch (e) {}
+if (WX_PLAN.auto){ CLOCK.min = liveMin(); weatherId = planWx(); for (const k in wxW) wxW[k] = +(k === weatherId); }   // the page opens in it, no blend
 function applyTheme(){ applyWeather(); }   // the UI theme no longer drives the sky; kept for the theme observers below
 const darkMq = window.matchMedia('(prefers-color-scheme: dark)');
 darkMq.addEventListener('change', applyTheme);
