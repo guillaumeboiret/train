@@ -19,7 +19,7 @@ Nothing open: the phone and its games are under Done.
 Nothing open: the film, outside only, is under Done.
 
 ### 4. Step off the train at a station (asked 2026-10-02)
-- [ ] The passenger can get off onto the platform and walk there, and the train never leaves without them: no departure until they are back aboard ("I want the user to be able to go outside of the train but the train can't go back without the user inside").
+Nothing open: stepping off is under Done.
 
 ### 5. Other open requests
 - [ ] A "super hero futuriste" button that runs the whole line in 5 minutes (2026-10-02).
@@ -38,6 +38,7 @@ Nothing open: the film, outside only, is under Done.
 ## Done
 
 ### 2026-10-03
+- [x] Step off the train at a station ("I want the user to be able to go outside of the train but the train can't go back without the user inside", 2026-10-02): walking as the passenger, out through an open doorway onto the platform and along it, bounded by its edges, stair heads and posts, back in through any car's doorway. While someone is out or in a doorway the doors stay open and there is no traction; a close asked meanwhile happens once they are aboard: 85cf0b0
 - [x] Take out an iPhone and look at it, walking as the passenger ("I want to be able to look at my iPhone", 2026-10-02): 📱 or P brings a phone up from the pocket with a home screen; Esc, P, ✕ or a tap beside puts it away: f9fc46d
 - [x] Games on the phone: Tetris, Snake and 2048 (2026-10-02), each with its record kept on the device, played with the keys, an on-screen pad, or swipes and taps on the screen: f9fc46d
 - [x] Known bug fixed: in the 🎬 film the shot passing the train could be hidden by something light grey 400 to 800 m past Bordeaux Saint-Jean (found 2026-10-03). It was the low Garonne bridge's deck and parapets, the camera standing on the ground beside it: the pass shot now skips 60 m either side of a bridge, and the sweep's hidden frames went from 12 to 0: a05d31d
