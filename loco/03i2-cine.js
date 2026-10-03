@@ -13,12 +13,13 @@ const cnEnds = () => { const f = S.mode === 'tgv' ? TGV.TIP_F : 10.2, r = -tailL
 function cnKd(s0, s1, test){ const i1 = ROUTE.idx(Math.min(ROUTE.L, Math.max(s0, s1))); for (let i = ROUTE.idx(Math.max(0, Math.min(s0, s1))); i <= i1; i++) if (test(ROUTE.KD[i])) return true; return false; }   // a kind of line between s0 and s1 (2 a tunnel, 1 and 4 a bridge)
 const cnRoof = (s0, s1) => ROOF_Z.some(z => Math.max(s0, s1) > z[0] && Math.min(s0, s1) < z[1]);   // a station's slab or shed over the line
 const cnStation = (s0, s1) => ROUTE.stations.some(st => s1 > st.s - 650 && s0 < st.s + 250);       // a station's platforms, canopies and posts, from its approach to its far end
+function cnWall(s0, s1){ for (let s = Math.max(0, Math.min(s0, s1)); s <= Math.min(ROUTE.L, Math.max(s0, s1)); s += ROUTE.DS) if (lineWall(s)) return true; return false; }   // a town's walls along the line between s0 and s1
 const cnRail = () => CP.G.rail[CP.lo] + (CP.G.rail[CP.hi] - CP.G.rail[CP.lo]) * CP.t;            // after camPlace: the rails' height there
 const cnScene = (P, out) => out.copy(P).sub(P_loco).applyQuaternion(qInv);                       // a point of the route, where it is in the scene now
 function cnSide(){ const w = laneMix(S.dist); return Math.abs(w) > 0.5 ? Math.sign(w) : Math.random() < 0.5 ? -1 : 1; }   // across the line: away from the other track
-function cnOut(close){   // the train and what it meets within 8 s out in the open: no tunnel, no slab or shed over it; close: nor a station, whose canopies and posts stand where a camera at its side would
+function cnOut(close, wide){   // the train and what it meets within 8 s out in the open: no tunnel, no slab or shed over it; close: nor a station, whose canopies and posts stand where a camera at its side would; wide: nor a town's walls, a camera out at its side behind them
   const e = cnEnds(), ah = S.dist + e.head + S.dir * Math.max(200, S.speed * 8), a = Math.min(S.dist + e.r, ah) - 40, b = Math.max(S.dist + e.f, ah) + 40;
-  if (cnKd(a, b, k => k === 2) || cnRoof(a, b)) return false;
+  if (cnKd(a, b, k => k === 2) || cnRoof(a, b) || (wide && cnWall(a, b))) return false;
   return !close || !cnStation(a - 20, b + 20);
 }
 function cnLowOk(sh){   // the low shot: in the open, on no bridge for the next 2 s, the ground beside the rails at their height
@@ -29,7 +30,7 @@ function cnLowOk(sh){   // the low shot: in the open, on no bridge for the next 
 }
 function cnPassMake(sh){   // a spot beside the line ahead that the train reaches in about 4.5 s, on ground near the rails' height, in the open all the way there
   const e = cnEnds(), d = S.dir, h = S.dist + e.head, sc = h + d * THREE.MathUtils.clamp(S.speed * 4.5, 50, 400);
-  if (sc < 200 || sc > ROUTE.L - 200 || cnStation(sc - 20, sc + 20) || cnKd(h, sc + d * 60, k => k === 2) || cnRoof(h, sc + d * 60)) return false;
+  if (sc < 200 || sc > ROUTE.L - 200 || cnStation(sc - 20, sc + 20) || cnKd(h, sc + d * 60, k => k === 2) || cnRoof(h, sc + d * 60) || cnWall(h, sc + d * 60)) return false;   // walls: the spot is out behind them
   if (S.autoStop && (S.stopS + e.head - sc) * d < 30) return false;   // the autopilot stops it short of the spot
   for (const k of [sh.sd, -sh.sd]){
     if (!camPlace(routeLocal(sc, 0, k * (14 + 6 * Math.random()), _cnV)) || Math.abs(CP.yG - cnRail()) > 6) continue;
@@ -57,10 +58,10 @@ function cnPlatPose(sh, u, E, T, dt){   // the nose followed in; the shot ends 4
 }
 const cnDoorsDue = () => Math.abs(S.dist - CINE.doorS) >= 50 && CN.doors.ok();   // doors open at a stop not filmed yet
 const CN = {   // the shots: att rides with the train, the others stand on the ground; w how often, d about how long (s)
-  nose:{ att:true, w:1, d:12, ok:() => cnOut(true), pose(sh, u, E, T){   // ahead of the leading nose, swinging round to its side
+  nose:{ att:true, w:1, d:12, ok:() => cnOut(true, true), pose(sh, u, E, T){   // ahead of the leading nose, swinging round to its side
     const e = cnEnds(), d = S.dir, R = (S.mode === 'tgv' ? 16 : 12) * (1 + 0.25 * u), a = (40 + 35 * u) * CN_DEG, x = e.head - d * 3;
     curveLocal(x, 2.2, 0, T); curveLocal(x + d * R * Math.cos(a), 2.5 + 2 * u, sh.sd * R * Math.sin(a), E); return CINE_FOV; } },
-  track:{ att:true, w:1, d:14, ok:() => cnOut(true), pose(sh, u, E, T){   // along its side, from the head back
+  track:{ att:true, w:1, d:14, ok:() => cnOut(true, true), pose(sh, u, E, T){   // along its side, from the head back
     const d = S.dir, x = cnEnds().head - d * (S.mode === 'tgv' ? 10 + 40 * u : 5 + 30 * u);
     curveLocal(x, 3.2, sh.sd * 12, E); curveLocal(x + d * 8, 2.4, 0, T); return CINE_FOV; } },
   aerial:{ att:true, w:1, d:14, ok:() => cnOut(false), pose(sh, u, E, T){   // from the air, rising as the train draws ahead under it
@@ -72,7 +73,7 @@ const CN = {   // the shots: att rides with the train, the others stand on the g
   chase:{ att:true, w:1, d:12, ok:() => cnOut(false), pose(sh, u, E, T){   // behind it and over, following
     const e = cnEnds(), d = S.dir;
     curveLocal(e.tail - d * (25 + 10 * u), 9 + 7 * u, sh.sd * (2 + 4 * u), E); curveLocal(e.tail + d * 60, 2, 0, T); return CINE_FOV; } },
-  reveal:{ att:true, w:1, d:12, ok:() => cnOut(true), pose(sh, u, E, T){   // a crane: from beside the first car, up and away
+  reveal:{ att:true, w:1, d:12, ok:() => cnOut(true, true), pose(sh, u, E, T){   // a crane: from beside the first car, up and away
     const d = S.dir, x = cnEnds().head - d * 20, R = 9 * (55 / 9) ** u, el = (10 + 15 * u) * CN_DEG, az = 100 * CN_DEG, h = R * Math.cos(el);
     curveLocal(x, 2.4, 0, T); curveLocal(x + d * h * Math.cos(az), 2.4 + R * Math.sin(el), sh.sd * h * Math.sin(az), E); return CINE_FOV; } },
   pass:{ w:2, d:28, ok:sh => S.speed > (sh.P ? 3 : 8) && (sh.P || cnOut(false)), make:cnPassMake, pose:cnPassPose,

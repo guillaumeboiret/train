@@ -4931,6 +4931,7 @@ const underDeck = s => DECK_Z.some(z => s > z[0] && s < z[1]);
 const roofAt = s => ROOF_Z.find(z => s > z[0] && s < z[1]) || null;
 const NO_WALL_AT = { tls:[-Infinity, 350], mtb:[-800, 350], agn:[-800, 350], bdx:[-800, 350], lbn:[-800, 350], ang:[-800, 350], pts:[-800, 350], chl:[-800, 350], spc:[-800, 350], par:[-500, Infinity], msy:[-800, 400] };   // no boundary wall between a station building and its tracks
 const NO_WALL = ROUTE.stations.filter(st => NO_WALL_AT[st.id]).map(st => [st.s + NO_WALL_AT[st.id][0], st.s + NO_WALL_AT[st.id][1]]);
+const lineWall = s => cityAt(s) >= 0.99 && ROUTE.kindAt(s) === 0 && !NO_WALL.some(z => s > z[0] && s < z[1]);   // a town's boundary walls along the open line: 4.5 m out from its outer tracks, 3 m high
 const paveM = pmat(0x9b968e, { roughness:0.95, metalness:0 });
 /* the city behind each terminus, in station coordinates: the route data ends at the buffer stops, so these blocks are static and only shown with the landmark.
    opts: cell pitch cx/cz, street width, ground level y, pave (false: the blocks stand on a landmark's own ground) */
@@ -5234,7 +5235,7 @@ function buildChunk(ci){
   }
   // urban corridor: boundary walls along the line and road bridges over it (mid-span of the 54 m catenary grid, every 594 m)
   { const wall = new GeoAcc(false), roadM = [], asphM = [];
-    const urban = i => cityAt(SM[i].s) >= 0.99 && SM[i].kind === 0 && !NO_WALL.some(z => SM[i].s > z[0] && SM[i].s < z[1]);
+    const urban = i => lineWall(SM[i].s);
     let i = 0;
     while (i < n){
       if (!urban(i)){ i++; continue; }
