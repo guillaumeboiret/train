@@ -7,7 +7,6 @@ Nothing leaves this file: a request is added the moment it is made, and a done i
 
 ### 0. Now (asked 2026-10-03)
 - [ ] Code every open item of this file, each one challenged first since some are old ("code all the features in your todo, challenge them before coding some are a bit old", 2026-10-03). Covers the move to EU West below, which was waiting for a yes.
-- [ ] In no GUI, everything in 3D stays clickable: the cockpit's buttons, the passenger's 3D things, and the power lever ("In no-GUI I should be able to click on the buttons still in the cockpit as well as in the traveler. The 3D buttons, the 3D elements, and Power should be actionable even in No-GUI", 2026-10-03). cc6848b did the desk; this asks for all of it, in both pages.
 - [ ] Heat as a transparent shimmer instead of the orange smoke: the hot air bends and blurs what is behind it, in waves ("Can you change the orange smoke to something that makes the feeling of heat but it's transparent? It just makes waves"). Changes the warm haze of 73a8dd0.
 - [ ] The remote's delay: 163 ms from the iPad to the TV on the live site, because the app runs far from Railway's Paris edge (cdg1, 200 ms to the first byte). Moving the service to EU West (europe-west4-drams3a, with multiRegionConfig in railway.json) should bring it near 20 ms. Waiting for a yes (2026-10-03).
 
@@ -41,12 +40,13 @@ Nothing leaves this file: a request is added the moment it is made, and a done i
 - The Garonne is dry land: water is drawn only under bridges of 550 m or more.
 - The Angoulême tunnel ends about 100 m early.
 - The HUD's track count includes the far face of island platforms, one too many.
-- The driver's 3D lever sits below the default driver's view on every screen: look down to grab it. Raising it into view would cover the line screen.
 - After the TV's page reloads, its sound waits for one click on the TV: browsers play no sound before a gesture on the page. The iPad shows a hint when that happens.
 
 ## Done
 
 ### 2026-10-03
+- [x] In no GUI, everything in 3D stays clickable: the cockpit's buttons, the passenger's 3D things, and the power lever ("In no-GUI I should be able to click on the buttons still in the cockpit as well as in the traveler. The 3D buttons, the 3D elements, and Power should be actionable even in No-GUI", 2026-10-03). cc6848b did the desk. Now in both pages the walker's seats, counter and stools answer a tap too, with their words, and the speed screen's BRAKE/POWER bar drags the lever, GUI or not, a knob showing where it stands: 092b652
+- [x] Known bug fixed: the driver's 3D lever sits below the default view ("look down to grab it"). Its job is now in view: the speed screen's BRAKE/POWER bar drags it, so the lever stays put and the line screen stays clear: 092b652
 - [x] The TV and the iPad ("connect my iPad to this current session so I have the driver's controls on a new web page that I will display on the iPad"). On the TV, the playground's ⚙️ then 📱 shows a 4 letter code and a QR code; the iPad scans it, or opens train.boiret.com/remote/ and types the code. The TV hides its GUI and the iPad drives: lever, stop, horn, next station, direction, pantograph, doors, weather, X-ray, the views and camera angles, the train, the line. Live both ways, up to 8 iPads per TV. Tested headless on the live site, not yet on the real iPad and TV: 964d84b
 - [x] The driver's 3D lever works: drag it up for power, down to brake ("Make the lever work because right now, I don't have a GUI, and it doesn't work"). A tap on it says how: cc6848b
 - [x] The station timeline on the driver's desk screen can be tapped, like the line bar ("When I click on the next station in the timeline to work, I should also be able to click on it"): cc6848b
