@@ -133,7 +133,9 @@ body.off :is(main>.lever,main>.pad,.line,.trains){opacity:.3;pointer-events:none
 @media (max-height:620px) and (orientation:landscape){   /* a phone held sideways */
   #ctl{gap:6px}.speed .n{font-size:34px}.kt .ico{font-size:24px}.trains .kt .lab{display:none}.kt{min-width:52px}
   .kb .lab,.cam .kt .lab{display:none}.btns{gap:8px;padding:8px}.lv-knob{width:56px;height:56px;border-width:4px}.lever .end{font-size:26px}.lv-track{margin:30px 0}
-  .rb{height:44px}.rb-lb{top:30px;font-size:11px}
+  .rb{height:44px}.rb-lb{top:30px;font-size:11px}.hint{padding:6px 12px;font-size:14px}
+  .pad{grid-template-rows:minmax(0,1fr) auto}   /* the cameras in one row, 44 px tall, the views beside the angles; the buttons get the rest */
+  .cam{grid-template-rows:none;grid-template-columns:minmax(0,3fr) minmax(0,5fr);gap:6px;padding:6px}.cam .kt{min-height:44px}
 }
 </style>
 </head>
