@@ -655,17 +655,24 @@ function groundRow(G, k, w){   // the ground's height (absolute) at w across row
   const y = G.y[o + c] + (G.y[o + c + 1] - G.y[o + c]) * u;
   return (G.kind[k] === 1 || G.kind[k] === 4) && w > G.a[k] - 0.2 && w < G.b[k] + 0.2 ? Math.max(y, G.rail[k] - 0.42) : y;   // a bridge: its deck, not the valley under it
 }
-function camFence(p){   // p: the camera in scene coordinates
-  _fx.copy(p).applyQuaternion(F0.q).add(P_loco);   // route coordinates
+const CP = { s:0, w:0, G:null, lo:0, hi:0, t:0, yG:0 };   // camPlace's answer: along the line, across it, the ground's row and its height there
+function camPlace(p){   // p in scene coordinates: _fx gets it in route coordinates, CP where it is over the line; false off the line or the built ground
+  _fx.copy(p).applyQuaternion(F0.q).add(P_loco);
   let s = S.dist;
   for (let it = 0; it < 2; it++){ ROUTE.frameAt(Math.max(0, Math.min(ROUTE.L, s)), _ff); s += (_fx.x - _ff.p.x) * _ff.t.x + (_fx.z - _ff.p.z) * _ff.t.z; }   // along the curve, twice
-  if (s < 0 || s > ROUTE.L) return null;
+  if (s < 0 || s > ROUTE.L) return false;
   ROUTE.frameAt(s, _ff);
   const w = (_fx.x - _ff.p.x) * _ff.r.x + (_fx.z - _ff.p.z) * _ff.r.z, G = chunks.get(Math.floor(s / CH))?.ground;
-  if (!G || s < G.s[0] || s > G.s[G.n - 1]) return null;
+  if (!G || s < G.s[0] || s > G.s[G.n - 1]) return false;
   let lo = 0, hi = G.n - 1; while (hi - lo > 1){ const m = (lo + hi) >> 1; if (G.s[m] <= s) lo = m; else hi = m; }
-  const t = (s - G.s[lo]) / ((G.s[hi] - G.s[lo]) || 1), lerp = (A, B) => A + (B - A) * t;
-  const yG = lerp(groundRow(G, lo, w), groundRow(G, hi, w));
+  const t = (s - G.s[lo]) / ((G.s[hi] - G.s[lo]) || 1);
+  const a = groundRow(G, lo, w);
+  CP.s = s; CP.w = w; CP.G = G; CP.lo = lo; CP.hi = hi; CP.t = t; CP.yG = a + (groundRow(G, hi, w) - a) * t;
+  return true;
+}
+function camFence(p){   // p: the camera in scene coordinates
+  if (!camPlace(p)) return null;
+  const { s, w, G, lo, hi, t, yG } = CP, lerp = (A, B) => A + (B - A) * t;
   if (ROUTE.kindAt(s) === 2 && _fx.y < yG){   // under the hill: inside the tube, or drawn into it
     const k = t < 0.5 ? lo : hi, u = w - G.wc[k], R = G.rr[k] - 0.7, yc = lerp(G.rail[lo], G.rail[hi]) + 0.3;   // the arch's centre, 0.3 m over the rails
     let v = Math.max(_fx.y - yc, -0.1), du = u;   // no lower than 0.2 m over the rails
@@ -679,6 +686,47 @@ function camFence(p){   // p: the camera in scene coordinates
   return _fx.sub(P_loco).applyQuaternion(qInv).y;
 }
 orbit.fence = camFence;
+/* ---- the train's lights ("add lights on the train when it's dark or in the tunnels"). As it gets dark around the camera, at night or deep in a
+   tunnel, the lamps glow (halos, 03c-common.js) and the coaches' windows light up; the leading lamps throw a beam down the line at night and
+   once the head of the train is in a tunnel. Deep in a tunnel the daylight fades out (DARK.cam, updateWeather), and the tube's own glow with it */
+function tunnelIn(s, ramp = 40){   // how far into a tunnel s is: 0 outside or at a portal, 1 from `ramp` m in
+  const KD = ROUTE.KD, DS = ROUTE.DS, i = ROUTE.idx(s), n = Math.ceil(ramp / DS) + 1;
+  if (KD[i] !== 2) return 0;
+  let a = 1, b = 1;   // samples to the first one out of it, ahead and behind; each portal lies halfway to it
+  while (a <= n && i + a < ROUTE.N && KD[i + a] === 2) a++;
+  while (b <= n && i - b >= 0 && KD[i - b] === 2) b++;
+  return Math.max(0, Math.min(1, Math.min((i + a - 0.5) * DS - s, s - (i - b + 0.5) * DS) / ramp));
+}
+const beam = new THREE.SpotLight(0xfff0d8, 0, 160, 0.42, 0.6, 1);   // always in the scene, off by day: adding a light would rebuild every shader
+scene.add(beam, beam.target);
+const BEAM_I = 60, SALOON_I = 1.6, _hp = new THREE.Vector3(), _hx = new THREE.Vector3();
+const shown = o => { for (; o; o = o.parent) if (!o.visible) return false; return true; };   // drawn: it and every parent visible
+function updateLights(){   // every frame, the camera placed
+  DARK.cam = camPlace(camera.position) && ROUTE.kindAt(CP.s) === 2 && _fx.y < CP.yG ? tunnelIn(CP.s) : 0;   // under the hill, not over it
+  tunnelM.emissiveIntensity = 1 - 0.85 * DARK.cam;
+  const glow = Math.max(DARK.night, DARK.cam);
+  for (const m of winMats) if (!m.userData.hl) m.emissiveIntensity = 1.1 * glow;
+  SALOON.value.setRGB(1, 0.93, 0.82).multiplyScalar(SALOON_I * glow);
+  let head = null, best = 0;
+  for (const h of halos){
+    const lit = Math.min(1, h.lens.emissiveIntensity / h.peak), on = lit > 0 && shown(h.host);
+    if (on && h.own && h.head && lit > best){ best = lit; head = h; }
+    let o = 0;
+    if (on && glow > 0){   // brightest straight ahead, gone from the side and behind (from the driver's seat too)
+      const e = h.host.matrixWorld.elements;
+      _hp.copy(h.at).applyMatrix4(h.host.matrixWorld); _hx.set(e[0], e[1], e[2]).normalize();
+      const f = Math.max(0, Math.min(1, (_hx.dot(_hp.subVectors(camera.position, _hp).normalize()) - 0.05) / 0.4));
+      o = glow * lit * f * f * (3 - 2 * f);
+    }
+    h.sm.opacity = o; h.sm.visible = o > 0.004;
+  }
+  if (head){   // from just ahead of the leading lamps, 40 m down the line
+    head.host.updateWorldMatrix(true, false);
+    beam.position.set(head.tip.x + 0.6, head.tip.y + 0.2, 0).applyMatrix4(head.host.matrixWorld);
+    beam.target.position.set(head.tip.x + 40, 0, 0).applyMatrix4(head.host.matrixWorld); beam.target.updateMatrixWorld();
+  }
+  beam.intensity = head ? BEAM_I * best * Math.max(DARK.night, tunnelIn(S.dist + beam.position.x)) : 0;
+}
 const trk = { from:0, to:0, s0:-1e9 };            // track change: an S-curve over 400 m starting just ahead of where it was requested
 const trackFAt = s => trk.from + (trk.to - trk.from) * ROUTE.sstep((s - trk.s0) / 400);
 const laneMix = (s, u) => { const a = ROUTE.laneW(0, s, u), f = trackFAt(s); return f <= 0 ? a : a + (ROUTE.laneW(1, s, u) - a) * f; };

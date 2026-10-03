@@ -977,6 +977,9 @@ function clearAt(h){   // the clear sky with the sun h degrees high
 }
 scene.background = new THREE.Color(); scene.fog = new THREE.Fog(0xb8d2e8, 238, 832);   // set every frame by updateWeather
 let weatherId = 'sun';
+/* how dark it is for the train's lights (updateLights, 03f4-route.js): night from the sun, 0 from 1 degree up to 1 at 6 down; cam: how deep in a
+   tunnel the camera is (0 to 1 over the first 40 m in from a portal), the daylight fading out there */
+const DARK = { night:0, cam:0 };
 const wxW = { sun:1, cloud:0, rain:0 };   // how much of each weather is in the sky now (they blend)
 /* ---- the clock: French time, minutes after midnight. Live, it is the real time; set by hand, it runs with the simulation (x1 to x16) */
 const CLOCK = { live:true, min:720, pick:null };   // pick: the time of day a button chose (TOD), until the clock is set another way
@@ -1074,7 +1077,7 @@ const _fillD = new THREE.Vector3();
 function updateWeather(dt){
   CLOCK.min = CLOCK.live ? liveMin() : (CLOCK.min + dt * S.timeScale / 60) % 1440;
   const [lat, lon] = trainLatLon();
-  sunAt(SUN_R, CLOCK.min, lat, lon); sunH = Math.asin(SUN_R.y) * 180 / Math.PI;
+  sunAt(SUN_R, CLOCK.min, lat, lon); sunH = Math.asin(SUN_R.y) * 180 / Math.PI; DARK.night = Math.max(0, Math.min(1, (1 - sunH) / 7));
   // the weather: each one's share moves towards the one asked for
   let sum = 0;
   for (const k in wxW){ wxW[k] = approach(wxW[k], k === weatherId ? 1 : 0, dt / 6); sum += wxW[k]; }
@@ -1092,10 +1095,12 @@ function updateWeather(dt){
   const P = PAL, clear = P[28], moon = sunH < -1.5;
   skyMat.uniforms.horizon.value.setRGB(P[0], P[1], P[2]); skyMat.uniforms.zenith.value.setRGB(P[3], P[4], P[5]);
   scene.background.setRGB(P[0], P[1], P[2]);
-  scene.fog.color.setRGB(P[6], P[7], P[8]); scene.fog.near = 170 * fogK * P[25]; scene.fog.far = 520 * fogK * P[26];
-  sun.color.setRGB(P[9], P[10], P[11]); sun.intensity = P[12];   // clouds dim the moon as they dim the sun, they do not hide its light
-  hemi.color.setRGB(P[13], P[14], P[15]); hemi.groundColor.setRGB(P[16], P[17], P[18]); hemi.intensity = P[19];
-  fill.intensity = P[20];
+  const tun = DARK.cam, day = 1 - tun;   // in a tunnel the sky's light fades out, and the far end of the tube goes black
+  scene.fog.color.setRGB(P[6], P[7], P[8]).multiplyScalar(day);
+  scene.fog.near = 170 * fogK * P[25] * day + 10 * tun; scene.fog.far = 520 * fogK * P[26] * day + 220 * tun;
+  sun.color.setRGB(P[9], P[10], P[11]); sun.intensity = P[12] * day;   // clouds dim the moon as they dim the sun, they do not hide its light
+  hemi.color.setRGB(P[13], P[14], P[15]); hemi.groundColor.setRGB(P[16], P[17], P[18]); hemi.intensity = P[19] * (1 - 0.6 * tun);
+  fill.intensity = P[20] * day;
   renderer.toneMappingExposure = P[21];
   for (const { mat, token } of themeMats) mat.color.setHex(GROUND_BASE[token] ?? 0xffffff).multiply(_tint.setRGB(P[22], P[23], P[24]));
   // the sun and the moon in the sky, the stars
@@ -1378,6 +1383,25 @@ const gridMats = {};
 const panto = {};
 const WHEEL_R = 0.5;
 const Y_UP = new THREE.Vector3(0, 1, 0);
+/* a lamp's glow in the dark ("lights on the train when it's dark or in the tunnels"): a soft disc just in front of each lens, as bright as the
+   lens is lit and as it is dark around, seen from ahead only (updateLights, 03f4-route.js). host: the group whose +x the lamps face */
+const halos = [];
+const HALO_TEX = (() => {
+  const c = document.createElement('canvas'); c.width = c.height = 64;
+  const x = c.getContext('2d'), gr = x.createRadialGradient(32, 32, 0, 32, 32, 32);
+  gr.addColorStop(0, '#fff'); gr.addColorStop(0.12, 'rgba(255,255,255,0.7)'); gr.addColorStop(0.4, 'rgba(255,255,255,0.14)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+  x.fillStyle = gr; x.fillRect(0, 0, 64, 64);
+  return new THREE.CanvasTexture(c);
+})();
+const noRay = () => {};
+function addHalos(host, lens, points, size, own = true, head = true){   // own: on our train (the beam rides its leading head lamps); head: white, not a tail
+  const sm = new THREE.SpriteMaterial({ map:HALO_TEX, color:lens.emissive, blending:THREE.AdditiveBlending, depthWrite:false, fog:false, toneMapped:false, opacity:0 });
+  sm.visible = false;
+  for (const [x, y, z] of points){ const sp = new THREE.Sprite(sm); sp.position.set(x, y, z); sp.scale.setScalar(size); sp.renderOrder = 5; sp.raycast = noRay; host.add(sp); }   // not in the way of a click
+  const at = new THREE.Vector3(); points.forEach(p => at.add(new THREE.Vector3(...p))); at.divideScalar(points.length);   // their middle: in front of it is ahead
+  const tip = new THREE.Vector3(Math.max(...points.map(p => p[0])), Math.min(...points.map(p => p[1])), 0);   // the nose's lowest lamps, where the beam starts
+  halos.push({ host, lens, sm, at, tip, own, head, peak:lens.userData.lamp || 2.2 });
+}
 
 /* ------------------------------------------------------- environment: track and scenery are built per kilometre from the route data (03f4) */
 const ballastMat = new THREE.MeshStandardMaterial({ color:0x3a3f44, roughness:1 });
@@ -1439,6 +1463,7 @@ definePart('shell', g => {
   hl.userData.lamp = 2.2; lampMats.push(hl);
   [-0.9, 0.9].forEach(z => g.add(cyl(0.15, 0.06, hl, 'x', 9.64, 2.35, z, 20)));
   g.add(cyl(0.14, 0.06, hl, 'x', 9.64, 4.05, 0, 20));
+  addHalos(g, hl, [[10, 2.35, -0.9], [10, 2.35, 0.9], [10, 4.05, 0]], 1.3);
   // number plate band on the cab
   g.add(box(2.8, 0.26, 0.02, band, 8.2, 3.05, 1.49)); g.add(box(2.8, 0.26, 0.02, band, 8.2, 3.05, -1.49));
 });
@@ -2618,6 +2643,13 @@ const PC = (() => {
   const hatchTex = canvasTex(4, 128, (c, W, H) => { c.fillStyle = LIV.white; c.fillRect(0, 0, W, H); c.fillStyle = LIV.black; c.fillRect(0, 0, W, H * (1 - 1.25 / 2)); });   // snout (v: height / 2 m): the mask down to 1.25 m, the white chin under it
   return { geo, hatch, hatchTex, lamps, tex, alpha:mask('#fff', '#000'), glassAlpha:mask('#000', '#fff'), rings, yBot, yTop };
 })();
+const _lg = new THREE.Vector3(), _ln = new THREE.Vector3();
+function lensGlow(geo){   // where a lens's glow sits: 0.2 m out from its middle along its normal, clear of the curved skin
+  geo.computeBoundingBox(); geo.boundingBox.getCenter(_lg);
+  const n = geo.getAttribute('normal'); _ln.set(0, 0, 0);
+  for (let k = 0; k < n.count; k++){ _ln.x += n.getX(k); _ln.y += n.getY(k); _ln.z += n.getZ(k); }
+  return _lg.addScaledVector(_ln.normalize(), 0.2).toArray();
+}
 function buildPowerCarBody(parent, cx, dir, mk, withCoupler = true, cabin = false){   // mk: material factory (mat or pmat); dir +1 nose toward +x; cabin: windows cut out onto a fitted cab
   const g = new THREE.Group(); g.position.x = cx; if (dir < 0) g.rotation.y = Math.PI;
   const bm = mk(0xffffff, Object.assign({ map:PC.tex, roughness:0.45, metalness:0.2 }, cabin ? { alphaMap:PC.alpha, alphaTest:0.5, side:THREE.FrontSide } : {}));
@@ -2638,6 +2670,7 @@ function buildPowerCarBody(parent, cx, dir, mk, withCoupler = true, cabin = fals
   [...PC.lamps.head, PC.lamps.top].forEach(geo => lamp(geo, hl));
   const tl = mk(0xff3b30, Object.assign({ emissive:0xff2a20, emissiveIntensity:0 }, lens));
   PC.lamps.tail.forEach(geo => lamp(geo, tl));
+  addHalos(g, hl, [...PC.lamps.head, PC.lamps.top].map(lensGlow), 1.1, cabin, true); addHalos(g, tl, PC.lamps.tail.map(lensGlow), 0.6, cabin, false);   // cabin: one of our own power cars
   shell.mats.push(hl, tl);
   const hatch = withCoupler ? buildNoseCoupler(g, mk) : null;
   if (hatch){ shell.mats.push(hatch.mat); shell.meshes.push(...hatch.leaves.map(l => l.mesh)); }   // the leaves are skin: they fade with the body
@@ -2651,6 +2684,18 @@ const pcHosts = [];                          // {ig, clones:{id:group}} per equi
 const pcShells = { mats:[], meshes:[] };     // their body shells, so the shell opacity control covers every power car
 const trShells = { mats:[], meshes:[] };     // trailer skins (body, ends, gangways, doors): the shell control fades them too and reveals the interiors
 const allCoaches = [], COACH_NEAR = 60;      // every trailer of every set (own, parked, opposing); interiors are drawn within COACH_NEAR m of the camera (further out a head is 3 px)
+const winMats = [];                          // every coach's window glass seen from afar, lit from inside in the dark (updateLights, 03f4-route.js)
+const SALOON = { value:new THREE.Color(0) };   // the saloon lights: sky light only the coaches' insides get, so seats and people stay lit at night and in tunnels (updateLights)
+function saloonLit(m){   // add SALOON to what lights this material, on top of its own patch if any (the people's)
+  const own = m.onBeforeCompile, key = 'saloon' + (own ? own.name : '');
+  m.onBeforeCompile = (sh, r) => {
+    own?.(sh, r); sh.uniforms.saloon = SALOON;
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nuniform vec3 saloon;')
+      .replace('#include <lights_fragment_end>', '#if defined( RE_IndirectDiffuse )\nirradiance += saloon;\n#endif\n#include <lights_fragment_end>');
+  };
+  m.customProgramCacheKey = () => key;
+  return m;
+}
 const DECK = { lo:0.92, up:2.46 };           // floor heights of the two decks (the windows sit at 1.6..2.2 and 3.0..3.75): 1.48 m under the upper floor, room to stand
 const SEAT_VIEW = [9.4, 16.5];               // x from the coach's rear end of the window seats kept free for the viewer, on both decks of every coach: row 7 faces +x, row 14 faces -x (in coach 1 each looks onto a window)
 const SEAT_ROWS = {};
@@ -3379,6 +3424,7 @@ function buildSet(opts){
     far:mk(0x27303a, { roughness:0.25, metalness:0.1 }), door:mk(0x27303a, { roughness:0.25, metalness:0.1 }), plug:mk(LIV.door, { roughness:0.8 }),
     near:mk(0x1c2530, { transparent:true, opacity:0.45, depthWrite:false, side:THREE.DoubleSide, forceSinglePass:true, roughness:0.05, metalness:0 }),   // one pass: every pane has the same tint, so the blend order does not matter
   };
+  for (const m of [paneM.far, paneM.door]){ m.emissive.setHex(0xffc98a); winMats.push(m); }   // the saloon's light in them from afar, in the dark (updateLights)
   const skin = m => { if (internals) trShells.meshes.push(m); return m; };   // what the shell control fades: body, ends, gangways, doors (the underframe stays); the other trains stay opaque
   if (internals) trShells.mats.push(...Object.values(bodyM), capM, bellowsM, ...leafM);
   set.coaches = [];
@@ -3386,6 +3432,7 @@ function buildSet(opts){
                   bar:mk(0xffffff, { vertexColors:true, roughness:0.7, metalness:0.05 }), glow:new THREE.MeshBasicMaterial({ vertexColors:true, toneMapped:false }),   // the bar car's fittings, and what glows in it
                   fridge:new THREE.MeshBasicMaterial({ map:BAR_TEX.fridge, toneMapped:false }), screen:new THREE.MeshBasicMaterial({ map:internals ? BAR_TEX.live : BAR_TEX.idle, toneMapped:false }) };
   const gangM = [coachM.floor, frameM, coachM.ceil], staffM = mk(LIN.rack, { roughness:0.6, metalness:0.2, emissive:LIN.rack, emissiveIntensity:0.25 }), staffGeo = new THREE.PlaneGeometry(0.9, 4.05 - DECK.up);
+  for (const m of [...Object.values(linM), frameM, leafM[1], staffM, coachM.floor, coachM.ceil, coachM.seat, coachM.people, coachM.bar]) saloonLit(m);
   const trailerRear = [];
   TGV.TRAILERS.forEach(([xr, L], i) => {
     const g = new THREE.Group(); g.position.x = xr;
@@ -5208,17 +5255,24 @@ function groundRow(G, k, w){   // the ground's height (absolute) at w across row
   const y = G.y[o + c] + (G.y[o + c + 1] - G.y[o + c]) * u;
   return (G.kind[k] === 1 || G.kind[k] === 4) && w > G.a[k] - 0.2 && w < G.b[k] + 0.2 ? Math.max(y, G.rail[k] - 0.42) : y;   // a bridge: its deck, not the valley under it
 }
-function camFence(p){   // p: the camera in scene coordinates
-  _fx.copy(p).applyQuaternion(F0.q).add(P_loco);   // route coordinates
+const CP = { s:0, w:0, G:null, lo:0, hi:0, t:0, yG:0 };   // camPlace's answer: along the line, across it, the ground's row and its height there
+function camPlace(p){   // p in scene coordinates: _fx gets it in route coordinates, CP where it is over the line; false off the line or the built ground
+  _fx.copy(p).applyQuaternion(F0.q).add(P_loco);
   let s = S.dist;
   for (let it = 0; it < 2; it++){ ROUTE.frameAt(Math.max(0, Math.min(ROUTE.L, s)), _ff); s += (_fx.x - _ff.p.x) * _ff.t.x + (_fx.z - _ff.p.z) * _ff.t.z; }   // along the curve, twice
-  if (s < 0 || s > ROUTE.L) return null;
+  if (s < 0 || s > ROUTE.L) return false;
   ROUTE.frameAt(s, _ff);
   const w = (_fx.x - _ff.p.x) * _ff.r.x + (_fx.z - _ff.p.z) * _ff.r.z, G = chunks.get(Math.floor(s / CH))?.ground;
-  if (!G || s < G.s[0] || s > G.s[G.n - 1]) return null;
+  if (!G || s < G.s[0] || s > G.s[G.n - 1]) return false;
   let lo = 0, hi = G.n - 1; while (hi - lo > 1){ const m = (lo + hi) >> 1; if (G.s[m] <= s) lo = m; else hi = m; }
-  const t = (s - G.s[lo]) / ((G.s[hi] - G.s[lo]) || 1), lerp = (A, B) => A + (B - A) * t;
-  const yG = lerp(groundRow(G, lo, w), groundRow(G, hi, w));
+  const t = (s - G.s[lo]) / ((G.s[hi] - G.s[lo]) || 1);
+  const a = groundRow(G, lo, w);
+  CP.s = s; CP.w = w; CP.G = G; CP.lo = lo; CP.hi = hi; CP.t = t; CP.yG = a + (groundRow(G, hi, w) - a) * t;
+  return true;
+}
+function camFence(p){   // p: the camera in scene coordinates
+  if (!camPlace(p)) return null;
+  const { s, w, G, lo, hi, t, yG } = CP, lerp = (A, B) => A + (B - A) * t;
   if (ROUTE.kindAt(s) === 2 && _fx.y < yG){   // under the hill: inside the tube, or drawn into it
     const k = t < 0.5 ? lo : hi, u = w - G.wc[k], R = G.rr[k] - 0.7, yc = lerp(G.rail[lo], G.rail[hi]) + 0.3;   // the arch's centre, 0.3 m over the rails
     let v = Math.max(_fx.y - yc, -0.1), du = u;   // no lower than 0.2 m over the rails
@@ -5232,6 +5286,47 @@ function camFence(p){   // p: the camera in scene coordinates
   return _fx.sub(P_loco).applyQuaternion(qInv).y;
 }
 orbit.fence = camFence;
+/* ---- the train's lights ("add lights on the train when it's dark or in the tunnels"). As it gets dark around the camera, at night or deep in a
+   tunnel, the lamps glow (halos, 03c-common.js) and the coaches' windows light up; the leading lamps throw a beam down the line at night and
+   once the head of the train is in a tunnel. Deep in a tunnel the daylight fades out (DARK.cam, updateWeather), and the tube's own glow with it */
+function tunnelIn(s, ramp = 40){   // how far into a tunnel s is: 0 outside or at a portal, 1 from `ramp` m in
+  const KD = ROUTE.KD, DS = ROUTE.DS, i = ROUTE.idx(s), n = Math.ceil(ramp / DS) + 1;
+  if (KD[i] !== 2) return 0;
+  let a = 1, b = 1;   // samples to the first one out of it, ahead and behind; each portal lies halfway to it
+  while (a <= n && i + a < ROUTE.N && KD[i + a] === 2) a++;
+  while (b <= n && i - b >= 0 && KD[i - b] === 2) b++;
+  return Math.max(0, Math.min(1, Math.min((i + a - 0.5) * DS - s, s - (i - b + 0.5) * DS) / ramp));
+}
+const beam = new THREE.SpotLight(0xfff0d8, 0, 160, 0.42, 0.6, 1);   // always in the scene, off by day: adding a light would rebuild every shader
+scene.add(beam, beam.target);
+const BEAM_I = 60, SALOON_I = 1.6, _hp = new THREE.Vector3(), _hx = new THREE.Vector3();
+const shown = o => { for (; o; o = o.parent) if (!o.visible) return false; return true; };   // drawn: it and every parent visible
+function updateLights(){   // every frame, the camera placed
+  DARK.cam = camPlace(camera.position) && ROUTE.kindAt(CP.s) === 2 && _fx.y < CP.yG ? tunnelIn(CP.s) : 0;   // under the hill, not over it
+  tunnelM.emissiveIntensity = 1 - 0.85 * DARK.cam;
+  const glow = Math.max(DARK.night, DARK.cam);
+  for (const m of winMats) if (!m.userData.hl) m.emissiveIntensity = 1.1 * glow;
+  SALOON.value.setRGB(1, 0.93, 0.82).multiplyScalar(SALOON_I * glow);
+  let head = null, best = 0;
+  for (const h of halos){
+    const lit = Math.min(1, h.lens.emissiveIntensity / h.peak), on = lit > 0 && shown(h.host);
+    if (on && h.own && h.head && lit > best){ best = lit; head = h; }
+    let o = 0;
+    if (on && glow > 0){   // brightest straight ahead, gone from the side and behind (from the driver's seat too)
+      const e = h.host.matrixWorld.elements;
+      _hp.copy(h.at).applyMatrix4(h.host.matrixWorld); _hx.set(e[0], e[1], e[2]).normalize();
+      const f = Math.max(0, Math.min(1, (_hx.dot(_hp.subVectors(camera.position, _hp).normalize()) - 0.05) / 0.4));
+      o = glow * lit * f * f * (3 - 2 * f);
+    }
+    h.sm.opacity = o; h.sm.visible = o > 0.004;
+  }
+  if (head){   // from just ahead of the leading lamps, 40 m down the line
+    head.host.updateWorldMatrix(true, false);
+    beam.position.set(head.tip.x + 0.6, head.tip.y + 0.2, 0).applyMatrix4(head.host.matrixWorld);
+    beam.target.position.set(head.tip.x + 40, 0, 0).applyMatrix4(head.host.matrixWorld); beam.target.updateMatrixWorld();
+  }
+  beam.intensity = head ? BEAM_I * best * Math.max(DARK.night, tunnelIn(S.dist + beam.position.x)) : 0;
+}
 const trk = { from:0, to:0, s0:-1e9 };            // track change: an S-curve over 400 m starting just ahead of where it was requested
 const trackFAt = s => trk.from + (trk.to - trk.from) * ROUTE.sstep((s - trk.s0) / 400);
 const laneMix = (s, u) => { const a = ROUTE.laneW(0, s, u), f = trackFAt(s); return f <= 0 ? a : a + (ROUTE.laneW(1, s, u) - a) * f; };
@@ -6788,7 +6883,6 @@ const cabActions = {   // what each desk button does, and the way out of the cab
   leverTip(){ cabSay(t('cab_lever_drag'), 'l'); },   // the 3D lever tapped, not dragged
   leave(){ flyPreset(stepV(STEPS[S.mode][stepIdx]).cam); },   // back to the guide's view
 };
-const shown = o => { for (; o; o = o.parent) if (!o.visible) return false; return true; };
 const deskRay = e => {   // the ray under a press or a tap, and the canvas' rectangle
   const r = canvas.getBoundingClientRect();
   ptr.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
@@ -7412,7 +7506,7 @@ let frameHook = null;   // the kid build hangs its own rules here
 function frame(dt){
   simulate(dt); serviceTick(); animate(Math.min(dt * S.timeScale, 0.25)); updateFlows(dt); updateWeather(dt); panKeys(dt); if (frameHook) frameHook(dt);
   keepDriver(); keepWalker(dt); updateIdle(dt);
-  orbit.update(dt); stepAim(dt); updateCab(dt); updateCompass(); updateSound(dt);
+  orbit.update(dt); updateLights(); stepAim(dt); updateCab(dt); updateCompass(); updateSound(dt);
 }
 window.tick = (sec, dt = 0.05) => { for (let t = 0; t < sec - 1e-9; t += dt) frame(dt); renderer.render(scene, camera); updateLabels(); updateGauges(); updateHud(); };
 
@@ -7421,7 +7515,7 @@ resize();
 setShell(0.18); setCut('none'); setExplode(0);
 setMode('diesel');
 requestAnimationFrame(loop);
-window.locoDebug = { BAR, BAR_MENU, barOpen, barClose, barBuy, barEat, barNear, barIsOpen, walkSitStool, updateBar, CAB, driverSeat, cabActions, cabLever, S, simulate, animate, updateFlows, updateGauges, orbit, renderer, scene, camera, goStep, setMode, setCut, setExplode, setShell, select, parts, TGV, tgvSets, station, updateTgv, syncControls, tick:window.tick, ROUTE, horn, chunks, requestTrack, trk, opp, parked, cars, curveLocal, updateHud, jumpToStation, jumpTo, setWeather, CLOCK, setClock, setTod, todPick, todIcon, hhmm, solarNoon, sunTime, sunHAt, SUN_R, LIGHT_DIR, sky:() => ({ sunH, weatherId, wxW:{ ...wxW }, P:[...PAL] }), sun, hemi, fill, stars, pcHosts, pcShells, flowObjs, landmarks, flyPreset, SND, PX, pool, paxResolve, paxHolding, allCoaches, world, keys, WK, walkMove, walkSitNear, walkPick, walkStand, walkZones, STICK, walkView, nextStation, goNextStation, serviceOn, serviceOff, driverLever, cabRowX, CAB_ROW_Y };
+window.locoDebug = { BAR, BAR_MENU, barOpen, barClose, barBuy, barEat, barNear, barIsOpen, walkSitStool, updateBar, CAB, driverSeat, cabActions, cabLever, S, simulate, animate, updateFlows, updateGauges, orbit, renderer, scene, camera, goStep, setMode, setCut, setExplode, setShell, select, parts, TGV, tgvSets, station, updateTgv, syncControls, tick:window.tick, ROUTE, horn, chunks, requestTrack, trk, opp, parked, cars, curveLocal, updateHud, jumpToStation, jumpTo, setWeather, CLOCK, setClock, setTod, todPick, todIcon, hhmm, solarNoon, sunTime, sunHAt, SUN_R, LIGHT_DIR, sky:() => ({ sunH, weatherId, wxW:{ ...wxW }, P:[...PAL] }), sun, hemi, fill, stars, DARK, beam, halos, winMats, SALOON, tunnelIn, updateLights, tunnelM, pcHosts, pcShells, flowObjs, landmarks, flyPreset, SND, PX, pool, paxResolve, paxHolding, allCoaches, world, keys, WK, walkMove, walkSitNear, walkPick, walkStand, walkZones, STICK, walkView, nextStation, goNextStation, serviceOn, serviceOff, driverLever, cabRowX, CAB_ROW_Y };
 
 /* ============================================================ KID MODE (separate build: same module scope, appended after the UI) */
 /* One screen, no panels: pick a train, push the lever, honk, stop at stations, change the weather; in the top right corner, always, the

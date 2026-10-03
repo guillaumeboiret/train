@@ -7,6 +7,25 @@ const gridMats = {};
 const panto = {};
 const WHEEL_R = 0.5;
 const Y_UP = new THREE.Vector3(0, 1, 0);
+/* a lamp's glow in the dark ("lights on the train when it's dark or in the tunnels"): a soft disc just in front of each lens, as bright as the
+   lens is lit and as it is dark around, seen from ahead only (updateLights, 03f4-route.js). host: the group whose +x the lamps face */
+const halos = [];
+const HALO_TEX = (() => {
+  const c = document.createElement('canvas'); c.width = c.height = 64;
+  const x = c.getContext('2d'), gr = x.createRadialGradient(32, 32, 0, 32, 32, 32);
+  gr.addColorStop(0, '#fff'); gr.addColorStop(0.12, 'rgba(255,255,255,0.7)'); gr.addColorStop(0.4, 'rgba(255,255,255,0.14)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+  x.fillStyle = gr; x.fillRect(0, 0, 64, 64);
+  return new THREE.CanvasTexture(c);
+})();
+const noRay = () => {};
+function addHalos(host, lens, points, size, own = true, head = true){   // own: on our train (the beam rides its leading head lamps); head: white, not a tail
+  const sm = new THREE.SpriteMaterial({ map:HALO_TEX, color:lens.emissive, blending:THREE.AdditiveBlending, depthWrite:false, fog:false, toneMapped:false, opacity:0 });
+  sm.visible = false;
+  for (const [x, y, z] of points){ const sp = new THREE.Sprite(sm); sp.position.set(x, y, z); sp.scale.setScalar(size); sp.renderOrder = 5; sp.raycast = noRay; host.add(sp); }   // not in the way of a click
+  const at = new THREE.Vector3(); points.forEach(p => at.add(new THREE.Vector3(...p))); at.divideScalar(points.length);   // their middle: in front of it is ahead
+  const tip = new THREE.Vector3(Math.max(...points.map(p => p[0])), Math.min(...points.map(p => p[1])), 0);   // the nose's lowest lamps, where the beam starts
+  halos.push({ host, lens, sm, at, tip, own, head, peak:lens.userData.lamp || 2.2 });
+}
 
 /* ------------------------------------------------------- environment: track and scenery are built per kilometre from the route data (03f4) */
 const ballastMat = new THREE.MeshStandardMaterial({ color:0x3a3f44, roughness:1 });
@@ -68,6 +87,7 @@ definePart('shell', g => {
   hl.userData.lamp = 2.2; lampMats.push(hl);
   [-0.9, 0.9].forEach(z => g.add(cyl(0.15, 0.06, hl, 'x', 9.64, 2.35, z, 20)));
   g.add(cyl(0.14, 0.06, hl, 'x', 9.64, 4.05, 0, 20));
+  addHalos(g, hl, [[10, 2.35, -0.9], [10, 2.35, 0.9], [10, 4.05, 0]], 1.3);
   // number plate band on the cab
   g.add(box(2.8, 0.26, 0.02, band, 8.2, 3.05, 1.49)); g.add(box(2.8, 0.26, 0.02, band, 8.2, 3.05, -1.49));
 });

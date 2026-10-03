@@ -115,6 +115,9 @@ function clearAt(h){   // the clear sky with the sun h degrees high
 }
 scene.background = new THREE.Color(); scene.fog = new THREE.Fog(0xb8d2e8, 238, 832);   // set every frame by updateWeather
 let weatherId = 'sun';
+/* how dark it is for the train's lights (updateLights, 03f4-route.js): night from the sun, 0 from 1 degree up to 1 at 6 down; cam: how deep in a
+   tunnel the camera is (0 to 1 over the first 40 m in from a portal), the daylight fading out there */
+const DARK = { night:0, cam:0 };
 const wxW = { sun:1, cloud:0, rain:0 };   // how much of each weather is in the sky now (they blend)
 /* ---- the clock: French time, minutes after midnight. Live, it is the real time; set by hand, it runs with the simulation (x1 to x16) */
 const CLOCK = { live:true, min:720, pick:null };   // pick: the time of day a button chose (TOD), until the clock is set another way
@@ -212,7 +215,7 @@ const _fillD = new THREE.Vector3();
 function updateWeather(dt){
   CLOCK.min = CLOCK.live ? liveMin() : (CLOCK.min + dt * S.timeScale / 60) % 1440;
   const [lat, lon] = trainLatLon();
-  sunAt(SUN_R, CLOCK.min, lat, lon); sunH = Math.asin(SUN_R.y) * 180 / Math.PI;
+  sunAt(SUN_R, CLOCK.min, lat, lon); sunH = Math.asin(SUN_R.y) * 180 / Math.PI; DARK.night = Math.max(0, Math.min(1, (1 - sunH) / 7));
   // the weather: each one's share moves towards the one asked for
   let sum = 0;
   for (const k in wxW){ wxW[k] = approach(wxW[k], k === weatherId ? 1 : 0, dt / 6); sum += wxW[k]; }
@@ -230,10 +233,12 @@ function updateWeather(dt){
   const P = PAL, clear = P[28], moon = sunH < -1.5;
   skyMat.uniforms.horizon.value.setRGB(P[0], P[1], P[2]); skyMat.uniforms.zenith.value.setRGB(P[3], P[4], P[5]);
   scene.background.setRGB(P[0], P[1], P[2]);
-  scene.fog.color.setRGB(P[6], P[7], P[8]); scene.fog.near = 170 * fogK * P[25]; scene.fog.far = 520 * fogK * P[26];
-  sun.color.setRGB(P[9], P[10], P[11]); sun.intensity = P[12];   // clouds dim the moon as they dim the sun, they do not hide its light
-  hemi.color.setRGB(P[13], P[14], P[15]); hemi.groundColor.setRGB(P[16], P[17], P[18]); hemi.intensity = P[19];
-  fill.intensity = P[20];
+  const tun = DARK.cam, day = 1 - tun;   // in a tunnel the sky's light fades out, and the far end of the tube goes black
+  scene.fog.color.setRGB(P[6], P[7], P[8]).multiplyScalar(day);
+  scene.fog.near = 170 * fogK * P[25] * day + 10 * tun; scene.fog.far = 520 * fogK * P[26] * day + 220 * tun;
+  sun.color.setRGB(P[9], P[10], P[11]); sun.intensity = P[12] * day;   // clouds dim the moon as they dim the sun, they do not hide its light
+  hemi.color.setRGB(P[13], P[14], P[15]); hemi.groundColor.setRGB(P[16], P[17], P[18]); hemi.intensity = P[19] * (1 - 0.6 * tun);
+  fill.intensity = P[20] * day;
   renderer.toneMappingExposure = P[21];
   for (const { mat, token } of themeMats) mat.color.setHex(GROUND_BASE[token] ?? 0xffffff).multiply(_tint.setRGB(P[22], P[23], P[24]));
   // the sun and the moon in the sky, the stars

@@ -462,7 +462,6 @@ const cabActions = {   // what each desk button does, and the way out of the cab
   leverTip(){ cabSay(t('cab_lever_drag'), 'l'); },   // the 3D lever tapped, not dragged
   leave(){ flyPreset(stepV(STEPS[S.mode][stepIdx]).cam); },   // back to the guide's view
 };
-const shown = o => { for (; o; o = o.parent) if (!o.visible) return false; return true; };
 const deskRay = e => {   // the ray under a press or a tap, and the canvas' rectangle
   const r = canvas.getBoundingClientRect();
   ptr.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
@@ -1086,7 +1085,7 @@ let frameHook = null;   // the kid build hangs its own rules here
 function frame(dt){
   simulate(dt); serviceTick(); animate(Math.min(dt * S.timeScale, 0.25)); updateFlows(dt); updateWeather(dt); panKeys(dt); if (frameHook) frameHook(dt);
   keepDriver(); keepWalker(dt); updateIdle(dt);
-  orbit.update(dt); stepAim(dt); updateCab(dt); updateCompass(); updateSound(dt);
+  orbit.update(dt); updateLights(); stepAim(dt); updateCab(dt); updateCompass(); updateSound(dt);
 }
 window.tick = (sec, dt = 0.05) => { for (let t = 0; t < sec - 1e-9; t += dt) frame(dt); renderer.render(scene, camera); updateLabels(); updateGauges(); updateHud(); };
 
@@ -1095,4 +1094,4 @@ resize();
 setShell(0.18); setCut('none'); setExplode(0);
 setMode('diesel');
 requestAnimationFrame(loop);
-window.locoDebug = { BAR, BAR_MENU, barOpen, barClose, barBuy, barEat, barNear, barIsOpen, walkSitStool, updateBar, CAB, driverSeat, cabActions, cabLever, S, simulate, animate, updateFlows, updateGauges, orbit, renderer, scene, camera, goStep, setMode, setCut, setExplode, setShell, select, parts, TGV, tgvSets, station, updateTgv, syncControls, tick:window.tick, ROUTE, horn, chunks, requestTrack, trk, opp, parked, cars, curveLocal, updateHud, jumpToStation, jumpTo, setWeather, CLOCK, setClock, setTod, todPick, todIcon, hhmm, solarNoon, sunTime, sunHAt, SUN_R, LIGHT_DIR, sky:() => ({ sunH, weatherId, wxW:{ ...wxW }, P:[...PAL] }), sun, hemi, fill, stars, pcHosts, pcShells, flowObjs, landmarks, flyPreset, SND, PX, pool, paxResolve, paxHolding, allCoaches, world, keys, WK, walkMove, walkSitNear, walkPick, walkStand, walkZones, STICK, walkView, nextStation, goNextStation, serviceOn, serviceOff, driverLever, cabRowX, CAB_ROW_Y };
+window.locoDebug = { BAR, BAR_MENU, barOpen, barClose, barBuy, barEat, barNear, barIsOpen, walkSitStool, updateBar, CAB, driverSeat, cabActions, cabLever, S, simulate, animate, updateFlows, updateGauges, orbit, renderer, scene, camera, goStep, setMode, setCut, setExplode, setShell, select, parts, TGV, tgvSets, station, updateTgv, syncControls, tick:window.tick, ROUTE, horn, chunks, requestTrack, trk, opp, parked, cars, curveLocal, updateHud, jumpToStation, jumpTo, setWeather, CLOCK, setClock, setTod, todPick, todIcon, hhmm, solarNoon, sunTime, sunHAt, SUN_R, LIGHT_DIR, sky:() => ({ sunH, weatherId, wxW:{ ...wxW }, P:[...PAL] }), sun, hemi, fill, stars, DARK, beam, halos, winMats, SALOON, tunnelIn, updateLights, tunnelM, pcHosts, pcShells, flowObjs, landmarks, flyPreset, SND, PX, pool, paxResolve, paxHolding, allCoaches, world, keys, WK, walkMove, walkSitNear, walkPick, walkStand, walkZones, STICK, walkView, nextStation, goNextStation, serviceOn, serviceOff, driverLever, cabRowX, CAB_ROW_Y };
