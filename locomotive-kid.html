@@ -6457,7 +6457,7 @@ function doorsHome(ctx){ knock(ctx, 85, 0.2); puff(ctx, SND.v.door.g, 'lowpass',
 /* ---- per frame: levels follow the sim, places follow the camera */
 function updateSound(dt){
   const ctx = SND.ctx; if (!ctx) return;
-  const v = SND.v, now = ctx.currentTime, sp = S.speed, tgv = S.mode === 'tgv';
+  const v = SND.v, now = ctx.currentTime, sp = Math.min(S.speed, specNow().vMax), tgv = S.mode === 'tgv';   // the super hero sounds as the train at its top speed
   // TGV events, followed while muted too so that unmuting does not replay them: doors starting to open from shut and reaching their stops, doors starting
   // to close, the train coming to rest, the planned stop near
   const reopen = tgv && v.doorsWas === false && S.doors, unlock = reopen && S.doorsF < 0.1, home = tgv && S.doors && v.doorsFWas < 1 && S.doorsF >= 1;
@@ -6604,6 +6604,8 @@ function simulateTgv(dt){
   S.hatchF = approach(S.hatchF, S.sets === 2 || (S.coupling !== 0 && S.set2Off > -8) ? 1 : 0, dt / 1.5);
 }
 
+// the super hero (the kid's 🦸): the whole line in five minutes, HERO_A up to HERO_V and down onto the far terminus' mark, with no physics
+const HERO_V = 2909, HERO_A = 200;   // m/s (10,472 km/h) and m/s²: 829 km in 285 s at full speed, plus 15 s to get there and to stop
 // station autopilot (any train): run at the line speed, ease off ahead of lower limits, brake to a stop with the nose at the platform mark
 function simulateAutoStop(dt){
   const v = S.speed, aB = 0.85;
@@ -6616,12 +6618,13 @@ function simulateAutoStop(dt){
       vLim = Math.min(vLim, Math.sqrt((kmh / 3.6) ** 2 + 2 * aB * ds));
     }
     const vDes = Math.min(vLim, Math.sqrt(2 * aB * Math.max(0, rr)));   // aims at the mark itself: the cap in simulateStep brings the last metres in
-    if (v > vDes + 0.15){ S.notch = 0; S.brake = clamp(Math.round(1 + (v - vDes) * 3.5), 1, 8); }
+    if (S.hero){ S.notch = 0; S.brake = 0; }   // simulateStep sets its speed
+    else if (v > vDes + 0.15){ S.notch = 0; S.brake = clamp(Math.round(1 + (v - vDes) * 3.5), 1, 8); }
     else if (v < vDes - 1.0 || rr > 5000){ S.notch = clamp(Math.ceil(vDes / (S.vMaxEff / 8) - 0.01), 1, 8); S.brake = 0; }
     else { S.notch = 0; S.brake = 0; }
-    if (rr < -3){ S.autoStop = false; S.notch = 0; S.brake = 0; syncControls(); }   // overshot the mark: hand back to the driver
+    if (rr < -3){ S.autoStop = false; S.hero = false; S.notch = 0; S.brake = 0; syncControls(); }   // overshot the mark: hand back to the driver
     else if (rr < 0.6 && v < 0.02){   // at rest on the mark or a few cm short of it, where it stands: no jump, no speed step
-      S.speed = 0; S.notch = 0; S.brake = 0; S.autoStop = false; S.atStation = true; S.stationT = 0;
+      S.speed = 0; S.notch = 0; S.brake = 0; S.autoStop = false; S.hero = false; S.atStation = true; S.stationT = 0;
       if (S.autoDoors){ S.doors = true; S.autoDoors = false; }
       syncControls();
     }
@@ -6688,6 +6691,7 @@ function simulateStep(dt){
   const Fg = sp.mass * 9.81 * ROUTE.gradeAt(S.dist) * S.dir;   // kN, uphill positive in the running direction
   const a = (F - Fb - Fair - Fg - (v > 0.01 ? R : 0)) / sp.mass;
   S.speed = clamp(v + a * dt, 0, sp.vMax);
+  if (S.hero){ const rr = Math.max(0, tgvRemaining()); S.speed = S.doors || S.doorsF > 0.02 || S.coupling ? 0 : Math.min(HERO_V, v + HERO_A * dt, Math.sqrt(2 * HERO_A * rr), rr / dt); }   // onto the mark, not past it
   if (F <= 0 && S.speed < 0.05) S.speed = 0;
   S.effort = F - Fb;
   S.regenN = clamp((S.mode === 'tgv' ? Fe : Fb) / sp.fBrakeMax, 0, 1);
@@ -6697,7 +6701,7 @@ function simulateStep(dt){
   const tail = S.mode === 'tgv' ? (S.sets === 2 || S.coupling !== 0 ? 382.5 - Math.min(0, S.set2Off) : 185.4) : 82;
   const d2 = clamp(S.dist, 8 + tail, ROUTE.L - 15.5);   // buffer stops at both ends of the data
   if (d2 !== S.dist){ S.dist = d2; S.speed = 0; }
-  if (S.autoStop) S.speed = Math.min(S.speed, Math.sqrt(2 * 1.1 * Math.max(0, tgvRemaining())));   // never overrun the mark: looser than the autopilot's 0.85 m/s², so the brakes do the stopping and this only lands the last metres on it
+  if (S.autoStop && !S.hero) S.speed = Math.min(S.speed, Math.sqrt(2 * 1.1 * Math.max(0, tgvRemaining())));   // never overrun the mark: looser than the autopilot's 0.85 m/s², so the brakes do the stopping and this only lands the last metres on it
 
   // cooling
   const pFrac = (F * v) / sp.pMax;
@@ -6828,7 +6832,7 @@ function resetSim(){   // home is Bordeaux Saint-Jean, where the tour starts, ev
   const home = (ROUTE.stations.find(x => x.id === 'bdx') || ROUTE.stations[0]).s - TGV.PLAT_FRONT;
   Object.assign(S, { battery:false, engine:'off', crankT:0, rpm:0, rpmN:0, fuel:0, notch:0, brake:0, throttleN:0, brakeN:0, panto:false, pantoF:0, lineOn:false, vcb:false,
     dcV:0, dcN:0, excitation:0, powerN:0, tractionN:0, regenN:0, current:0, effort:0, speed:0, temp:0.2, fans:0, fanOn:false, gridHeat:0, gridFan:0, autoShutdown:false, shutdownT:0,
-    sets:1, coupling:0, set2Off:-40, hatchF:0, doors:false, doorsF:0, autoStop:false, atStation:true, autoDoors:false, stationT:0, service:false, lights:true,
+    sets:1, coupling:0, set2Off:-40, hatchF:0, doors:false, doorsF:0, autoStop:false, atStation:true, autoDoors:false, stationT:0, service:false, hero:false, lights:true,
     dist:home, stopS:home, dir:1, timeScale:1, holdN:0, track:0, trackF:0 });
   trk.from = trk.to = 0; trk.s0 = -1e9;
   voltSnap(); S.vMaxEff = Math.min(specNow().vMax, ROUTE.lineLimit(S.dist) / 3.6);
@@ -7055,7 +7059,7 @@ function syncTgvControls(){
   $('stationVal').textContent = S.service ? t('station_service') : S.autoStop ? t('station_running') : S.atStation ? t('station_at') : '';
   $('btnStation').setAttribute('aria-pressed', String(S.service));
 }
-function manual(){ stopAuto(); S.autoShutdown = false; S.autoStop = false; S.service = false; }
+function manual(){ stopAuto(); S.autoShutdown = false; S.autoStop = false; S.service = false; S.hero = false; }   // the super hero's speed falls back to the train's own top speed at once
 $('setsSeg').addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b || b.disabled) return;
   if (!(S.speed < 0.05 && S.coupling === 0)) return;
@@ -7927,14 +7931,14 @@ window.locoDebug = { BAR, BAR_MENU, barOpen, barClose, barBuy, barEat, barNear, 
 /* One screen, no panels: pick a train, push the lever, honk, stop at stations, change the weather; in the top right corner, always, the
    three places to be: the driver's seat, the passenger's (on foot through the TGV) and outside, whose angles open beside it. */
 const KID_T = {
-  fr:{ title:"Jouer au train", diesel:"Diesel", electric:"Électrique", tgv:"TGV", stop:"Stop", horn:"Klaxon", lever:"Manette", station:"Prochaine gare", service:"Toute la ligne",
+  fr:{ title:"Jouer au train", diesel:"Diesel", electric:"Électrique", tgv:"TGV", stop:"Stop", horn:"Klaxon", lever:"Manette", station:"Prochaine gare", service:"Toute la ligne", hero:"Super héros",
        back:"Retour à Bordeaux", auto:"Pilote auto…", doors:"Portes", wx:"Météo", wx_plan:"Météo programmée", tod:"Heure", xray:"Rayons X", hint:"Pousse la manette pour partir !", lever_drag:"Glisse la manette vers le haut pour avancer, vers le bas pour freiner !",
        hint_doors:"Ferme les portes… et c'est parti !", hint_pax:"Attends, tout le monde descend !", hint_out:"Le train attend que tu remontes !", hint_end:"Terminus ! Appuie sur 🔄 pour faire demi-tour.", hint_stopped:"Le train doit être arrêté.", service_on:"🔁 Toute la ligne, en boucle", service_off:"Boucle arrêtée", service_last:"Boucle arrêtée : la prochaine gare est la dernière",
        terminus:"Terminus", next:"Prochaine gare", full:"Version complète ↗", game:"Jeu des aiguillages ↗", lang:"Langue",
        panto:"Pantographe", dir_par:"Vers Paris", dir_tls:"Vers Toulouse", turn:"Demi-tour", hint_panto:"Lève le pantographe !", hint_wait:"Le pantographe monte…", sound:"Son",
        v_driver:"Conducteur", v_pax:"Passager", v_out:"Dehors", v_cine:"Cinéma", pax_tgv:"Le passager voyage en TGV : choisis le TGV 🚄",
        o_overview:"Ensemble", o_side:"Profil", o_train:"Tout le train", o_far:"Paysage", o_door:"Portes" },
-  en:{ title:"Train playground", diesel:"Diesel", electric:"Electric", tgv:"TGV", stop:"Stop", horn:"Horn", lever:"Lever", station:"Next station", service:"Whole line",
+  en:{ title:"Train playground", diesel:"Diesel", electric:"Electric", tgv:"TGV", stop:"Stop", horn:"Horn", lever:"Lever", station:"Next station", service:"Whole line", hero:"Super hero",
        back:"Back to Bordeaux", auto:"Autopilot…", doors:"Doors", wx:"Weather", wx_plan:"Weather schedule", tod:"Time of day", xray:"X-ray", hint:"Push the lever to go!", lever_drag:"Slide the lever up to go, down to brake!",
        hint_doors:"Closing the doors… off we go!", hint_pax:"Wait, everyone is getting off!", hint_out:"The train waits for you to get back on!", hint_end:"End of the line! Press 🔄 to turn around.", hint_stopped:"The train must be stopped first.", service_on:"🔁 The whole line, again and again", service_off:"Loop stopped", service_last:"Loop stopped: the next station is the last",
        terminus:"Terminus", next:"Next station", full:"Full version ↗", game:"Switch game ↗", lang:"Language",
@@ -8053,7 +8057,7 @@ body.kid #rbTip{font-size:13px;padding:5px 9px;top:-30px;border-radius:8px}
 .kb.red{background:#e5484d;color:#fff}.kb.yellow{background:#ffcf33}.kb.green{background:#3ccf6f;color:#0b2e17}.kb.blue{background:#4c8dff;color:#fff}
 .kb.auto .ico{animation:kidPulse 1s infinite}
 @keyframes kidPulse{50%{transform:scale(1.25)}}
-.kid-lever{flex:1 1 300px;min-width:220px;display:flex;flex-direction:column;justify-content:center;gap:4px;padding:0 6px}
+.kid-lever{flex:1 1 220px;min-width:220px;display:flex;flex-direction:column;justify-content:center;gap:4px;padding:0 6px}
 .kid-lever-lab{display:flex;justify-content:space-between;align-items:center;font-size:22px;line-height:1}
 .kid-lever input{-webkit-appearance:none;appearance:none;width:100%;height:60px;margin:0;background:transparent;cursor:pointer}
 .kid-lever input::-webkit-slider-runnable-track{height:26px;border-radius:13px;background:linear-gradient(90deg,#3ccf6f 0%,#ffcf33 55%,#e5484d 100%);box-shadow:inset 0 2px 4px rgba(0,0,0,.25)}
@@ -8137,6 +8141,7 @@ $('c3d').parentElement.insertAdjacentHTML('beforeend', `<div id="kid">
       <button type="button" class="kb yellow" id="kidHorn"><span class="ico">📣</span><span class="lab" data-kid="horn"></span></button>
       <span class="elec-only"><button type="button" class="kb" id="kidPanto" aria-pressed="true"><span class="ico">⚡</span><span class="lab" data-kid="panto"></span></button></span>
       <button type="button" class="kb green" id="kidStation"><span class="ico" id="kidStationIco">🚉</span><span class="lab" id="kidStationLab"></span></button>
+      <button type="button" class="kb" id="kidHero" aria-pressed="false"><span class="ico">🦸</span><span class="lab" data-kid="hero"></span></button>
       <button type="button" class="kb" id="kidDir"><span class="ico">🔄</span><span class="lab" id="kidDirLab"></span></button>
       <span class="tgv-only"><button type="button" class="kb blue" id="kidDoors" aria-pressed="false"><span class="ico">🚪</span><span class="lab" data-kid="doors"></span></button></span>
       <button type="button" class="kb" id="kidWx"><span class="ico" id="kidWxIco">☀️</span><span class="lab" data-kid="wx"></span></button>
@@ -8213,6 +8218,19 @@ function kidStation(){   // a tap: on to the next station at the train's own pac
   goNextStation(st);
 }
 function kidService(){ kidPower(true); serviceOn(); kidToast('service_on', 3000); }   // held down: the whole line, again and again
+function heroEnd(){ const L = ROUTE.stations; return S.dir > 0 ? L[L.length - 1] : L[0]; }   // the terminus ahead
+function heroLeft(){   // m:ss to the mark: on to HERO_V, on at it, then the stop, or the stop already
+  const rr = Math.max(0, tgvRemaining()), v = S.speed;
+  const t = Math.round(rr <= v * v / (2 * HERO_A) + 1 ? v / HERO_A : rr / HERO_V + (HERO_V - v) ** 2 / (2 * HERO_A * HERO_V) + HERO_V / (2 * HERO_A));
+  return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`;
+}
+function kidHero(){   // the super hero: to the far end of the line in five minutes, no stop on the way; at the end, back the other way. Tapped on the way: the time left
+  if (S.hero){ kidToast(`🦸 ${heroEnd().name} · ${heroLeft()}`, 2500); return; }
+  let st = heroEnd();
+  if ((st.s - TGV.PLAT_FRONT - S.dist) * S.dir <= 30){ if (S.speed > 0.3){ kidToast('hint_stopped', 2500); return; } S.dir = -S.dir; st = heroEnd(); }   // at the end: turned round first
+  kidPower(true); goNextStation(st); S.hero = true; syncControls();   // the doors close first, the last passengers through
+  kidToast(paxHolding() ? (WK.out || WK.door ? 'hint_out' : 'hint_pax') : `🦸 ${st.name} · ${heroLeft()}`, 3000);
+}
 function kidDoors(stay){   // stay: pressed from the cab desk, the view stays in the cab
   if (S.mode !== 'tgv') return;
   if (S.speed > 0.1){ kidToast('hint_stopped', 2500); return; }
@@ -8261,11 +8279,12 @@ let kidTodT = '';   // the clock and the sky last shown on the time button
 function kidTick(){
   $('kidSpeed').textContent = Math.round(S.speed * 3.6);
   const tod = todIcon() + hhmm(CLOCK.min); if (tod !== kidTodT){ kidTodT = tod; $('kidTodIco').textContent = todIcon(); $('kidTodLab').textContent = hhmm(CLOCK.min); }
-  const st = nextStation(0), d = st ? (st.s - TGV.PLAT_FRONT - S.dist) * S.dir : 0;
-  $('kidNext').textContent = st ? `🚉 ${st.name} · ${d < 950 ? `${Math.round(d)} m` : `${(d / 1000).toFixed(d < 10000 ? 1 : 0)} km`}` : `🏁 ${kt('terminus')}`;
+  const st = S.hero ? heroEnd() : nextStation(0), d = st ? (st.s - TGV.PLAT_FRONT - S.dist) * S.dir : 0;
+  $('kidNext').textContent = st ? `${S.hero ? '🦸' : '🚉'} ${st.name} · ${d < 950 ? `${Math.round(d)} m` : `${(d / 1000).toFixed(d < 10000 ? 1 : 0)} km`}` : `🏁 ${kt('terminus')}`;
   const sb = $('kidStation'); sb.classList.toggle('auto', S.autoStop); sb.setAttribute('aria-pressed', String(S.service));
   $('kidStationIco').textContent = S.service ? '🔁' : '🚉'; $('kidStationLab').textContent = kt(S.service ? 'service' : S.autoStop ? 'auto' : st ? 'station' : 'turn');
   $('kidDirLab').textContent = kt(S.dir > 0 ? 'dir_par' : 'dir_tls');
+  $('kidHero').setAttribute('aria-pressed', String(S.hero));
   $('kidPanto').setAttribute('aria-pressed', String(S.panto));
   const lv = $('kidLever'); if (document.activeElement !== lv) lv.value = S.notch; $('kidLeverBox').classList.toggle('auto', S.autoStop);
   $('kidDoors').setAttribute('aria-pressed', String(S.doorsF > 0.5)); $('kidDoors').disabled = S.speed > 0.1 && S.doorsF < 0.02;
@@ -8283,6 +8302,7 @@ $('kidStop').addEventListener('click', kidStop);
 holdable($('kidStation'), kidStation, kidService);   // held down: the whole line
 $('kidPanto').addEventListener('click', kidPanto);
 $('kidDir').addEventListener('click', kidTurn);
+$('kidHero').addEventListener('click', kidHero);
 $('kidDoors').addEventListener('click', () => kidDoors());
 $('kidViews').addEventListener('click', e => { const b = e.target.closest('[data-view]'); if (b) kidView(b.dataset.view); });
 $('kidAngles').addEventListener('click', e => { const b = e.target.closest('[data-cam]'); if (b) kidGo(b.dataset.cam); });
@@ -8330,7 +8350,7 @@ kidToast('hint', 6000);
 Promise.race([document.fonts.ready, new Promise(r => setTimeout(r, 1500))]).then(() => requestAnimationFrame(() => requestAnimationFrame(() => {
   const b = $('kidBoot'); b.classList.add('out'); setTimeout(() => b.remove(), 400);
 })));
-Object.assign(window.locoDebug, { kidLever, kidStop, kidStation, kidService, kidDoors, kidView, kidGo, kidWhere, kidWx, kidTod, kidXray, kidTrain, kidTick, kidPanto, kidTurn, kidMute });
+Object.assign(window.locoDebug, { kidLever, kidStop, kidStation, kidService, kidDoors, kidView, kidGo, kidWhere, kidWx, kidTod, kidXray, kidTrain, kidTick, kidPanto, kidTurn, kidMute, kidHero });
 
 /* ============================================================ CINEMA (kid build, after the kid layer): the 🎬 view, for long trips */
 /* "movie-like movements", "the camera movement for long term travels", "a wallpaper for the whole line", then "in the cinematic mode forget
@@ -9036,8 +9056,8 @@ const rmLine = () => {
 const rmBar = () => ({ w:money(BAR.wallet), pocket:!$('barPocket').hidden, tray:BAR.tray,   // the bar's menu open: its names and prices as the TV says them, what is on the tray
   it:BAR_MENU.map(m => [barName(m.id), price(m.p), m.p > BAR.wallet ? 1 : 0]) });
 function rmState(){
-  const st = nextStation(0), d = st ? (st.s - TGV.PLAT_FRONT - S.dist) * S.dir : 0;
-  return JSON.stringify({ t:'state', kmh:Math.round(S.speed * 3.6), notch:Math.round(S.notch), brake:Math.round(S.brake), s:+S.dist.toFixed(1), v:+S.speed.toFixed(2), auto:S.autoStop, svc:S.service, mode:S.mode, dir:S.dir,
+  const st = S.hero ? heroEnd() : nextStation(0), d = st ? (st.s - TGV.PLAT_FRONT - S.dist) * S.dir : 0;
+  return JSON.stringify({ t:'state', hero:S.hero, kmh:Math.round(S.speed * 3.6), notch:Math.round(S.notch), brake:Math.round(S.brake), s:+S.dist.toFixed(1), v:+S.speed.toFixed(2), auto:S.autoStop, svc:S.service, mode:S.mode, dir:S.dir,
     panto:!!S.panto, lights:S.lights, doors:S.doorsF > 0.5, doorsOk:!(S.speed > 0.1 && S.doorsF < 0.02), horn:horn.active, view:kidWhere(), cam:kidOut,
     wx:wxPick(), plan:WX_PLAN.slots, tod:todPick(), todIco:todIcon(), clock:hhmm(CLOCK.min), xray:shellLevel < 1, nogui:noGui, mute:SND.muted, snd:SND.ctx?.state === 'running',
     next:st ? st.name : null, dist:st ? distText(d) : '', f:+RB.f(S.dist).toFixed(3),
@@ -9063,6 +9083,7 @@ function rmCmd(c, v){
     case 'next': kidStation(); break;
     case 'service': kidService(); break;
     case 'turn': kidTurn(); break;
+    case 'hero': kidHero(); break;
     case 'doors': kidDoors(); break;
     case 'wx': if (v === 'next') kidWx(); else setWeather(v); break;   // next: from the TV's own, a tap before the iPad heard the last one still counts
     case 'plan': wxPlanCycle(v); break;

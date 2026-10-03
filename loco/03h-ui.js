@@ -36,7 +36,7 @@ function resetSim(){   // home is Bordeaux Saint-Jean, where the tour starts, ev
   const home = (ROUTE.stations.find(x => x.id === 'bdx') || ROUTE.stations[0]).s - TGV.PLAT_FRONT;
   Object.assign(S, { battery:false, engine:'off', crankT:0, rpm:0, rpmN:0, fuel:0, notch:0, brake:0, throttleN:0, brakeN:0, panto:false, pantoF:0, lineOn:false, vcb:false,
     dcV:0, dcN:0, excitation:0, powerN:0, tractionN:0, regenN:0, current:0, effort:0, speed:0, temp:0.2, fans:0, fanOn:false, gridHeat:0, gridFan:0, autoShutdown:false, shutdownT:0,
-    sets:1, coupling:0, set2Off:-40, hatchF:0, doors:false, doorsF:0, autoStop:false, atStation:true, autoDoors:false, stationT:0, service:false, lights:true,
+    sets:1, coupling:0, set2Off:-40, hatchF:0, doors:false, doorsF:0, autoStop:false, atStation:true, autoDoors:false, stationT:0, service:false, hero:false, lights:true,
     dist:home, stopS:home, dir:1, timeScale:1, holdN:0, track:0, trackF:0 });
   trk.from = trk.to = 0; trk.s0 = -1e9;
   voltSnap(); S.vMaxEff = Math.min(specNow().vMax, ROUTE.lineLimit(S.dist) / 3.6);
@@ -263,7 +263,7 @@ function syncTgvControls(){
   $('stationVal').textContent = S.service ? t('station_service') : S.autoStop ? t('station_running') : S.atStation ? t('station_at') : '';
   $('btnStation').setAttribute('aria-pressed', String(S.service));
 }
-function manual(){ stopAuto(); S.autoShutdown = false; S.autoStop = false; S.service = false; }
+function manual(){ stopAuto(); S.autoShutdown = false; S.autoStop = false; S.service = false; S.hero = false; }   // the super hero's speed falls back to the train's own top speed at once
 $('setsSeg').addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b || b.disabled) return;
   if (!(S.speed < 0.05 && S.coupling === 0)) return;

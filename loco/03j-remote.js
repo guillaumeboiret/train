@@ -206,8 +206,8 @@ const rmLine = () => {
 const rmBar = () => ({ w:money(BAR.wallet), pocket:!$('barPocket').hidden, tray:BAR.tray,   // the bar's menu open: its names and prices as the TV says them, what is on the tray
   it:BAR_MENU.map(m => [barName(m.id), price(m.p), m.p > BAR.wallet ? 1 : 0]) });
 function rmState(){
-  const st = nextStation(0), d = st ? (st.s - TGV.PLAT_FRONT - S.dist) * S.dir : 0;
-  return JSON.stringify({ t:'state', kmh:Math.round(S.speed * 3.6), notch:Math.round(S.notch), brake:Math.round(S.brake), s:+S.dist.toFixed(1), v:+S.speed.toFixed(2), auto:S.autoStop, svc:S.service, mode:S.mode, dir:S.dir,
+  const st = S.hero ? heroEnd() : nextStation(0), d = st ? (st.s - TGV.PLAT_FRONT - S.dist) * S.dir : 0;
+  return JSON.stringify({ t:'state', hero:S.hero, kmh:Math.round(S.speed * 3.6), notch:Math.round(S.notch), brake:Math.round(S.brake), s:+S.dist.toFixed(1), v:+S.speed.toFixed(2), auto:S.autoStop, svc:S.service, mode:S.mode, dir:S.dir,
     panto:!!S.panto, lights:S.lights, doors:S.doorsF > 0.5, doorsOk:!(S.speed > 0.1 && S.doorsF < 0.02), horn:horn.active, view:kidWhere(), cam:kidOut,
     wx:wxPick(), plan:WX_PLAN.slots, tod:todPick(), todIco:todIcon(), clock:hhmm(CLOCK.min), xray:shellLevel < 1, nogui:noGui, mute:SND.muted, snd:SND.ctx?.state === 'running',
     next:st ? st.name : null, dist:st ? distText(d) : '', f:+RB.f(S.dist).toFixed(3),
@@ -233,6 +233,7 @@ function rmCmd(c, v){
     case 'next': kidStation(); break;
     case 'service': kidService(); break;
     case 'turn': kidTurn(); break;
+    case 'hero': kidHero(); break;
     case 'doors': kidDoors(); break;
     case 'wx': if (v === 'next') kidWx(); else setWeather(v); break;   // next: from the TV's own, a tap before the iPad heard the last one still counts
     case 'plan': wxPlanCycle(v); break;

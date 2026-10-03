@@ -59,6 +59,8 @@ function simulateTgv(dt){
   S.hatchF = approach(S.hatchF, S.sets === 2 || (S.coupling !== 0 && S.set2Off > -8) ? 1 : 0, dt / 1.5);
 }
 
+// the super hero (the kid's 🦸): the whole line in five minutes, HERO_A up to HERO_V and down onto the far terminus' mark, with no physics
+const HERO_V = 2909, HERO_A = 200;   // m/s (10,472 km/h) and m/s²: 829 km in 285 s at full speed, plus 15 s to get there and to stop
 // station autopilot (any train): run at the line speed, ease off ahead of lower limits, brake to a stop with the nose at the platform mark
 function simulateAutoStop(dt){
   const v = S.speed, aB = 0.85;
@@ -71,12 +73,13 @@ function simulateAutoStop(dt){
       vLim = Math.min(vLim, Math.sqrt((kmh / 3.6) ** 2 + 2 * aB * ds));
     }
     const vDes = Math.min(vLim, Math.sqrt(2 * aB * Math.max(0, rr)));   // aims at the mark itself: the cap in simulateStep brings the last metres in
-    if (v > vDes + 0.15){ S.notch = 0; S.brake = clamp(Math.round(1 + (v - vDes) * 3.5), 1, 8); }
+    if (S.hero){ S.notch = 0; S.brake = 0; }   // simulateStep sets its speed
+    else if (v > vDes + 0.15){ S.notch = 0; S.brake = clamp(Math.round(1 + (v - vDes) * 3.5), 1, 8); }
     else if (v < vDes - 1.0 || rr > 5000){ S.notch = clamp(Math.ceil(vDes / (S.vMaxEff / 8) - 0.01), 1, 8); S.brake = 0; }
     else { S.notch = 0; S.brake = 0; }
-    if (rr < -3){ S.autoStop = false; S.notch = 0; S.brake = 0; syncControls(); }   // overshot the mark: hand back to the driver
+    if (rr < -3){ S.autoStop = false; S.hero = false; S.notch = 0; S.brake = 0; syncControls(); }   // overshot the mark: hand back to the driver
     else if (rr < 0.6 && v < 0.02){   // at rest on the mark or a few cm short of it, where it stands: no jump, no speed step
-      S.speed = 0; S.notch = 0; S.brake = 0; S.autoStop = false; S.atStation = true; S.stationT = 0;
+      S.speed = 0; S.notch = 0; S.brake = 0; S.autoStop = false; S.hero = false; S.atStation = true; S.stationT = 0;
       if (S.autoDoors){ S.doors = true; S.autoDoors = false; }
       syncControls();
     }
@@ -143,6 +146,7 @@ function simulateStep(dt){
   const Fg = sp.mass * 9.81 * ROUTE.gradeAt(S.dist) * S.dir;   // kN, uphill positive in the running direction
   const a = (F - Fb - Fair - Fg - (v > 0.01 ? R : 0)) / sp.mass;
   S.speed = clamp(v + a * dt, 0, sp.vMax);
+  if (S.hero){ const rr = Math.max(0, tgvRemaining()); S.speed = S.doors || S.doorsF > 0.02 || S.coupling ? 0 : Math.min(HERO_V, v + HERO_A * dt, Math.sqrt(2 * HERO_A * rr), rr / dt); }   // onto the mark, not past it
   if (F <= 0 && S.speed < 0.05) S.speed = 0;
   S.effort = F - Fb;
   S.regenN = clamp((S.mode === 'tgv' ? Fe : Fb) / sp.fBrakeMax, 0, 1);
@@ -152,7 +156,7 @@ function simulateStep(dt){
   const tail = S.mode === 'tgv' ? (S.sets === 2 || S.coupling !== 0 ? 382.5 - Math.min(0, S.set2Off) : 185.4) : 82;
   const d2 = clamp(S.dist, 8 + tail, ROUTE.L - 15.5);   // buffer stops at both ends of the data
   if (d2 !== S.dist){ S.dist = d2; S.speed = 0; }
-  if (S.autoStop) S.speed = Math.min(S.speed, Math.sqrt(2 * 1.1 * Math.max(0, tgvRemaining())));   // never overrun the mark: looser than the autopilot's 0.85 m/s², so the brakes do the stopping and this only lands the last metres on it
+  if (S.autoStop && !S.hero) S.speed = Math.min(S.speed, Math.sqrt(2 * 1.1 * Math.max(0, tgvRemaining())));   // never overrun the mark: looser than the autopilot's 0.85 m/s², so the brakes do the stopping and this only lands the last metres on it
 
   // cooling
   const pFrac = (F * v) / sp.pMax;

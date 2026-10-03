@@ -6444,7 +6444,7 @@ function doorsHome(ctx){ knock(ctx, 85, 0.2); puff(ctx, SND.v.door.g, 'lowpass',
 /* ---- per frame: levels follow the sim, places follow the camera */
 function updateSound(dt){
   const ctx = SND.ctx; if (!ctx) return;
-  const v = SND.v, now = ctx.currentTime, sp = S.speed, tgv = S.mode === 'tgv';
+  const v = SND.v, now = ctx.currentTime, sp = Math.min(S.speed, specNow().vMax), tgv = S.mode === 'tgv';   // the super hero sounds as the train at its top speed
   // TGV events, followed while muted too so that unmuting does not replay them: doors starting to open from shut and reaching their stops, doors starting
   // to close, the train coming to rest, the planned stop near
   const reopen = tgv && v.doorsWas === false && S.doors, unlock = reopen && S.doorsF < 0.1, home = tgv && S.doors && v.doorsFWas < 1 && S.doorsF >= 1;
@@ -6591,6 +6591,8 @@ function simulateTgv(dt){
   S.hatchF = approach(S.hatchF, S.sets === 2 || (S.coupling !== 0 && S.set2Off > -8) ? 1 : 0, dt / 1.5);
 }
 
+// the super hero (the kid's 🦸): the whole line in five minutes, HERO_A up to HERO_V and down onto the far terminus' mark, with no physics
+const HERO_V = 2909, HERO_A = 200;   // m/s (10,472 km/h) and m/s²: 829 km in 285 s at full speed, plus 15 s to get there and to stop
 // station autopilot (any train): run at the line speed, ease off ahead of lower limits, brake to a stop with the nose at the platform mark
 function simulateAutoStop(dt){
   const v = S.speed, aB = 0.85;
@@ -6603,12 +6605,13 @@ function simulateAutoStop(dt){
       vLim = Math.min(vLim, Math.sqrt((kmh / 3.6) ** 2 + 2 * aB * ds));
     }
     const vDes = Math.min(vLim, Math.sqrt(2 * aB * Math.max(0, rr)));   // aims at the mark itself: the cap in simulateStep brings the last metres in
-    if (v > vDes + 0.15){ S.notch = 0; S.brake = clamp(Math.round(1 + (v - vDes) * 3.5), 1, 8); }
+    if (S.hero){ S.notch = 0; S.brake = 0; }   // simulateStep sets its speed
+    else if (v > vDes + 0.15){ S.notch = 0; S.brake = clamp(Math.round(1 + (v - vDes) * 3.5), 1, 8); }
     else if (v < vDes - 1.0 || rr > 5000){ S.notch = clamp(Math.ceil(vDes / (S.vMaxEff / 8) - 0.01), 1, 8); S.brake = 0; }
     else { S.notch = 0; S.brake = 0; }
-    if (rr < -3){ S.autoStop = false; S.notch = 0; S.brake = 0; syncControls(); }   // overshot the mark: hand back to the driver
+    if (rr < -3){ S.autoStop = false; S.hero = false; S.notch = 0; S.brake = 0; syncControls(); }   // overshot the mark: hand back to the driver
     else if (rr < 0.6 && v < 0.02){   // at rest on the mark or a few cm short of it, where it stands: no jump, no speed step
-      S.speed = 0; S.notch = 0; S.brake = 0; S.autoStop = false; S.atStation = true; S.stationT = 0;
+      S.speed = 0; S.notch = 0; S.brake = 0; S.autoStop = false; S.hero = false; S.atStation = true; S.stationT = 0;
       if (S.autoDoors){ S.doors = true; S.autoDoors = false; }
       syncControls();
     }
@@ -6675,6 +6678,7 @@ function simulateStep(dt){
   const Fg = sp.mass * 9.81 * ROUTE.gradeAt(S.dist) * S.dir;   // kN, uphill positive in the running direction
   const a = (F - Fb - Fair - Fg - (v > 0.01 ? R : 0)) / sp.mass;
   S.speed = clamp(v + a * dt, 0, sp.vMax);
+  if (S.hero){ const rr = Math.max(0, tgvRemaining()); S.speed = S.doors || S.doorsF > 0.02 || S.coupling ? 0 : Math.min(HERO_V, v + HERO_A * dt, Math.sqrt(2 * HERO_A * rr), rr / dt); }   // onto the mark, not past it
   if (F <= 0 && S.speed < 0.05) S.speed = 0;
   S.effort = F - Fb;
   S.regenN = clamp((S.mode === 'tgv' ? Fe : Fb) / sp.fBrakeMax, 0, 1);
@@ -6684,7 +6688,7 @@ function simulateStep(dt){
   const tail = S.mode === 'tgv' ? (S.sets === 2 || S.coupling !== 0 ? 382.5 - Math.min(0, S.set2Off) : 185.4) : 82;
   const d2 = clamp(S.dist, 8 + tail, ROUTE.L - 15.5);   // buffer stops at both ends of the data
   if (d2 !== S.dist){ S.dist = d2; S.speed = 0; }
-  if (S.autoStop) S.speed = Math.min(S.speed, Math.sqrt(2 * 1.1 * Math.max(0, tgvRemaining())));   // never overrun the mark: looser than the autopilot's 0.85 m/s², so the brakes do the stopping and this only lands the last metres on it
+  if (S.autoStop && !S.hero) S.speed = Math.min(S.speed, Math.sqrt(2 * 1.1 * Math.max(0, tgvRemaining())));   // never overrun the mark: looser than the autopilot's 0.85 m/s², so the brakes do the stopping and this only lands the last metres on it
 
   // cooling
   const pFrac = (F * v) / sp.pMax;
@@ -6815,7 +6819,7 @@ function resetSim(){   // home is Bordeaux Saint-Jean, where the tour starts, ev
   const home = (ROUTE.stations.find(x => x.id === 'bdx') || ROUTE.stations[0]).s - TGV.PLAT_FRONT;
   Object.assign(S, { battery:false, engine:'off', crankT:0, rpm:0, rpmN:0, fuel:0, notch:0, brake:0, throttleN:0, brakeN:0, panto:false, pantoF:0, lineOn:false, vcb:false,
     dcV:0, dcN:0, excitation:0, powerN:0, tractionN:0, regenN:0, current:0, effort:0, speed:0, temp:0.2, fans:0, fanOn:false, gridHeat:0, gridFan:0, autoShutdown:false, shutdownT:0,
-    sets:1, coupling:0, set2Off:-40, hatchF:0, doors:false, doorsF:0, autoStop:false, atStation:true, autoDoors:false, stationT:0, service:false, lights:true,
+    sets:1, coupling:0, set2Off:-40, hatchF:0, doors:false, doorsF:0, autoStop:false, atStation:true, autoDoors:false, stationT:0, service:false, hero:false, lights:true,
     dist:home, stopS:home, dir:1, timeScale:1, holdN:0, track:0, trackF:0 });
   trk.from = trk.to = 0; trk.s0 = -1e9;
   voltSnap(); S.vMaxEff = Math.min(specNow().vMax, ROUTE.lineLimit(S.dist) / 3.6);
@@ -7042,7 +7046,7 @@ function syncTgvControls(){
   $('stationVal').textContent = S.service ? t('station_service') : S.autoStop ? t('station_running') : S.atStation ? t('station_at') : '';
   $('btnStation').setAttribute('aria-pressed', String(S.service));
 }
-function manual(){ stopAuto(); S.autoShutdown = false; S.autoStop = false; S.service = false; }
+function manual(){ stopAuto(); S.autoShutdown = false; S.autoStop = false; S.service = false; S.hero = false; }   // the super hero's speed falls back to the train's own top speed at once
 $('setsSeg').addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b || b.disabled) return;
   if (!(S.speed < 0.05 && S.coupling === 0)) return;

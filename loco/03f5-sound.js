@@ -238,7 +238,7 @@ function doorsHome(ctx){ knock(ctx, 85, 0.2); puff(ctx, SND.v.door.g, 'lowpass',
 /* ---- per frame: levels follow the sim, places follow the camera */
 function updateSound(dt){
   const ctx = SND.ctx; if (!ctx) return;
-  const v = SND.v, now = ctx.currentTime, sp = S.speed, tgv = S.mode === 'tgv';
+  const v = SND.v, now = ctx.currentTime, sp = Math.min(S.speed, specNow().vMax), tgv = S.mode === 'tgv';   // the super hero sounds as the train at its top speed
   // TGV events, followed while muted too so that unmuting does not replay them: doors starting to open from shut and reaching their stops, doors starting
   // to close, the train coming to rest, the planned stop near
   const reopen = tgv && v.doorsWas === false && S.doors, unlock = reopen && S.doorsF < 0.1, home = tgv && S.doors && v.doorsFWas < 1 && S.doorsF >= 1;

@@ -75,7 +75,7 @@ main{position:relative;flex:1;display:grid;grid-template-columns:clamp(112px,13v
 .lever.auto .lv-knob{border-color:var(--accent)}
 .pad{display:grid;grid-template-rows:minmax(0,1.3fr) minmax(0,1fr);gap:10px;min-height:0}
 .btns{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));grid-template-rows:repeat(2,minmax(0,1fr));gap:12px;padding:12px}
-#bStop{grid-row:span 2}   /* nine buttons in ten places: the stop takes two */
+/* ten buttons in ten places */
 .kb{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;min-width:0;min-height:0;padding:6px;border:0;border-radius:22px;background:#f1f4f7;color:var(--ink);box-shadow:0 6px 0 rgba(0,0,0,.45);transition:transform .05s,box-shadow .05s}
 .kb .ico{font-size:clamp(30px,5.4vmin,56px);line-height:1}
 .kb .lab{font-size:clamp(12px,1.7vmin,17px);text-align:center}
@@ -168,13 +168,13 @@ body.walk .pad{grid-template-rows:minmax(0,1fr) auto}
   .kt{min-width:52px}.trains .kt .lab{display:none}
   main{grid-template-columns:84px minmax(0,1fr);grid-template-rows:minmax(0,1fr) auto;gap:8px}.lv-knob{width:62px;height:62px;border-width:5px}.lv-track{margin:34px 0}
   .pad{display:contents}.btns{grid-area:1/2}.game{grid-area:1/1/2/-1}.cam{grid-column:1/-1}
-  .btns{grid-template-columns:repeat(3,minmax(0,1fr));grid-template-rows:repeat(3,minmax(0,1fr));gap:8px;padding:8px}#bStop{grid-row:auto}
+  .btns{grid-template-columns:repeat(3,minmax(0,1fr));grid-template-rows:repeat(4,minmax(0,1fr));gap:8px;padding:8px}#bHero{grid-column:1/-1}   /* the last row: the super hero, the full width */
   .kb{gap:4px;padding:4px;border-radius:16px}.kb .ico{font-size:clamp(26px,8vw,36px)}.kb .lab{font-size:12px;line-height:1.1;letter-spacing:.02em}
   .cam{padding:8px;gap:6px}.views,.angles{gap:6px}.cam .kt{min-height:44px}.cam .kt .lab{display:none}
   .line{padding:8px 18px 2px}.rb{height:46px}.rb-lb{top:30px;font-size:11px}
   body.walk main{grid-template-rows:auto minmax(0,1fr)}body.walk .cam{grid-row:1}body.walk .game{grid-row:2}body.bar .cam{display:none}
 }
-@media (max-width:700px) and (orientation:portrait) and (max-height:600px){ .kb .lab{display:none} }   /* an iPhone SE: the buttons too low for a name under the icon */
+@media (max-width:700px) and (orientation:portrait) and (max-height:600px){ .kb .lab{display:none}.btns{grid-template-columns:repeat(4,minmax(0,1fr));grid-template-rows:repeat(3,minmax(0,1fr))}#bHero{grid-column:span 3} }   /* an iPhone SE: the buttons too low for a name under the icon, and for four rows: four across */
 @media (max-height:620px) and (orientation:landscape){   /* a phone held sideways */
   #ctl{gap:6px}.speed .n{font-size:34px}.kt .ico{font-size:24px}.trains .kt .lab{display:none}.kt{min-width:52px}
   .kb .lab,.cam .kt .lab{display:none}.btns{gap:8px;padding:8px}.lv-knob{width:56px;height:56px;border-width:4px}.lever .end{font-size:26px}.lv-track{margin:30px 0}
@@ -188,11 +188,10 @@ body.walk .pad{grid-template-rows:minmax(0,1fr) auto}
 .desk{position:relative;overflow:hidden;min-height:0}
 .desk iframe{position:absolute;inset:0;width:100%;height:100%;border:0;display:block}
 body.desk main{grid-template-columns:minmax(0,1fr)}
-body.desk :is(main>.lever,#bHorn,#bStation,#bPanto,#bDoors){display:none}
+body.desk :is(main>.lever,#bHorn,#bStation,#bPanto,#bDoors,#bHero){display:none}
 body.desk .pad{grid-template-columns:minmax(0,1fr) clamp(96px,10vw,132px);grid-template-rows:minmax(0,1fr) auto;grid-template-areas:"desk btns" "cam cam"}
 body.desk .desk{grid-area:desk}
 body.desk .btns{grid-area:btns;grid-template-columns:minmax(0,1fr);grid-template-rows:repeat(5,minmax(0,1fr));gap:10px;padding:10px}
-body.desk #bStop{grid-row:auto}
 body.desk .cam{grid-area:cam;grid-template-rows:none;grid-template-columns:minmax(0,4fr) minmax(0,5fr);gap:8px;padding:8px}
 body.desk .cam .kt{min-height:60px}
 @media (orientation:portrait){
@@ -254,6 +253,7 @@ body.desk .cam .kt{min-height:60px}
         <button type="button" class="kb" id="bWx"><span class="ico" id="bWxIco">☀️</span><span class="lab" data-i18n="wx">Météo</span></button>
         <button type="button" class="kb" id="bTod" aria-label="Heure" data-i18n-aria="tod"><span class="ico" id="bTodIco">☀️</span><span class="lab" id="bTodLab">--:--</span></button>
         <button type="button" class="kb" id="bXray" aria-pressed="false"><span class="ico">👀</span><span class="lab" data-i18n="xray">Rayons X</span></button>
+        <button type="button" class="kb" id="bHero" aria-pressed="false"><span class="ico">🦸</span><span class="lab" data-i18n="hero">Super héros</span></button>
       </div>
       <div class="panel game" id="game" hidden>
         <div class="g-in" id="gIn">
@@ -296,7 +296,7 @@ body.desk .cam .kt{min-height:60px}
          connecting:"Connexion…", looking:"Je cherche la télé…", nope:"Aucune télé avec ce code. Vérifie les 4 lettres sur la télé.", full:"Cette télé a déjà 8 télécommandes.",
          slow:"Trop d'essais : attends quelques minutes.", four:"Le code a 4 lettres.", offline:"Connexion perdue, nouvel essai…", tv_off:"📺 La télé ne répond plus… Est-elle allumée ?",
          snd:"🔈 Pour le son, clique une fois sur l'écran de la télé.",
-         diesel:"Diesel", electric:"Électrique", tgv:"TGV", stop:"Stop", horn:"Klaxon", station:"Prochaine gare", service:"Toute la ligne", auto:"Pilote auto…", turn:"Demi-tour",
+         diesel:"Diesel", electric:"Électrique", tgv:"TGV", stop:"Stop", horn:"Klaxon", station:"Prochaine gare", service:"Toute la ligne", hero:"Super héros", auto:"Pilote auto…", turn:"Demi-tour",
          dir_par:"Vers Paris", dir_tls:"Vers Toulouse", panto:"Pantographe", doors:"Portes", wx:"Météo", plan:"Météo programmée", tod:"Heure", xray:"Rayons X", lever:"Manette", terminus:"Terminus",
          v_driver:"Conducteur", v_pax:"Passager", v_out:"Dehors", v_cine:"Cinéma", o_overview:"Ensemble", o_side:"Profil", o_train:"Tout le train", o_far:"Paysage", o_door:"Portes",
          gui:"Commandes sur la télé", sound:"Son de la télé", other:"Changer de télé", desk:"Cabine 3D sur la tablette",
@@ -306,7 +306,7 @@ body.desk .cam .kt{min-height:60px}
          connecting:"Connecting…", looking:"Looking for the TV…", nope:"No TV with this code. Check the 4 letters on the TV.", full:"This TV already has 8 remotes.",
          slow:"Too many tries: wait a few minutes.", four:"The code has 4 letters.", offline:"Connection lost, trying again…", tv_off:"📺 The TV is not answering… Is it on?",
          snd:"🔈 For sound, click the TV's screen once.",
-         diesel:"Diesel", electric:"Electric", tgv:"TGV", stop:"Stop", horn:"Horn", station:"Next station", service:"Whole line", auto:"Autopilot…", turn:"Turn around",
+         diesel:"Diesel", electric:"Electric", tgv:"TGV", stop:"Stop", horn:"Horn", station:"Next station", service:"Whole line", hero:"Super hero", auto:"Autopilot…", turn:"Turn around",
          dir_par:"To Paris", dir_tls:"To Toulouse", panto:"Pantograph", doors:"Doors", wx:"Weather", plan:"Weather schedule", tod:"Time of day", xray:"X-ray", lever:"Lever", terminus:"Terminus",
          v_driver:"Driver", v_pax:"Passenger", v_out:"Outside", v_cine:"Cinema", o_overview:"Overview", o_side:"Side", o_train:"Whole train", o_far:"Landscape", o_door:"Doors",
          gui:"Controls on the TV", sound:"TV sound", other:"Another TV", desk:"3D cab on the tablet",
@@ -405,12 +405,13 @@ body.desk .cam .kt{min-height:60px}
     const tgv = s.mode === 'tgv';
     $('trains').querySelectorAll('[data-mode]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.mode === s.mode)));
     $('kmh').textContent = s.kmh | 0;
-    $('next').textContent = s.next ? `🚉 ${s.next} · ${s.dist}` : `🏁 ${t('terminus')}`;
+    $('next').textContent = s.next ? `${s.hero ? '🦸' : '🚉'} ${s.next} · ${s.dist}` : `🏁 ${t('terminus')}`;
     if (lv.drag === null && performance.now() > lv.hold){ lv.n = s.notch | 0; lvShow(lv.n); }
     lv.box.classList.toggle('auto', !!s.auto);
     const sb = $('bStation'); sb.classList.toggle('auto', !!s.auto); sb.setAttribute('aria-pressed', String(!!s.svc));
     $('bStationIco').textContent = s.svc ? '🔁' : '🚉'; $('bStationLab').textContent = t(s.svc ? 'service' : s.auto ? 'auto' : s.next ? 'station' : 'turn');
     $('bDirLab').textContent = t(s.dir > 0 ? 'dir_par' : 'dir_tls');
+    $('bHero').setAttribute('aria-pressed', String(!!s.hero));
     $('bPanto').disabled = s.mode === 'diesel'; $('bPanto').setAttribute('aria-pressed', String(!!s.panto && s.mode !== 'diesel'));
     $('bDoors').disabled = !tgv || !s.doorsOk; $('bDoors').setAttribute('aria-pressed', String(!!s.doors && tgv));
     $('bHorn').classList.toggle('on', !!hornIv || !!s.horn);
@@ -525,6 +526,7 @@ body.desk .cam .kt{min-height:60px}
   }
   $('bStop').addEventListener('click', () => { lv.n = 0; lvShow(0); lv.hold = performance.now() + 600; send('stop'); });
   $('bDir').addEventListener('click', () => send('turn'));
+  $('bHero').addEventListener('click', () => send('hero'));
   $('bPanto').addEventListener('click', () => send('panto'));
   $('bDoors').addEventListener('click', () => send('doors'));
   $('bXray').addEventListener('click', () => send('xray'));
