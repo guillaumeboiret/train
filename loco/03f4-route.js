@@ -246,8 +246,15 @@ function cityBox(walls, roofs, cx, cy, cz, w, h, d, yaw, roofH, inset){
 /* keep the generated scenery off the station models: s from/to relative to the station, w from/to, and how far the ground sinks away from the tracks
    (Toulouse: the forecourt, the boulevard and the Canal du Midi on the left stand on their own slabs, the sunk ground keeps the water clear of the relief;
    Massy: a negative sink, the ground is the street level 8.5 m above the trench floor) */
+const BLDG_AT = { fut:[-40, -14, 0], vdm:[-208, 30, Math.PI] };   // [x, z, turn] where a station's building stands: Vendôme's is across the tracks
+const bldgAt = st => BLDG_AT[st.id] || [-40, st.side < 0 ? -13.5 : -(Math.max(0, st.nLeft - 1) * 4.5 + 12), 0];   // else behind the last track on our left, clear of a side platform
 const LM_BOX = { tls:[-560, 210, -215, 40, 1.6], bdx:[-480, 60, -70, 70], par:[-420, 500, -150, 150], msy:[-620, 140, -175, 255, -8.5] };
 const LM_ZONES = ROUTE.stations.filter(st => LM_BOX[st.id]).map(st => { const b = LM_BOX[st.id]; return [st.s + b[0], st.s + b[1], b[2], b[3], b[4] || 0]; });
+for (const st of ROUTE.stations){   // a building's footprint, 6 m round it and a 24 m forecourt on the town side, clear of scenery and on flat ground
+  const f = landmarks[st.id] && landmarks[st.id].userData.foot; if (!f) continue;
+  const b = bldgAt(st), k = Math.cos(b[2]) < 0 ? -1 : 1, w0 = ROUTE.laneW(0, st.s, 1), xs = [b[0] + k * f[0], b[0] + k * f[1]], zs = [b[1] + k * (f[2] - 24), b[1] + k * f[3]];
+  LM_ZONES.push([st.s + Math.min(...xs) - 6, st.s + Math.max(...xs) + 6, w0 + Math.min(...zs) - 6, w0 + Math.max(...zs) + 6, 0]);
+}
 LM_ZONES.push([0, 100, -760, 760, 0]);   // the last 100 m before the Toulouse buffer stop, where the static city behind it begins
 const landmarkZone = (s, w) => LM_ZONES.some(z => s > z[0] && s < z[1] && w > z[2] && w < z[3]);
 /* the relief t under a landmark zone: flat at track level yF minus its sink (the models stand on it: west of Matabiau the smoothed DEM rose 16 m),
@@ -1020,7 +1027,6 @@ function stationCam(name){   // the nearest station's own view for a camera pres
   return c || null;
 }
 let stationBuilding = null;
-const BLDG_AT = { fut:[-40, -14, 0], vdm:[-208, 30, Math.PI] };   // [x, z, turn] where the generic building stands in for the real one: Vendôme's is across the tracks
 function poseStation(){
   const st = nearestStation();
   poseWorld(station, st.s, ROUTE.laneW(0, st.s, 1), false);
@@ -1029,8 +1035,9 @@ function poseStation(){
   const lm = landmarks[st.id];
   for (const k in landmarks) landmarks[k].visible = landmarks[k] === lm;
   setPlatformRoof(!lm || lm.userData.platRoof !== false);
+  const b = bldgAt(st);
+  if (lm && lm.userData.bldg){ lm.position.set(b[0], -0.42, b[1]); lm.rotation.y = b[2]; }
   if (stationBuilding){
-    const b = BLDG_AT[st.id] || [-40, st.side < 0 ? -13.5 : -(Math.max(0, st.nLeft - 1) * 4.5 + 12), 0];   // behind the last track on our left, clear of a side platform
     stationBuilding.visible = !lm; stationBuilding.position.x = b[0]; stationBuilding.position.z = b[1]; stationBuilding.rotation.y = b[2];
   }
 }

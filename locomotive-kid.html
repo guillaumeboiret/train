@@ -4801,6 +4801,156 @@ const landmarks = {};
       rearroof: [[-158, 5.9, -7.6], [-176, 4.2, 0]],
     };
   }
+
+  /* the nine other stations, each after a description of the real one where one was found, else in the style of its line and region:
+     the railway companies' stone buildings under slate (Agen 1856, Libourne, Angoulême, Châtellerault), Montauban's in the pink brick of the
+     Garonne under round tiles, Poitiers' low 1950s volumes with the canvas waves on the forecourt front, Saint-Pierre-des-Corps' 1990 glass
+     hall, Futuroscope's glass triangle (70 m a side) under its swept roof, Vendôme's 1990 TGV halt, and Angoulême's 2019 footbridge over the
+     tracks. Each stands where the generic building stood (poseStation places a group flagged bldg like it, bldgAt): x along the tracks, its
+     face towards them at z FZ, the ground at y 0. foot is its [x0, x1, z0, z1], kept clear of the generated scenery (LM_ZONES). */
+  {
+    const FZ = 4.5;
+    const stoneM = pmat(0xe3d8c0, { roughness:0.9, metalness:0 }), trimM = pmat(0xd0c09f, { roughness:0.9, metalness:0 }), brickM = pmat(0xbf6f52, { roughness:0.95, metalness:0 });
+    const slateM = pmat(0x434b55, { roughness:0.7, metalness:0.1 }), tileM = pmat(0xa0543c, { roughness:0.85, metalness:0 }), whiteM = pmat(0xf0efea, { roughness:0.5, metalness:0.1 });
+    const concM = pmat(0xe4ddcd, { roughness:0.9, metalness:0 }), steelM = pmat(0x6f7a80, { roughness:0.5, metalness:0.5 }), woodM = pmat(0xb88a58, { roughness:0.8, metalness:0, side:THREE.BackSide });
+    const vaultM = pmat(0xe6e9eb, { roughness:0.45, metalness:0.3, side:THREE.DoubleSide }), membM = pmat(0xf7f6f1, { roughness:0.7, metalness:0, side:THREE.DoubleSide });
+    const glazM = pmat(0xffffff, Object.assign({ roughness:0.3, metalness:0.2, map:repeatTex(canvasTex(64, 64, (c) => {   // a sash pane per tile
+      c.fillStyle = '#cfc6b3'; c.fillRect(0, 0, 64, 64); c.fillStyle = '#2a3642'; c.fillRect(3, 3, 58, 58); c.fillStyle = '#cfc6b3'; c.fillRect(0, 31, 64, 2);
+    }), 1, 1) }, PO));
+    const curtM = pmat(0xffffff, Object.assign({ roughness:0.2, metalness:0.4, map:repeatTex(canvasTex(64, 64, (c) => {   // curtain wall: thin light mullions
+      c.fillStyle = '#e8ecef'; c.fillRect(0, 0, 64, 64); c.fillStyle = '#56758b'; c.fillRect(2, 2, 60, 60);
+    }), 1, 1) }, PO));
+    const clockM = new THREE.MeshBasicMaterial(Object.assign({ map:clockTex, transparent:true }, PO));
+    const mk = (id, foot) => { const G = new THREE.Group(); G.visible = false; G.userData.bldg = true; G.userData.foot = foot; station.add(G); landmarks[id] = G; return G; };
+    const at = (o, x, y, z, ry = 0) => { o.position.set(x, y, z); o.rotation.y = ry; return o; };
+    const name = (G, txt, w, h, x, y, z, back) => { const s = sign(txt, w, h, x, y, z, back ? Math.PI : 0, '#1b2a44', '#f3efe6'); Object.assign(s.material, PO); G.add(s); };
+    const clock = (G, r, x, y, z, back) => G.add(at(new THREE.Mesh(new THREE.PlaneGeometry(2 * r, 2 * r), clockM), x, y, z, back ? Math.PI : 0));
+    const hip = (w, d, h, m, x, y, z, mansard) => {   // a hipped roof on a w × d block, or a mansard: a steep stage, then a low cap
+      const g = new THREE.Group(); g.position.set(x, y, z);
+      if (mansard){ g.add(frustum(w, d, w - 2.4, d - 2.4, h * 0.7, m)); g.add(at(frustum(w - 2.4, d - 2.4, Math.max(0.4, w - d), 0.4, h * 0.3, m), 0, h * 0.7, 0)); }
+      else g.add(frustum(w, d, Math.max(0.4, w - d), 0.4, h, m));
+      return g;
+    };
+
+    /* a classic station: a central pavilion (cw × ch, a pediment with the clock), wings of height h1 (two storeys from 8 m) on both sides,
+       optional end pavilions (ew × eh); the pavilions stand 0.8 m proud of the wings on both fronts, the wings' roofs run into them */
+    const classic = (G, o) => {
+      const { L, D, wall, trim, roof, h1, cw, ch, ew = 0, eh = 0, ped, mansard, txt } = o, zc = FZ - 0.8 - D / 2, zf = FZ - 0.8, zb = FZ - 0.8 - D;
+      const rise = D * 0.25, arch = [], rect = [], big = [];
+      const block = (x0, x1, h, dz) => {   // body, plinth, string course, cornice
+        const w = x1 - x0, cx = (x0 + x1) / 2, d = D + 2 * dz;
+        G.add(box(w, h, d, wall, cx, h / 2, zc), box(w + 0.3, 0.9, d + 0.3, trim, cx, 0.45, zc), box(w + 0.8, 0.5, d + 0.8, trim, cx, h + 0.25, zc));
+        if (h > 8) G.add(box(w + 0.3, 0.3, d + 0.3, trim, cx, 4.9, zc));
+      };
+      const bays = (x0, x1, h, z, q) => {   // arched windows on the ground floor every 4 m, square-headed above
+        const n = Math.max(1, Math.floor((x1 - x0) / 4));
+        for (let k = 0; k < n; k++){ const x = x0 + (x1 - x0) * (k + 0.5) / n; arch.push(M4(x, 0.9, z, q)); if (h > 8) rect.push(M4(x, 5.8, z, q)); }
+      };
+      // the wings, from inside the central pavilion to inside the end ones (or the building's end); their roofs run under the pavilions' cornices
+      const xi = cw / 2 - 0.5, xo = L / 2 - (ew ? ew - 0.5 : 0), hd = (D + 0.8) / 2;   // a hip's run: the hidden ends start that far inside a pavilion
+      const ri = cw / 2 - hd, ro = ew ? L / 2 - ew + hd : L / 2 + 0.4, wi = cw / 2 + 0.5, wo = L / 2 - ew - 0.5;
+      for (const sg of [-1, 1]){
+        block(Math.min(sg * xi, sg * xo), Math.max(sg * xi, sg * xo), h1, 0);
+        G.add(hip(ro - ri, D + 0.8, rise, roof, sg * (ri + ro) / 2, h1 + 0.5, zc, false));
+        const e0 = Math.min(sg * wi, sg * wo), e1 = Math.max(sg * wi, sg * wo);
+        bays(e0, e1, h1, zf + 0.03, null); bays(e0, e1, h1, zb - 0.03, qB);
+      }
+      // the central pavilion: three tall arches, the name, the cornice, the pediment with the clock, both fronts alike
+      block(-cw / 2, cw / 2, ch, 0.8);
+      G.add(hip(cw + 0.8, D + 2.4, D * 0.36, roof, 0, ch + 0.5, zc, mansard));
+      for (const [z, q, back] of [[FZ + 0.03, null, false], [zb - 0.83, qB, true]]){
+        for (const dx of [-cw / 3.3, 0, cw / 3.3]) big.push(M4(dx, 0.9, z, q));
+        if (ch > 10) for (const dx of [-cw / 3.3, 0, cw / 3.3]) rect.push(M4(dx, ch - 5.2, z, q));
+        name(G, txt, Math.min(cw - 2, 0.62 * txt.length), 1.15, 0, ch - 1.4, back ? z - 0.03 : z + 0.03, back);
+        const zp = back ? zb - 1.2 : FZ + 0.4;
+        if (ped === 'round'){ const p = new THREE.Mesh(new THREE.CylinderGeometry(cw * 0.22, cw * 0.22, 0.8, 20, 1, false, Math.PI / 2, Math.PI).rotateX(Math.PI / 2), trim); G.add(at(p, 0, ch + 0.5, zp)); clock(G, 1.4, 0, ch + 0.5 + cw * 0.1, back ? zp - 0.42 : zp + 0.42, back); }
+        else { const p = prism([[-cw / 2 + 0.4, 0], [cw / 2 - 0.4, 0], [0, 2.8]], 0.8, trim, 'z'); G.add(at(p, 0, ch + 0.5, zp)); clock(G, 0.9, 0, ch + 1.6, back ? zp - 0.42 : zp + 0.42, back); }
+      }
+      // the end pavilions: a door bay and a window bay on each front, a square roof
+      if (ew) for (const sg of [-1, 1]){
+        const x0 = sg * (L / 2 - ew), x1 = sg * L / 2, cx = (x0 + x1) / 2;
+        block(Math.min(x0, x1), Math.max(x0, x1), eh, 0.8);
+        G.add(hip(ew + 0.8, D + 2.4, Math.min(ew, D) * 0.4, roof, cx, eh + 0.5, zc, mansard));
+        bays(Math.min(x0, x1) + 0.5, Math.max(x0, x1) - 0.5, eh, FZ + 0.03, null); bays(Math.min(x0, x1) + 0.5, Math.max(x0, x1) - 0.5, eh, zb - 0.83, qB);
+      }
+      inst(winGeo(archShape(1.7, 3.3), 1.7, 0.85, 1.1), glazM, arch, G); inst(winGeo(rectShape(1.4, 2.2), 1.4, 0.7, 1.1), glazM, rect, G);
+      inst(winGeo(archShape(cw / 5, ch - 7.4), cw / 5, cw / 15, 1.2), glazM, big, G);
+    };
+    classic(mk('mtb', [-28, 28, -8.5, 5]), { txt:'MONTAUBAN', L:56, D:11, wall:brickM, trim:stoneM, roof:tileM, h1:6.5, cw:16, ch:11.5, ew:9, eh:10.5, ped:'tri' });
+    classic(mk('agn', [-32, 32, -9.5, 5]), { txt:'AGEN', L:64, D:12, wall:stoneM, trim:trimM, roof:slateM, h1:9.5, cw:18, ch:14, ped:'round', mansard:true });
+    classic(mk('lbn', [-22, 22, -8.5, 5]), { txt:'LIBOURNE', L:44, D:11, wall:stoneM, trim:trimM, roof:slateM, h1:6.5, cw:14, ch:11, ew:8, eh:10.5, ped:'tri' });
+    classic(mk('chl', [-25, 25, -8.5, 5]), { txt:'CHÂTELLERAULT', L:50, D:11, wall:stoneM, trim:trimM, roof:slateM, h1:6.8, cw:15, ch:12, ped:'tri', mansard:true });
+    { // Angoulême: the stone building, and the 2019 footbridge from its east wing over all the tracks to a stair tower beyond the far one
+      const G = mk('ang', [-31, 31, -10.5, 52]);
+      classic(G, { txt:'ANGOULÊME', L:62, D:13, wall:stoneM, trim:trimM, roof:slateM, h1:9.5, cw:20, ch:16, ew:10, eh:14, ped:'round', mansard:true });
+      const BX = 17, Z0 = FZ - 0.8, Z1 = 45, YD = 9, len = Z1 - Z0, zc = (Z0 + Z1) / 2;
+      G.add(box(4.4, 0.9, len, steelM, BX, YD + 0.45, zc), box(4.6, 0.35, len, steelM, BX, YD + 3.6, zc));
+      inst(winGeo(rectShape(len, 2.6), len, 1.6, 2.6), curtM, [M4(BX - 2.2, YD + 0.9, zc, qW), M4(BX + 2.2, YD + 0.9, zc, qE)], G);
+      const posts = []; for (let z = Z0 + 6; z < Z1; z += 6) for (const dx of [-2.3, 2.3]) posts.push(M4(BX + dx, YD + 2.25, z)); inst(new THREE.BoxGeometry(0.2, 2.7, 0.2), steelM, posts, G);
+      G.add(box(6, YD + 4.2, 6, concM, BX, (YD + 4.2) / 2, Z1 + 3), box(6.4, 0.4, 6.4, steelM, BX, YD + 4.4, Z1 + 3));
+      inst(winGeo(rectShape(4, YD + 2), 4, 1.3, 2.4), curtM, [M4(BX, 0.6, Z1 + 6.03), M4(BX + 3.03, 0.6, Z1 + 3, qE), M4(BX - 3.03, 0.6, Z1 + 3, qW)], G);
+    }
+    { // Poitiers: the 1950s rebuild, a tall glazed hall and one long single storey wing under flat roofs; the canvas waves stand along the forecourt front
+      const G = mk('pts', [-60, 14.5, -14, 5]), D = 16, zc = FZ - D / 2;
+      G.add(box(28, 11, D, concM, 0, 5.5, zc), box(29, 0.7, D + 1, whiteM, 0, 11.35, zc));
+      const wz = FZ - 2 - 5.5;
+      G.add(box(46.5, 5, 11, concM, -36.75, 2.5, wz), box(47, 0.5, 12, whiteM, -36.75, 5.25, wz));
+      inst(winGeo(rectShape(24, 8.4), 24, 2, 2.1), curtM, [M4(0, 1.2, FZ + 0.03), M4(0, 1.2, FZ - D - 0.03, qB)], G);
+      inst(winGeo(rectShape(44, 2.4), 44, 2, 2.4), curtM, [M4(-37.5, 1.3, FZ - 2 + 0.03), M4(-37.5, 1.3, wz - 5.5 - 0.03, qB)], G);
+      name(G, 'POITIERS', 12, 1.4, 0, 9.85, FZ + 0.06, false);
+      { const N = 64, pos = [], idx = [], zw = FZ - D - 1.4;
+        for (let i = 0; i <= N; i++){ const x = -14 + 28 * i / N, top = 12.4 + 1.7 * Math.sin(i / N * Math.PI * 6); pos.push(x, 6.5, zw, x, top, zw); }
+        for (let i = 0; i < N; i++){ const a = 2 * i; idx.push(a, a + 2, a + 1, a + 1, a + 2, a + 3); }
+        const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
+        G.add(new THREE.Mesh(g, membM));
+        const st = []; for (let x = -12; x <= 12; x += 6) st.push(M4(x, 9.5, zw + 0.7)); inst(new THREE.BoxGeometry(0.15, 0.15, 1.4), steelM, st, G); }
+      name(G, 'GARE DE POITIERS', 12, 1.2, 0, 5.2, FZ - D - 0.08, true);
+    }
+    { // Saint-Pierre-des-Corps: the 1990 hall, a glazed front between two blind concrete blocks under a shallow white vault
+      const G = mk('spc', [-26, 26, -13, 5]), D = 16, zc = FZ - D / 2, Rv = 17.45, sv = 2.5, th = Math.asin((D / 2 + 1) / Rv);
+      G.add(box(38, 9, D, whiteM, 0, 4.5, zc), box(39, 0.4, D + 2, whiteM, 0, 9.2, zc));
+      inst(winGeo(rectShape(36, 8.2), 36, 2.4, 2.7), curtM, [M4(0, 0.4, FZ + 0.03), M4(0, 0.4, FZ - D - 0.03, qB)], G);
+      const v = new THREE.Mesh(new THREE.CylinderGeometry(Rv, Rv, 38, 32, 1, true, Math.PI / 2 - th, 2 * th).rotateZ(Math.PI / 2), vaultM); G.add(at(v, 0, 9.4 - (Rv - sv), zc));
+      for (const sg of [-1, 1]){ G.add(box(7.5, 12.4, D + 1, concM, sg * 22.25, 6.2, zc), box(7.9, 0.4, D + 1.4, whiteM, sg * 22.25, 12.5, zc)); }
+      name(G, 'SAINT-PIERRE-DES-CORPS', 20, 1.2, 0, 7.3, FZ + 0.06, false); name(G, 'SAINT-PIERRE-DES-CORPS', 20, 1.2, 0, 7.3, FZ - D - 0.06, true);
+      clock(G, 1.5, 22.25, 9.6, FZ + 0.53, false);
+    }
+    { // Futuroscope: the glass triangle, 70 m a side, one side along the platform, under a roof swept up towards the far corner on slim columns
+      const G = mk('fut', [-46, 46, -72, 4.5]), S = 70, zA = FZ - 6, hgt = S * Math.sqrt(3) / 2, P = [[-S / 2, zA], [S / 2, zA], [0, zA - hgt]], cz = zA - hgt / 3;
+      const k = (hgt / 3 + 6) / (hgt / 3), Q = P.map(([x, z]) => [x * k, cz + (z - cz) * k]), zf = Q[0][1], za = Q[2][1], ry = z => 10 + 6 * ((zf - z) / (zf - za)) ** 2;   // the roof's top over z
+      const geo = (pos, uv, idx) => { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); if (uv) g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); if (idx) g.setIndex(idx); g.computeVertexNormals(); return g; };
+      { const pos = [], uv = [], M = 12;   // the glass walls, each up to the roof's underside, a pane every 2.5 × 2.8 m
+        for (let e = 0; e < 3; e++){ const [x0, z0] = P[e], [x1, z1] = P[(e + 1) % 3], L = Math.hypot(x1 - x0, z1 - z0);
+          for (let t = 0; t < M; t++){ const u0 = t / M, u1 = (t + 1) / M, xa = x0 + (x1 - x0) * u0, za0 = z0 + (z1 - z0) * u0, xb = x0 + (x1 - x0) * u1, zb = z0 + (z1 - z0) * u1, ta = ry(za0) - 0.7, tb = ry(zb) - 0.7;
+            pos.push(xa, 0, za0, xb, 0, zb, xb, tb, zb, xa, 0, za0, xb, tb, zb, xa, ta, za0);
+            uv.push(u0 * L / 2.5, 0, u1 * L / 2.5, 0, u1 * L / 2.5, tb / 2.8, u0 * L / 2.5, 0, u1 * L / 2.5, tb / 2.8, u0 * L / 2.5, ta / 2.8); } }
+        G.add(new THREE.Mesh(geo(pos, uv), curtM)); }
+      { const N = 18, pos = [], idx = [], id = (i, j) => j * (N + 1) - j * (j - 1) / 2 + i;   // the roof: metal on top, wood underneath, a fascia round the edge
+        for (let j = 0; j <= N; j++) for (let i = 0; i <= N - j; i++){ const x = Q[0][0] + (Q[1][0] - Q[0][0]) * i / N + (Q[2][0] - Q[0][0]) * j / N, z = Q[0][1] + (Q[1][1] - Q[0][1]) * i / N + (Q[2][1] - Q[0][1]) * j / N; pos.push(x, ry(z), z); }
+        for (let j = 0; j < N; j++) for (let i = 0; i < N - j; i++){ idx.push(id(i, j), id(i + 1, j), id(i, j + 1)); if (i + j < N - 1) idx.push(id(i + 1, j), id(i + 1, j + 1), id(i, j + 1)); }
+        const g = geo(pos, null, idx), metM = pmat(0xd6dadc, { roughness:0.35, metalness:0.5 });
+        G.add(new THREE.Mesh(g, metM), at(new THREE.Mesh(g, woodM), 0, -0.7, 0));
+        const fp = [], fi = [];
+        for (let e = 0; e < 3; e++) for (let t = 0; t <= N; t++){ const a = Q[e], b = Q[(e + 1) % 3], x = a[0] + (b[0] - a[0]) * t / N, z = a[1] + (b[1] - a[1]) * t / N; fp.push(x, ry(z), z, x, ry(z) - 0.7, z); }
+        for (let e = 0; e < 3; e++) for (let t = 0; t < N; t++){ const a = 2 * (e * (N + 1) + t); fi.push(a, a + 1, a + 2, a + 2, a + 1, a + 3); }
+        G.add(new THREE.Mesh(geo(fp, null, fi), pmat(0xd6dadc, { roughness:0.35, metalness:0.5, side:THREE.DoubleSide }))); }
+      const cols = [];
+      for (let e = 0; e < 3; e++) for (let t = 0; t < 4; t++){ const a = P[e], b = P[(e + 1) % 3], u = (t + 0.5) / 4, x = (a[0] + (b[0] - a[0]) * u) * 1.15, z = cz + (a[1] + (b[1] - a[1]) * u - cz) * 1.15, h = ry(z) - 0.7;
+        cols.push(new THREE.Matrix4().compose(new THREE.Vector3(x, h / 2, z), _qI, new THREE.Vector3(1, h, 1))); }
+      inst(new THREE.CylinderGeometry(0.22, 0.28, 1, 10), steelM, cols, G);
+      name(G, 'FUTUROSCOPE', 14, 1.3, 0, 6.6, zA + 0.06, false);
+    }
+    { // Vendôme TGV (1990, across the tracks): a low glazed hall under a wide flat roof on round columns
+      const G = mk('vdm', [-26, 26, -12, 8]), D = 14, zc = FZ - D / 2;
+      G.add(box(40, 5.5, D, concM, 0, 2.75, zc));
+      inst(winGeo(rectShape(38, 4.2), 38, 2.5, 2.1), curtM, [M4(0, 0.5, FZ + 0.03), M4(0, 0.5, FZ - D - 0.03, qB)], G);
+      const r0 = FZ - D - 2, r1 = FZ + 3.5;
+      G.add(box(52, 0.8, r1 - r0, whiteM, 0, 7.1, (r0 + r1) / 2), box(52.2, 1.2, 0.3, steelM, 0, 7.0, r1 + 0.1));
+      inst(new THREE.CylinderGeometry(0.28, 0.28, 6.7, 12), whiteM, [-24, -16, -8, 0, 8, 16, 24].map(x => M4(x, 3.35, FZ + 2.6)), G);
+      name(G, 'VENDÔME TGV', 10, 0.9, 0, 7.0, r1 + 0.26, false);
+      clock(G, 1.1, 14, 4.2, FZ + 0.06, false);
+    }
+  }
 }
 
 /* ============================================================ ROUTE ENGINE: the real Toulouse → Bordeaux → Paris line under the train
@@ -5050,8 +5200,15 @@ function cityBox(walls, roofs, cx, cy, cz, w, h, d, yaw, roofH, inset){
 /* keep the generated scenery off the station models: s from/to relative to the station, w from/to, and how far the ground sinks away from the tracks
    (Toulouse: the forecourt, the boulevard and the Canal du Midi on the left stand on their own slabs, the sunk ground keeps the water clear of the relief;
    Massy: a negative sink, the ground is the street level 8.5 m above the trench floor) */
+const BLDG_AT = { fut:[-40, -14, 0], vdm:[-208, 30, Math.PI] };   // [x, z, turn] where a station's building stands: Vendôme's is across the tracks
+const bldgAt = st => BLDG_AT[st.id] || [-40, st.side < 0 ? -13.5 : -(Math.max(0, st.nLeft - 1) * 4.5 + 12), 0];   // else behind the last track on our left, clear of a side platform
 const LM_BOX = { tls:[-560, 210, -215, 40, 1.6], bdx:[-480, 60, -70, 70], par:[-420, 500, -150, 150], msy:[-620, 140, -175, 255, -8.5] };
 const LM_ZONES = ROUTE.stations.filter(st => LM_BOX[st.id]).map(st => { const b = LM_BOX[st.id]; return [st.s + b[0], st.s + b[1], b[2], b[3], b[4] || 0]; });
+for (const st of ROUTE.stations){   // a building's footprint, 6 m round it and a 24 m forecourt on the town side, clear of scenery and on flat ground
+  const f = landmarks[st.id] && landmarks[st.id].userData.foot; if (!f) continue;
+  const b = bldgAt(st), k = Math.cos(b[2]) < 0 ? -1 : 1, w0 = ROUTE.laneW(0, st.s, 1), xs = [b[0] + k * f[0], b[0] + k * f[1]], zs = [b[1] + k * (f[2] - 24), b[1] + k * f[3]];
+  LM_ZONES.push([st.s + Math.min(...xs) - 6, st.s + Math.max(...xs) + 6, w0 + Math.min(...zs) - 6, w0 + Math.max(...zs) + 6, 0]);
+}
 LM_ZONES.push([0, 100, -760, 760, 0]);   // the last 100 m before the Toulouse buffer stop, where the static city behind it begins
 const landmarkZone = (s, w) => LM_ZONES.some(z => s > z[0] && s < z[1] && w > z[2] && w < z[3]);
 /* the relief t under a landmark zone: flat at track level yF minus its sink (the models stand on it: west of Matabiau the smoothed DEM rose 16 m),
@@ -5824,7 +5981,6 @@ function stationCam(name){   // the nearest station's own view for a camera pres
   return c || null;
 }
 let stationBuilding = null;
-const BLDG_AT = { fut:[-40, -14, 0], vdm:[-208, 30, Math.PI] };   // [x, z, turn] where the generic building stands in for the real one: Vendôme's is across the tracks
 function poseStation(){
   const st = nearestStation();
   poseWorld(station, st.s, ROUTE.laneW(0, st.s, 1), false);
@@ -5833,8 +5989,9 @@ function poseStation(){
   const lm = landmarks[st.id];
   for (const k in landmarks) landmarks[k].visible = landmarks[k] === lm;
   setPlatformRoof(!lm || lm.userData.platRoof !== false);
+  const b = bldgAt(st);
+  if (lm && lm.userData.bldg){ lm.position.set(b[0], -0.42, b[1]); lm.rotation.y = b[2]; }
   if (stationBuilding){
-    const b = BLDG_AT[st.id] || [-40, st.side < 0 ? -13.5 : -(Math.max(0, st.nLeft - 1) * 4.5 + 12), 0];   // behind the last track on our left, clear of a side platform
     stationBuilding.visible = !lm; stationBuilding.position.x = b[0]; stationBuilding.position.z = b[1]; stationBuilding.rotation.y = b[2];
   }
 }
