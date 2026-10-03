@@ -5,6 +5,7 @@ const TGV = {
   SET2_X:-197.1, PLAT_FRONT:13.5,
   TRAILERS:[[-30.7, 20.5], [-49.4, 18.2], [-68.1, 18.2], [-86.8, 18.2], [-105.5, 18.2], [-124.2, 18.2], [-142.9, 18.2], [-163.9, 20.5]],   // [rear x, body length]
   REAR_PC:-174.1,   // centre of the rear power car (nose toward -x)
+  BAR:3,            // the bar car's index in TRAILERS: car 4 of every set (4, 14, 24...), as on the Duplex
 };
 TGV.setCenter = sets => (TGV.TIP_F + (sets === 2 ? TGV.SET2_X + TGV.TIP_R : TGV.TIP_R)) / 2;
 
@@ -527,8 +528,9 @@ function paxPut(m, k, x, y, z, yaw, sit, ph, amp, turn){   // instance k of m at
   const P = m.geometry.attributes.paxPose.array; P[4 * k] = sit; P[4 * k + 1] = ph % (2 * Math.PI); P[4 * k + 2] = amp; P[4 * k + 3] = turn;
 }
 const DECK_GEO = {};
-function deckGeo(L, bar = false){   // per body length, x from the car's -x end: lower floor + upper floor + stair + tables (not in the bar car) in one mesh; in another, lit like a ceiling, what the lower deck sees overhead (the undersides of the upper floor, the bridge and the stair) and the bridge's parapets (in the floor's grey they showed black from the vestibule)
+function deckGeo(L, bar = false){   // per body length, x from the car's -x end: lower floor + upper floor + stair + tables in one mesh; in another, lit like a ceiling, what the lower deck sees overhead (the undersides of the upper floor, the bridge and the stair) and the bridge's parapets (in the floor's grey they showed black from the vestibule). The bar car's: its upper floor alone, nothing seen under it
   const key = L + (bar ? 'b' : '');
+  if (!DECK_GEO[key] && bar) DECK_GEO[key] = { floor:mergeGeos([new THREE.BoxGeometry(L - 0.045, 0.06, 2.98).translate(L / 2 - 0.0075, DECK.up - 0.03, 0)], [[18, 24]]), ceil:null };   // end to end, from where the bridge began to where the upper floor ends; without its -y face
   if (!DECK_GEO[key]){
     const x0 = 3.4, w = L - 3.43, xb = seatRows(L).bay;   // the upper floor runs to the front gangway and is open over the vestibule and the stair, but for a bridge from it to the rear gangway
     const br = new THREE.BoxGeometry(x0 - 0.03, 0.06, 0.9).translate(x0 / 2 + 0.015, DECK.up - 0.03, 0);   // the bridge, between parapets
@@ -536,7 +538,7 @@ function deckGeo(L, bar = false){   // per body length, x from the car's -x end:
     par.push(new THREE.BoxGeometry(0.03, 0.9, 0.95).translate(x0 + 0.015, DECK.up + 0.45, 0.935));   // and a rail along the upper floor's edge over the well beside the stair, from the parapet to the wall (z 1.42 at its top)
     const sl = Math.hypot(1.7, DECK.up - DECK.lo), stair = g => g.rotateZ(Math.atan2(DECK.up - DECK.lo, 1.7)).translate(2.7, (DECK.lo + DECK.up) / 2 - 0.03, -0.9);   // stair: vestibule (x 1.85) up to the upper deck (x 3.55)
     const tb = [];   // the bay's tables on both decks and sides, on a pedestal: top 0.7 over the floor, clear of the aisle, the feet and the wall
-    if (!bar) for (const y of [DECK.lo, DECK.up]) for (const s of [1, -1]) tb.push(new THREE.BoxGeometry(0.4, 0.04, 1.08).translate(xb, y + 0.68, s * 0.84), new THREE.BoxGeometry(0.06, 0.66, 0.06).translate(xb, y + 0.33, s * 0.72));
+    for (const y of [DECK.lo, DECK.up]) for (const s of [1, -1]) tb.push(new THREE.BoxGeometry(0.4, 0.04, 1.08).translate(xb, y + 0.68, s * 0.84), new THREE.BoxGeometry(0.06, 0.66, 0.06).translate(xb, y + 0.33, s * 0.72));
     DECK_GEO[key] = {
       floor:mergeGeos([new THREE.BoxGeometry(L - 0.2, 0.06, 2.28).translate(L / 2, DECK.lo - 0.03, 0), new THREE.BoxGeometry(w, 0.06, 2.98).translate(x0 + w / 2, DECK.up - 0.03, 0), br, stair(new THREE.BoxGeometry(sl, 0.06, 0.9)), ...tb], [null, [18, 24], [18, 24], [18, 24]]),   // the upper floor, the bridge and the stair without their -y faces
       ceil:mergeGeos([new THREE.PlaneGeometry(w, 2.98).rotateX(Math.PI / 2).translate(x0 + w / 2, DECK.up - 0.06, 0), new THREE.PlaneGeometry(x0 - 0.03, 0.9).rotateX(Math.PI / 2).translate(x0 / 2 + 0.015, DECK.up - 0.06, 0),
@@ -549,8 +551,10 @@ const Q0 = new THREE.Quaternion(), QB = new THREE.Quaternion(0, 1, 0, 0);   // Q
 const hash32 = i => { i = Math.imul(i ^ (i >>> 16), 0x45d9f3b); i = Math.imul(i ^ (i >>> 16), 0x45d9f3b); return (i ^ (i >>> 16)) >>> 0; };
 function buildCoach(parent, cm, xr, L, carNo){
   const g = new THREE.Group(); g.visible = false; parent.add(g);
-  const bar = carNo % 10 === 4;   // car 4 (14, 24...) is the bar car: no seats, the bar upstairs (buildBar)
-  const fl = new THREE.Mesh(deckGeo(L, bar).floor, cm.floor), ce = new THREE.Mesh(deckGeo(L, bar).ceil, cm.ceil); fl.position.x = ce.position.x = xr;
+  const bar = (carNo - 1) % 10 === TGV.BAR;   // car 4 (14, 24...) is the bar car: no seats, only the upper deck, the bar there (buildBar)
+  const D = deckGeo(L, bar), solid = [new THREE.Mesh(D.floor, cm.floor)];
+  if (D.ceil) solid.push(new THREE.Mesh(D.ceil, cm.ceil));
+  for (const m of solid) m.position.x = xr;
   const seat = [], deck = [], face = [], view = [];   // view[2 * deck + (facing -x ? 1 : 0)]: the viewer's seats
   if (!bar) for (const [d, y] of [[0, DECK.lo], [1, DECK.up]]) for (const [x, f] of seatRows(L).rows) for (const z of [-0.95, -0.48, 0.48, 0.95]){
     const v = f > 0 ? 0 : 1;
@@ -560,22 +564,23 @@ function buildCoach(parent, cm, xr, L, carNo){
   const n = deck.length, cls = carNo % 10 <= 3 ? 0 : 1;                                 // cars 1..3 (11..13) are first class
   const seats = new THREE.InstancedMesh(SEAT_GEO, cm.seat, n), people = paxMesh(n, cm.people);
   // people: one instance per person in the coach, packed at the front (inst[seat] -> instance, slot[instance] -> seat) so only they are drawn; look[seat]: who sits there
-  const c = { g, id:carNo, xr, L, n, seats, solid:[fl, ce], seat:new Float32Array(seat), deck:new Uint8Array(deck), face:new Int8Array(face), occ:new Uint8Array(n), view,
+  const c = { g, id:carNo, xr, L, n, seats, solid, seat:new Float32Array(seat), deck:new Uint8Array(deck), face:new Int8Array(face), occ:new Uint8Array(n), view,
               look:new Uint32Array(n), inst:new Int16Array(n).fill(-1), slot:new Int16Array(n), people, paths:[], walk:[], crowd:[[], []], dirty:false, colDirty:false };
   for (let i = 0; i < n; i++){
     _m4.compose(_p.set(seat[3 * i], seat[3 * i + 1], seat[3 * i + 2]), face[i] > 0 ? Q0 : QB, _s.setScalar(1)); seats.setMatrixAt(i, _m4); seats.setColorAt(i, SEAT_COL[cls]);
   }
   const sphere = new THREE.Sphere(new THREE.Vector3(xr + L / 2, 2.5, 0), L / 2 + 1.5);   // people only move inside the coach and its doorway: one fixed bound for both instanced meshes
   for (const m of [seats, people]) m.boundingSphere = sphere;
-  for (const m of bar ? [fl, ce] : [fl, ce, seats, people]) g.add(m);   // no shadows inside: the saloon is lit by its own lights (emissive lining and ceiling)
+  for (const m of bar ? solid : [...solid, seats, people]) g.add(m);   // no shadows inside: the saloon is lit by its own lights (emissive lining and ceiling)
   paxSeed(c);
   if (bar) buildBar(c, cm);
   return c;
 }
 /* ---- the bar car (car 4 of every set, as on the Duplex): no seats. Its upper deck is the bar: a counter along the -z side from x 4.8 to
    9.4 with the barista's aisle behind it (coffee machine, grinder and drinks fridge on the back counter; till and pastry case on the
-   front one), window ledges down both sides with two stools to a window, a speed screen on the wall over the fridge. Its lower deck past the stair's foot is the
-   crew's store, shut by a partition with a staff door. Everything fixed is one mesh coloured per vertex, what glows another; the
+   front one), window ledges down both sides with two stools to a window, a speed screen on the wall over the fridge. As on the real
+   one, that deck is all there is: no stair, no doors, no windows below, whose level holds equipment. Its floor runs from gangway to
+   gangway (deckGeo) and its shell has the upper windows alone (TR). Everything fixed is one mesh coloured per vertex, what glows another; the
    barista and four customers are a small people mesh of the car's own (c.bar.people), posed by poseBar while the car is drawn. The
    walker orders at the counter (the menu, 03h) or takes a free stool (walkSitStool) */
 const BAR_FONT = '"Barlow Condensed","Arial Narrow",Arial,sans-serif', barScr = { key:'' };   // barScr.key: what the live screen shows
@@ -736,23 +741,12 @@ function barGeo(L){   // per body length, x from the car's -x end: the fixed fit
     add(new THREE.TorusGeometry(0.12, 0.012, 4, 14).rotateX(Math.PI / 2).translate(x, F + 0.22, z), CHROME); add(bx(x - 0.12, x + 0.12, F + 0.215, F + 0.225, z - 0.006, z + 0.006), CHROME);
     st.push(x, z);
   };
-  for (const [x0, x1, y0] of TR.holes(L)) if (y0 > 2.9 && x0 > 5) for (const s of [1, -1]) if (s > 0 || (x0 > 10 && (x1 < BAR_STAND || x0 > BAR_STAND))) for (const d of [-0.305, 0.305]) stool((x0 + x1) / 2 + d, s * 0.85);
+  for (const [x0, x1] of TR.holes(L, true)) if (x0 > 5) for (const s of [1, -1]) if (s > 0 || (x0 > 10 && (x1 < BAR_STAND || x0 > BAR_STAND))) for (const d of [-0.305, 0.305]) stool((x0 + x1) / 2 + d, s * 0.85);
   // a bin at the counter's end; cups left on the ledges, before the two customers' stools (sat) and between the two standing
   add(bx(9.55, 9.9, F, F + 0.75, -1.30, -0.92), 0x3d4248); add(bx(9.53, 9.92, F + 0.75, F + 0.78, -1.32, -0.90), 0x6b7078); add(bx(9.62, 9.83, F + 0.78, F + 0.785, -1.0, -0.94), DARK);
   const near = (x, z) => { let b = 0; for (let k = 1; k < st.length / 2; k++) if (Math.hypot(st[2 * k] - x, st[2 * k + 1] - z) < Math.hypot(st[2 * b] - x, st[2 * b + 1] - z)) b = k; return b; };
   const sat = [near(7.4, 0.85), near(15.2, -0.85)];
   for (const [x, z] of [[BAR_STAND, -1.2], ...sat.map(k => [st[2 * k], Math.sign(st[2 * k + 1]) * 1.2])]) add(cy(0.035, F + 0.90, F + 1.0, x, z, 10, 0.028), 0xffffff);
-  // the lower deck: a partition just past the stair's foot (under the upper floor, and lower under the stair), a staff door in it, cabinets down both sides
-  const wz = y => zAtY(TR.pts, y) - 0.01, ys = [];
-  for (let k = 0; k <= 12; k++) ys.push(DECK.lo + (2.40 - DECK.lo) * k / 12);
-  const sh = new THREE.Shape(); sh.moveTo(wz(DECK.lo), DECK.lo);
-  for (const y of ys.slice(1)) sh.lineTo(wz(y), y);
-  sh.lineTo(-0.45, 2.40); sh.lineTo(-0.45, 2.28); sh.lineTo(-wz(2.28), 2.28);
-  for (const y of ys.filter(y => y < 2.27).reverse()) sh.lineTo(-wz(y), y);
-  add(new THREE.ExtrudeGeometry(sh, { depth:0.05, bevelEnabled:false }).rotateY(-Math.PI / 2).translate(3.50, 0, 0), 0xcbc5ba);   // the shape is (z, y): x runs 3.45..3.50
-  add(bx(3.425, 3.45, DECK.lo, 2.30, 0.05, 0.85), 0x8a9099); add(bx(3.40, 3.425, 1.80, 1.84, 0.12, 0.24), CHROME); add(bx(3.42, 3.425, 1.85, 2.15, 0.3, 0.6), 0x1c2530);
-  const n = Math.round((L - 3.9) / 1.2), w = (L - 0.3 - 3.6) / n;
-  for (let k = 0; k < n; k++) for (const s of [1, -1]) add(bx(3.6 + k * w + 0.01, 3.6 + (k + 1) * w - 0.01, DECK.lo, 2.30, s > 0 ? 0.35 : -1.10, s > 0 ? 1.10 : -0.35), k % 2 ? 0x7d838c : 0x8a9099);
   return BAR_GEO[L] = {
     solid:colGeo(sol), glow:colGeo(glo), stools:new Float32Array(st), sat,
     fridge:new THREE.PlaneGeometry(0.98, 0.40).translate(7.65, F + 1.065, -1.095),
@@ -917,20 +911,20 @@ const TR = (() => {
   for (let j = 1; j <= RING_N; j++){ const [z0, y0] = pts[j - 1], [z1, y1] = pts[j % RING_N]; vs.push(vs[j - 1] + Math.hypot(z1 - z0, y1 - y0)); }
   const per = vs[RING_N]; vs.forEach((v, j) => { vs[j] = v / per; });
   const Ls = [18.2, 20.5], DOOR = [1.0, 2.3, 0.95, 3.15];   // door leaf x0, x1 (from the car's -x end), y0, y1
-  const holes = L => {   // [x0, x1, y0, y1, doorway]: two decks of windows over the saloon, the window over the door, the doorway 2 cm inside the leaf
+  const holes = (L, bar = false) => {   // [x0, x1, y0, y1, doorway]: two decks of windows over the saloon, the window over the door, the doorway 2 cm inside the leaf; the bar car's: the upper windows alone
     const o = [], n = Math.round((L - 3.6) / 1.9), pitch = (L - 0.6 - 3.6 - 1.25) / (n - 1);
-    for (let i = 0; i < n; i++){ const x = 3.6 + i * pitch; o.push([x, x + 1.25, 1.6, 2.2, false], [x, x + 1.25, 3.0, 3.75, false]); }
-    o.push([1.05, 2.25, 3.4, 3.65, false], [DOOR[0] + 0.02, DOOR[1] - 0.02, DOOR[2] + 0.02, DOOR[3] - 0.02, true]);
+    for (let i = 0; i < n; i++){ const x = 3.6 + i * pitch; if (!bar) o.push([x, x + 1.25, 1.6, 2.2, false]); o.push([x, x + 1.25, 3.0, 3.75, false]); }
+    if (!bar) o.push([1.05, 2.25, 3.4, 3.65, false], [DOOR[0] + 0.02, DOOR[1] - 0.02, DOOR[2] + 0.02, DOOR[3] - 0.02, true]);
     return o;
   };
-  const painter = (c, W, H, L) => {   // canvas helpers in metres: x along the car, y up the wall on side s; rows run from v 1 at the top (flipY)
+  const painter = (c, W, H, L, hs) => {   // canvas helpers in metres: x along the car, y up the wall on side s; rows run from v 1 at the top (flipY)
     const px = W / L, pv = H / per, cx = x => x * px, cy = (x, y, s) => (1 - vAt(pts, vs, y, s)) * H;
     const rect = (s, x0, x1, y0, y1, grow = 0) => { const a = cy(0, y0 - grow, s), b = cy(0, y1 + grow, s); return [(x0 - grow) * px, Math.min(a, b), (x1 - x0 + 2 * grow) * px, Math.abs(b - a)]; };
     const band = (s, y0, y1, col) => { const [x, y, ww, hh] = rect(s, 0, L, y0, y1); c.fillStyle = col; c.fillRect(x, y, ww, hh); };
     const round = (s, [x0, x1, y0, y1], grow, r, col) => { const [x, y, ww, hh] = rect(s, x0, x1, y0, y1, grow); rrect(c, x, y, ww, hh, r * px, r * pv); c.fillStyle = col; c.fill(); };
     const cut = (shrink, rWin) => {   // punch every opening through (alpha 0), shrunk by `shrink` all round
       c.globalCompositeOperation = 'destination-out';
-      [1, -1].forEach(s => { for (const h of holes(L)) round(s, h, -shrink, h[4] ? 0 : rWin, '#000'); });
+      [1, -1].forEach(s => { for (const h of hs) round(s, h, -shrink, h[4] ? 0 : rWin, '#000'); });
       c.globalCompositeOperation = 'source-over';
     };
     return { band, round, cut, cx, cy };
@@ -945,46 +939,49 @@ const TR = (() => {
     return { pts:all, tri:rear => tri.flatMap(([a, b, c]) => rear ? [a, b, c] : [a, c, b]) };
   };
   const endFan = fan(0.45, 4.05), capFan = fan(0.47, 4.07);   // the caps' opening wider than the gangway's walls and ceiling (1 cm past the end walls' edges): no rim of them inside it
-  for (const L of Ls){
-    geo[L] = loftGeo([{ x:0, pts }, { x:L, pts }], vs);
-    tex[L] = canvasTex(2048, 1024, (c, W, H) => {   // inOui livery: silver over a Carmillon line, anthracite band (to the floor by the door), pale sill, dark gaskets and door frame, logo past the door
-      const p = painter(c, W, H, L);
+  for (const [L, bar] of [...Ls.map(L => [L, false]), [TGV.TRAILERS[TGV.BAR][1], true]]){   // last the bar car's openings (key L + 'b'), on its length's body, ends and lining
+    const key = bar ? L + 'b' : L, hs = holes(L, bar);
+    if (!bar) geo[L] = loftGeo([{ x:0, pts }, { x:L, pts }], vs);
+    tex[key] = canvasTex(2048, 1024, (c, W, H) => {   // inOui livery: silver over a Carmillon line, anthracite band (to the floor by the door), pale sill, dark gaskets and door frame, logo past the door
+      const p = painter(c, W, H, L, hs);
       c.fillStyle = LIV.silver; c.fillRect(0, 0, W, H);
       [1, -1].forEach(s => {
         p.band(s, yBot, 1.3, LIV.low); p.band(s, 1.3, 2.86, LIV.anthracite); p.band(s, 2.86, 2.94, LIV.line); p.band(s, 4.1, yTop, LIV.coachRoof);
-        p.round(s, [0, DOOR[1] + 0.05, yBot, 1.3], 0, 0, LIV.anthracite);
-        for (const h of holes(L)) h[4] ? p.round(s, h, 0.04, 0, LIV.door) : p.round(s, h, 0.04, 0.14, LIV.gasket);
+        if (!bar) p.round(s, [0, DOOR[1] + 0.05, yBot, 1.3], 0, 0, LIV.anthracite);
+        for (const h of hs) h[4] ? p.round(s, h, 0.04, 0, LIV.door) : p.round(s, h, 0.04, 0.14, LIV.gasket);
         stampLogo(c, logo, p.cx, p.cy, s, 2.45, 1.72, 0.575);
       });
       c.fillStyle = 'rgba(0,0,0,0.3)'; c.fillRect(0, 0, 0.2 * W / L, H); c.fillRect((L - 0.2) * W / L, 0, 0.2 * W / L, H);   // end shading
       p.cut(0, 0.1);
     });
-    lin[L] = canvasTex(1024, 512, (c, W, H) => {   // lining: floor edge, pale walls, luggage rack line, light ceiling, window reveals, end walls
-      const p = painter(c, W, H, L);
+    lin[key] = canvasTex(1024, 512, (c, W, H) => {   // lining: floor edge, pale walls, luggage rack line, light ceiling, window reveals, end walls
+      const p = painter(c, W, H, L, hs);
       c.fillStyle = LIN.ceil; c.fillRect(0, 0, W, H);
       [1, -1].forEach(s => {
         p.band(s, yBot, DECK.lo + 0.05, LIN.floor); p.band(s, DECK.lo + 0.05, DECK.up + 0.05, LIN.wall); p.band(s, DECK.up + 0.05, 3.92, LIN.wallUp); p.band(s, 3.84, 3.92, LIN.rack);
-        for (const h of holes(L)) if (!h[4]) p.round(s, h, 0.03, 0.12, LIN.reveal);
+        for (const h of hs) if (!h[4]) p.round(s, h, 0.03, 0.12, LIN.reveal);
       });
       c.fillStyle = LIN.end; c.fillRect(0, 0, 0.1 * W / L, H);   // sampled by the end walls
       p.cut(0.02, 0.08);   // 2 cm inside the skin's openings: from inside, never a gap onto the skin's back
     });
-    const body = geo[L].body, lp = [...body.getAttribute('position').array], lu = [...body.getAttribute('uv').array], li = [...body.index.array];
-    for (const [x, rear] of [[0.015, true], [L - 0.015, false]]){   // end walls, 1.5 cm in from the gangway faces, wound like the caps (seen from inside)
-      const o = lp.length / 3;
-      for (const [z, y] of endFan.pts){ lp.push(x, y, z); lu.push(0.004, 0.25); }
-      for (const t of endFan.tri(rear)) li.push(o + t);
+    if (!bar){
+      const body = geo[L].body, lp = [...body.getAttribute('position').array], lu = [...body.getAttribute('uv').array], li = [...body.index.array];
+      for (const [x, rear] of [[0.015, true], [L - 0.015, false]]){   // end walls, 1.5 cm in from the gangway faces, wound like the caps (seen from inside)
+        const o = lp.length / 3;
+        for (const [z, y] of endFan.pts){ lp.push(x, y, z); lu.push(0.004, 0.25); }
+        for (const t of endFan.tri(rear)) li.push(o + t);
+      }
+      const capGeo = (x, rear) => {
+        const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(capFan.pts.flatMap(([z, y]) => [x, y, z]), 3));
+        g.setIndex(capFan.tri(rear)); g.computeVertexNormals(); return g;
+      };
+      cap[L] = { rear:capGeo(0, true), front:capGeo(L, false) };
+      const lg = lining[L] = new THREE.BufferGeometry();
+      lg.setAttribute('position', new THREE.Float32BufferAttribute(lp, 3)); lg.setAttribute('uv', new THREE.Float32BufferAttribute(lu, 2)); lg.setIndex(li); lg.computeVertexNormals();
     }
-    const capGeo = (x, rear) => {
-      const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(capFan.pts.flatMap(([z, y]) => [x, y, z]), 3));
-      g.setIndex(capFan.tri(rear)); g.computeVertexNormals(); return g;
-    };
-    cap[L] = { rear:capGeo(0, true), front:capGeo(L, false) };
-    const lg = lining[L] = new THREE.BufferGeometry();
-    lg.setAttribute('position', new THREE.Float32BufferAttribute(lp, 3)); lg.setAttribute('uv', new THREE.Float32BufferAttribute(lu, 2)); lg.setIndex(li); lg.computeVertexNormals();
     const strips = (doorway, inset, r) => {   // quads following the section over each opening (2 cm larger all round, corners rounded to r), `inset` in from the skin (< 0: out), facing out
       const pos = [], idx = [];
-      for (const s of [1, -1]) for (const [x0, x1, y0, y1, d] of holes(L)){
+      for (const s of [1, -1]) for (const [x0, x1, y0, y1, d] of hs){
         if (d !== doorway) continue;
         const X0 = x0 - 0.02, X1 = x1 + 0.02, Y0 = y0 - 0.02, Y1 = y1 + 0.02, o = pos.length / 3;
         const arc = [1, 2, 3, 4, 5, 6].map(k => r - r * Math.cos(k * Math.PI / 12));   // rise of the corner arcs, sampled every 15 degrees
@@ -999,8 +996,8 @@ const TR = (() => {
       const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
       return g;
     };
-    pane[L] = { glass:strips(false, -0.004, 0.12), plug:mergeGeos([strips(true, 0.07, 0),   // glass 4 mm proud of the skin, over the gasket (its corners on the gasket's arcs, 2 cm in from its edge); the plug sits behind the closed leaf (its back is 4.8 cm in)
-      new THREE.PlaneGeometry(0.94, 1.61).rotateY(-Math.PI / 2).translate(0.005, 3.265, 0), new THREE.PlaneGeometry(0.94, 1.61).rotateY(Math.PI / 2).translate(L - 0.005, 3.265, 0)]) };   // and over both gangway openings: from afar the coach is empty, so they would show through it
+    pane[key] = { glass:strips(false, -0.004, 0.12), plug:mergeGeos([strips(true, 0.07, 0),   // glass 4 mm proud of the skin, over the gasket (its corners on the gasket's arcs, 2 cm in from its edge); the plug sits behind the closed leaf (its back is 4.8 cm in)
+      new THREE.PlaneGeometry(0.94, 1.61).rotateY(-Math.PI / 2).translate(0.005, 3.265, 0), new THREE.PlaneGeometry(0.94, 1.61).rotateY(Math.PI / 2).translate(L - 0.005, 3.265, 0)]) };   // and over both gangway openings: from afar the coach is empty, so they would show through it (the bar car: those alone)
     const rr = (x0, x1, y0, y1, r, ys) => {   // rounded rectangle, anticlockwise from the top right corner: 7 points per corner, and the heights ys (rising) up each jamb
       const out = [];
       for (const [cx, cy, q] of [[x1 - r, y1 - r, 0], [x0 + r, y1 - r, 1], [x0 + r, y0 + r, 2], [x1 - r, y0 + r, 3]]){
@@ -1013,14 +1010,14 @@ const TR = (() => {
        seat sees at arm's length. Their jambs bend at the ring heights as the wall does (straight, they stood up to 2 cm off it), and a
        reveal runs from their inner edge out to the glass: no sightline slips between surround and pane onto the lining's cut edge. */
     const fp = [], fi = [];
-    for (const s of [1, -1]) for (const [x0, x1, y0, y1, d] of holes(L)){
+    for (const s of [1, -1]) for (const [x0, x1, y0, y1, d] of hs){
       if (d) continue;
       const ys = pts.slice(1, RING_N / 2).map(q => q[1]).filter(y => y > y0 + 0.1 && y < y1 - 0.1);   // both rings' jambs run from y0 + 0.1 to y1 - 0.1
       const a = rr(x0 + 0.03, x1 - 0.03, y0 + 0.03, y1 - 0.03, 0.07, ys), b = rr(x0 - 0.035, x1 + 0.035, y0 - 0.035, y1 + 0.035, 0.135, ys), o = fp.length / 3, n = a.length;
       for (const [ring, dz] of [[a, -0.003], [b, -0.003], [a, -0.003], [a, 0.004]]) for (const [x, y] of ring) fp.push(x, y, s * (zAtY(pts, y) + dz));   // surround, then the reveal on its own vertices (its own normals)
       for (const [p, q] of [[o, o + n], [o + 2 * n, o + 3 * n]]) for (let k = 0; k < n; k++){ const k1 = (k + 1) % n; fi.push(p + k, q + k, q + k1, p + k, q + k1, p + k1); }
     }
-    const fg = surround[L] = new THREE.BufferGeometry();
+    const fg = surround[key] = new THREE.BufferGeometry();
     fg.setAttribute('position', new THREE.Float32BufferAttribute(fp, 3)); fg.setIndex(fi); fg.computeVertexNormals();
   }
   const paint = d => {   // inOui door: magenta at the top and bottom, coral a little over mid height (vertex colours by height, worn by its outer face and edges); the edges fade to the lining's end-wall grey at the inner face
@@ -1098,23 +1095,26 @@ function buildSet(opts){
   const trailerRear = [];
   TGV.TRAILERS.forEach(([xr, L], i) => {
     const g = new THREE.Group(); g.position.x = xr;
-    const b = new THREE.Mesh(TR.geo[L].body, bodyM[L]); b.castShadow = true; b.receiveShadow = true; g.add(skin(b));
+    const bar = i === TGV.BAR, k = bar ? L + 'b' : L;   // the bar car's shell: its upper windows alone (TR)
+    const b = new THREE.Mesh(TR.geo[L].body, bodyM[k]); b.castShadow = true; b.receiveShadow = true; g.add(skin(b));
     const cr = new THREE.Mesh(TR.cap[L].rear, capM), cf = new THREE.Mesh(TR.cap[L].front, capM); g.add(skin(cr), skin(cf));
-    const lining = new THREE.Mesh(TR.lining[L], linM[L]), glass = new THREE.Mesh(TR.pane[L].glass, paneM.far), plug = new THREE.Mesh(TR.pane[L].plug, paneM.plug);
+    const lining = new THREE.Mesh(TR.lining[L], linM[k]), glass = new THREE.Mesh(TR.pane[k].glass, paneM.far), plug = new THREE.Mesh(TR.pane[k].plug, paneM.plug);
     lining.visible = false; glass.receiveShadow = plug.receiveShadow = true; g.add(lining, glass, plug);
-    lining.add(new THREE.Mesh(TR.surround[L], frameM));   // shown with the lining
+    lining.add(new THREE.Mesh(TR.surround[k], frameM));   // shown with the lining
     g.add(box(L - 1.0, 0.16, 2.6, endM, L / 2, 0.83, 0));                                 // underframe
     g.add(box(L - 3.0, 0.5, 2.9, endM, L / 2, 0.55, 0));                                  // low floor tanks/equipment
     g.add(skin(new THREE.Mesh(i < TGV.TRAILERS.length - 1 ? GANG.tr : GANG.pcRear, bellowsM)));   // gangway fairing behind: over the Jacobs bogie, or to the rear power car
     if (i === 0){ const f = new THREE.Mesh(GANG.pcFront, bellowsM); f.position.x = L; g.add(skin(f)); }   // and to the front power car
     G.trailers.add(g); trailerRear.push(xr);
-    // plug-sliding door at the -x end of each trailer, both sides; only +z (platform) leaves animate
+    // plug-sliding door at the -x end of each trailer but the bar car, both sides; only +z (platform) leaves animate
     const doorPanes = [];
     [1, -1].forEach(s => {
-      const d = new THREE.Group(); d.position.set(xr + TR.doorX, 0, 0);
-      const t = TR.leaf[s > 0 ? 'p' : 'n'], leaf = new THREE.Mesh(t.leaf, leafM), pane = new THREE.Mesh(t.pane, paneM.door);   // the pane follows the coach's glass (coachLod)
-      leaf.castShadow = true; pane.receiveShadow = true; d.add(skin(leaf), pane); doorPanes.push(pane);
-      G.doors.add(d); set.doors.push({ g:d, s, x0:xr + TR.doorX, z0:0 });
+      if (!bar){
+        const d = new THREE.Group(); d.position.set(xr + TR.doorX, 0, 0);
+        const t = TR.leaf[s > 0 ? 'p' : 'n'], leaf = new THREE.Mesh(t.leaf, leafM), pane = new THREE.Mesh(t.pane, paneM.door);   // the pane follows the coach's glass (coachLod)
+        leaf.castShadow = true; pane.receiveShadow = true; d.add(skin(leaf), pane); doorPanes.push(pane);
+        G.doors.add(d); set.doors.push({ g:d, s, x0:xr + TR.doorX, z0:0 });
+      }
       const num = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.25), new THREE.MeshBasicMaterial({ map:carNumber(firstCar + i), side:THREE.DoubleSide }));
       const tilt = Math.atan((zAtY(TR.pts, 3.425) - zAtY(TR.pts, 3.175)) / 0.25);   // leant with the tumblehome, 1 to 1.5 cm off it (upright, its lower edge was inside the wall and showed from inside)
       num.position.set(xr + 2.75, 3.3, s * (zAtY(TR.pts, 3.3) + 0.012)); num.rotation.set(s * tilt, s < 0 ? Math.PI : 0, 0); G.trailers.add(num);
@@ -1386,7 +1386,7 @@ function buildCrowd(st){   // people waiting on the platform, in two files besid
   const plan = stationPlan(st);
   tgvSets.forEach((set, k) => { for (const c of set.coaches){
     c.crowd[0].length = c.crowd[1].length = 0;
-    if (k >= S.sets || !c.n) continue;   // the bar car has no seats: nobody waits at its door
+    if (k >= S.sets || !c.n) continue;   // the bar car has no seats and no doors: nobody waits there
     let seated = 0; for (let i = 0; i < c.n; i++) if (c.occ[i] === 1) seated++;
     const want = plan === 'terminus' ? 0.35 * c.n : plan === 'origin' ? Math.max(3, 0.43 * c.n - seated) : Math.max(0, 0.4 * c.n - 0.75 * seated);   // the coach leaves a third to two fifths full
     const per = Math.min(21, Math.round(want / 2)), nd = c.xr + 1.65 + (k ? TGV.SET2_X : 0) - TGV.PLAT_FRONT;
@@ -1405,6 +1405,7 @@ function paxActivate(){   // doors open at a standstill: who gets off, who is wa
   const Lp = S.sets === 2 ? 400 : 200, t0 = 3.2 * (1 - S.doorsF) + 0.6;
   platG.updateWorldMatrix(true, false);
   for (let k = 0; k < S.sets; k++) for (const c of tgvSets[k].coaches){
+    if (c.bar) continue;   // no doorway
     c.g.updateWorldMatrix(true, false);
     const T = [1.35, 1.95].map(dx => platG.worldToLocal(c.g.localToWorld(new THREE.Vector3(c.xr + dx, DECK.lo, 1.25 * platSide))));
     if (Math.abs(T[0].z - 1.25) > 0.4 || T[0].x > -1 || T[0].x < -Lp + 1) continue;   // this doorway is not along the platform
@@ -1586,10 +1587,9 @@ const WALK_Z = {};
 function walkZones(i){   // [x0, x1, z0, z1, floor at x0, floor at x1]: where the walker's centre may be, 0.18 m clear of walls, rails and seats (and the eye 0.2 m clear of the curved upper wall)
   if (WALK_Z[i]) return WALK_Z[i];
   const L = TGV.TRAILERS[i][1], rows = seatRows(L).rows, e = rows[rows.length - 1][0] + 0.4, lo = DECK.lo, up = DECK.up;
-  const Z = tgvSets[0].coaches[i].bar ? [   // the bar car: up the stair to the bar (the lower deck past the stair's foot is the crew's)
-    [0.2, 1.85, -0.95, 0.95, lo, lo], [1.85, 3.27, -0.27, 0.95, lo, lo], [1.85, 3.55, -1.05, -0.63, lo, up],
-    [i < TGV.TRAILERS.length - 1 ? -0.6 : 0.21, 3.4, -0.27, 0.27, up, up], [3.4, 3.6, -1.05, 0.27, up, up],
-    [3.6, 4.52, -1.05, 1.05, up, up],                                          // in at the counter's end
+  const Z = tgvSets[0].coaches[i].bar ? [   // the bar car: its upper deck alone, from gangway to gangway
+    [-0.6, 0.2, -0.27, 0.27, up, up],                                          // the rear gangway
+    [0.2, 4.52, -1.05, 1.05, up, up],                                          // in, to the counter's end
     [4.52, 9.68, -0.04, 0.47, up, up],                                         // along the counter, clear of its foot rail and of the stools
     [9.68, L - 0.2, -0.47, 0.47, up, up],                                      // the lounge between the stools
   ] : [
