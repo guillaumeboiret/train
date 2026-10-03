@@ -8,14 +8,14 @@ const KID_T = {
        hint_doors:"Ferme les portes… et c'est parti !", hint_pax:"Attends, tout le monde descend !", hint_end:"Terminus ! Appuie sur 🔄 pour faire demi-tour.", hint_stopped:"Le train doit être arrêté.", service_on:"🔁 Toute la ligne, en boucle", service_off:"Boucle arrêtée", service_last:"Boucle arrêtée : la prochaine gare est la dernière",
        terminus:"Terminus", next:"Prochaine gare", full:"Version complète ↗", game:"Jeu des aiguillages ↗", lang:"Langue",
        panto:"Pantographe", dir_par:"Vers Paris", dir_tls:"Vers Toulouse", turn:"Demi-tour", hint_panto:"Lève le pantographe !", hint_wait:"Le pantographe monte…", sound:"Son",
-       v_driver:"Conducteur", v_pax:"Passager", v_out:"Dehors", pax_tgv:"Le passager voyage en TGV : choisis le TGV 🚄",
+       v_driver:"Conducteur", v_pax:"Passager", v_out:"Dehors", v_cine:"Cinéma", pax_tgv:"Le passager voyage en TGV : choisis le TGV 🚄",
        o_overview:"Ensemble", o_side:"Profil", o_train:"Tout le train", o_far:"Paysage", o_door:"Portes" },
   en:{ title:"Train playground", diesel:"Diesel", electric:"Electric", tgv:"TGV", stop:"Stop", horn:"Horn", lever:"Lever", station:"Next station", service:"Whole line",
        back:"Back to Bordeaux", auto:"Autopilot…", doors:"Doors", wx:"Weather", wx_plan:"Weather schedule", tod:"Time of day", xray:"X-ray", hint:"Push the lever to go!", lever_drag:"Slide the lever up to go, down to brake!",
        hint_doors:"Closing the doors… off we go!", hint_pax:"Wait, everyone is getting off!", hint_end:"End of the line! Press 🔄 to turn around.", hint_stopped:"The train must be stopped first.", service_on:"🔁 The whole line, again and again", service_off:"Loop stopped", service_last:"Loop stopped: the next station is the last",
        terminus:"Terminus", next:"Next station", full:"Full version ↗", game:"Switch game ↗", lang:"Language",
        panto:"Pantograph", dir_par:"To Paris", dir_tls:"To Toulouse", turn:"Turn around", hint_panto:"Raise the pantograph!", hint_wait:"Pantograph rising…", sound:"Sound",
-       v_driver:"Driver", v_pax:"Passenger", v_out:"Outside", pax_tgv:"Passengers ride the TGV: pick the TGV 🚄",
+       v_driver:"Driver", v_pax:"Passenger", v_out:"Outside", v_cine:"Cinema", pax_tgv:"Passengers ride the TGV: pick the TGV 🚄",
        o_overview:"Overview", o_side:"Side", o_train:"Whole train", o_far:"Landscape", o_door:"Doors" },
 };
 const kt = k => KID_T[S.lang][k] ?? k;
@@ -52,6 +52,7 @@ body.kid .lbl{font:600 15px/1 var(--font-body);padding:8px 12px;border-radius:10
 body.kid .lbl::after{background:#fff;height:18px}
 #kid{position:absolute;inset:0;pointer-events:none;color:#1b2430;font-family:var(--font-body);-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 #kid button,#kid input,#kid a{touch-action:manipulation}
+.kid-fade{position:absolute;inset:0;background:#000;opacity:0;pointer-events:none}   /* the film's cuts go through black, under the controls */
 #kid button{font:inherit;cursor:pointer}
 #kid button:focus-visible,#kid a:focus-visible{outline:3px solid #f28c28;outline-offset:2px}
 .kid-top{position:absolute;top:10px;left:10px;right:calc(var(--kid-side,110px) + 20px);display:flex;align-items:flex-start;gap:10px;pointer-events:none}
@@ -183,6 +184,7 @@ body.kid #rbTip{font-size:13px;padding:5px 9px;top:-30px;border-radius:8px}
 }
 </style>`);
 $('c3d').parentElement.insertAdjacentHTML('beforeend', `<div id="kid">
+  <div class="kid-fade" id="kidFade"></div>
   <div class="kid-top">
     <div class="kid-panel kid-trains" id="kidTrains" role="group">
       <button type="button" class="kt" data-mode="diesel" aria-pressed="false"><span class="ico">🚂</span><span class="lab" data-kid="diesel"></span></button>
@@ -223,6 +225,7 @@ $('c3d').parentElement.insertAdjacentHTML('beforeend', `<div id="kid">
       <button type="button" class="kt" data-view="driver" aria-pressed="false"><span class="ico">🧑‍✈️</span><span class="lab" data-kid="v_driver"></span></button>
       <button type="button" class="kt" data-view="pax" aria-pressed="false"><span class="ico">💺</span><span class="lab" data-kid="v_pax"></span></button>
       <button type="button" class="kt" data-view="out" aria-pressed="true" aria-expanded="false" aria-controls="kidAngles"><span class="ico">📷</span><span class="lab" data-kid="v_out"></span></button>
+      <button type="button" class="kt" data-view="cine" aria-pressed="false"><span class="ico">🎬</span><span class="lab" data-kid="v_cine"></span></button>
     </div>
     <div class="kid-panel kid-angles" id="kidAngles" role="group" hidden>
       <button type="button" class="kt" data-cam="overview" aria-pressed="true"><span class="ico">🚄</span><span class="lab" data-kid="o_overview"></span></button>
@@ -291,19 +294,22 @@ function kidDoors(stay){   // stay: pressed from the cab desk, the view stays in
   if (S.speed > 0.1){ kidToast('hint_stopped', 2500); return; }
   if (S.doors && paxHolding()){ kidToast('hint_pax', 3000); PX.closeWhenDone = true; return; }
   S.doors = !S.doors; syncControls();
-  if (S.doors && !stay) kidGo('door');   // opening: land beside the first door to watch it
+  if (S.doors && !stay && !kidCine) kidGo('door');   // opening: land beside the first door to watch it (the 🎬 view films it itself)
 }
 let kidOut = 'overview';   // the angle outside, kept for the way back out
-const kidWhere = () => orbit.fp?.name === 'driver' ? 'driver' : orbit.fp?.name === 'walk' ? 'pax' : 'out';
+let kidCine = false;       // the 🎬 view on (03i2-cine.js)
+const kidWhere = () => kidCine ? 'cine' : orbit.fp?.name === 'driver' ? 'driver' : orbit.fp?.name === 'walk' ? 'pax' : 'out';
 function kidAngles(open){ $('kidAngles').hidden = !open; document.querySelector('#kidViews [data-view="out"]').setAttribute('aria-expanded', String(open)); }
 function kidGo(cam){   // outside, from that angle (the door's on the TGV only)
   if (cam === 'door' && S.mode !== 'tgv') cam = 'overview';
-  kidOut = cam; kidAngles(false); flyPreset(cam);
+  cineOff(); kidOut = cam; kidAngles(false); flyPreset(cam);
 }
-function kidView(v){   // one tap from anywhere: the driver's seat, the passenger's (seated upstairs in car 1, then on foot), or back outside; outside already, its angles
+function kidView(v){   // one tap from anywhere: the driver's seat, the passenger's (seated upstairs in car 1, then on foot), back outside, or the film; outside already, its angles; in the film, the next shot
   const open = !$('kidAngles').hidden; kidAngles(false);
+  if (v === 'cine'){ if (kidCine) cineSkip(); else cineOn(); return; }
   if (v === 'out'){ if (kidWhere() === 'out') kidAngles(!open); else kidGo(kidOut); return; }
   if (v === 'pax' && S.mode !== 'tgv'){ kidToast('pax_tgv', 3000); return; }
+  cineOff();
   if (shellLevel < 1){ setShell(1); $('kidXray').setAttribute('aria-pressed', 'false'); }   // inside, the train whole: the X-ray button is out of sight there
   flyPreset(v === 'pax' ? 'walk' : 'driver');
 }
@@ -318,7 +324,7 @@ function kidTrain(mode){
   S.dir = dir; jumpTo(d, true);  // back to where the child was, stopped, same way round
   kidPower(true); S.brake = 4; S.notch = 0; $('kidLever').value = 0; syncControls();
   $('kidTrains').querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.mode === mode)));
-  if (where === 'driver') flyPreset('driver'); else kidGo(kidOut);   // the driver stays the driver, in the new train's seat
+  if (where === 'driver') flyPreset('driver'); else if (where !== 'cine') kidGo(kidOut);   // the driver stays the driver, in the new train's seat; the film goes on, filming the new train
   kidLang();
 }
 function kidLang(){
@@ -385,6 +391,7 @@ document.addEventListener('pointerdown', e => {   // a tap elsewhere folds the m
 /* ---- hooks into the engine: both pantographs of the first TGV set follow the switch; the desk buttons in the cab work as the kid buttons; Esc from the cab or the walk goes back outside */
 pantoHook = f => { if (S.mode !== 'tgv') return false; for (const p of tgvSets[0].pantos) posePanto(p, f); posePanto(panto, f); return true; };   // kid mode: the front pantograph rises too, so the ⚡ button shows on the car the child looks at
 frameHook = () => { if (S.mode !== 'diesel' && S.battery && S.lineOn && S.panto && !S.vcb) S.vcb = true; };   // the child only handles the pantograph: the line breaker follows it
+guideKeys = false;   // no guide here: ← → stepping it would move the train and end the whole line
 Object.assign(cabActions, { panto:kidPanto, doors:() => kidDoors(true), next:kidStation, service:kidService, dir:d => { if (d !== S.dir) kidTurn(); }, leave:() => kidGo(kidOut), lever:kidLever, leverTip:() => kidToast('lever_drag') });
 cabLever.min = 0; cabLever.build();   // the cab's lever is the kid lever stood up: 🐢 at the bottom holds the brake, 🚀 at the top, no brake notches (🐢 stops the train, as the kid lever does)
 document.querySelectorAll('.cl-end').forEach((el, i) => { el.textContent = i ? '🐢' : '🚀'; delete el.dataset.i18n; });

@@ -230,7 +230,7 @@ function rmCmd(c, v){
     case 'plan': wxPlanCycle(v); break;
     case 'tod': if (TOD.includes(v)){ setTod(v); updateWeather(0); kidTick(); } break;
     case 'xray': kidXray(); break;
-    case 'view': if (v === 'driver' || v === 'pax') kidView(v); else if (v === 'out' && kidWhere() !== 'out') kidGo(kidOut); break;
+    case 'view': if (v === 'driver' || v === 'pax' || v === 'cine') kidView(v); else if (v === 'out' && kidWhere() !== 'out') kidGo(kidOut); break;
     case 'cam': if (RM_CAMS.includes(v)) kidGo(v); break;
     case 'train': if (RM_MODES.includes(v) && v !== S.mode) kidTrain(v); break;
     case 'station': { const st = ROUTE.stations.find(x => x.id === v); if (st) jumpToStation(st); break; }

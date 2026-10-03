@@ -3,6 +3,7 @@
 const $ = id => document.getElementById(id);
 const t = key => T[S.lang][key] ?? key;
 let selected = null, focusId = null, stepIdx = 0, autoOn = false, autoT = 0, shellLevel = 0.18;
+let guideKeys = true;   // ← → step the guide; the kid build (03i) has none and turns them off
 let cutAxis = 'none', cutPos = 0, cutFlip = false, cutPlane = null, infoCollapsed = false;
 const HIL = new THREE.Color(0xf28c28);
 const kvLine = () => S.dc ? t('kv_dc') : '25';
@@ -233,8 +234,8 @@ window.addEventListener('keydown', e => {
     else if (sitKey && !barIsOpen()){ e.preventDefault(); walkSitNear(); }
     return;
   }
-  if (e.key === 'ArrowRight'){ stopAuto(); goStep(stepIdx + 1); }
-  else if (e.key === 'ArrowLeft'){ stopAuto(); goStep(stepIdx - 1); }
+  if (guideKeys && e.key === 'ArrowRight'){ stopAuto(); goStep(stepIdx + 1); }
+  else if (guideKeys && e.key === 'ArrowLeft'){ stopAuto(); goStep(stepIdx - 1); }
   else if (e.key === 'Escape'){ if (inCab) cabActions.leave(); else select(null); }
   else if (inCab && (e.key === 'ArrowUp' || e.key === 'ArrowDown')){ e.preventDefault(); cabLever.step(e.key === 'ArrowUp' ? 1 : -1); }   // the driver's lever
 });
@@ -957,7 +958,7 @@ $('timeSeg').addEventListener('click', e => { const b = e.target.closest('button
 const keys = new Set();
 const KEY_MOVE = { w:'fwd', s:'back', a:'left', d:'right', e:'up', r:'up', q:'down', f:'down' };
 const CODE_MOVE = { KeyW:'fwd', KeyS:'back', KeyA:'left', KeyD:'right', KeyE:'up', KeyQ:'down' };   // physical positions, so an AZERTY Z also goes forward
-const WALK_MOVE = { KeyW:'fwd', ArrowUp:'fwd', KeyS:'back', ArrowDown:'back', KeyA:'left', ArrowLeft:'left', KeyD:'right', ArrowRight:'right' };   // walking: by the key's place (an AZERTY's ZQSD) and the arrows; elsewhere ← → step the guide
+const WALK_MOVE = { KeyW:'fwd', ArrowUp:'fwd', KeyS:'back', ArrowDown:'back', KeyA:'left', ArrowLeft:'left', KeyD:'right', ArrowRight:'right' };   // walking: by the key's place (an AZERTY's ZQSD) and the arrows; elsewhere ← → step the explainer's guide (guideKeys)
 const moveOf = e => walking ? WALK_MOVE[e.code] || WALK_MOVE[e.key] || null : KEY_MOVE[e.key.toLowerCase()] || CODE_MOVE[e.code] || null;
 window.addEventListener('keydown', e => {
   if (e.target.matches('input,textarea,select') || e.metaKey || e.ctrlKey || e.altKey) return;

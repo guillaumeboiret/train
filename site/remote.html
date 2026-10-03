@@ -88,7 +88,7 @@ main{position:relative;flex:1;display:grid;grid-template-columns:clamp(112px,13v
 @keyframes pulse{50%{transform:scale(1.22)}}
 .cam{display:grid;grid-template-rows:repeat(2,minmax(0,1fr));gap:8px;padding:10px}
 .views,.angles{display:grid;gap:8px;min-height:0}
-.views{grid-template-columns:repeat(3,minmax(0,1fr))}.angles{grid-template-columns:repeat(5,minmax(0,1fr))}
+.views{grid-template-columns:repeat(4,minmax(0,1fr))}.angles{grid-template-columns:repeat(5,minmax(0,1fr))}
 .cam .kt{min-width:0;min-height:0;background:rgba(255,255,255,.06)}
 .cam .kt[aria-pressed="true"]{background:var(--accent);color:#1b1206}
 .cam .kt .ico{font-size:clamp(24px,3.8vmin,38px)}
@@ -135,7 +135,7 @@ body.off :is(main>.lever,main>.pad,.line,.trains){opacity:.3;pointer-events:none
   .kb .lab,.cam .kt .lab{display:none}.btns{gap:8px;padding:8px}.lv-knob{width:56px;height:56px;border-width:4px}.lever .end{font-size:26px}.lv-track{margin:30px 0}
   .rb{height:44px}.rb-lb{top:30px;font-size:11px}.hint{padding:6px 12px;font-size:14px}
   .pad{grid-template-rows:minmax(0,1fr) auto}   /* the cameras in one row, 44 px tall, the views beside the angles; the buttons get the rest */
-  .cam{grid-template-rows:none;grid-template-columns:minmax(0,3fr) minmax(0,5fr);gap:6px;padding:6px}.cam .kt{min-height:44px}
+  .cam{grid-template-rows:none;grid-template-columns:minmax(0,4fr) minmax(0,5fr);gap:6px;padding:6px}.cam .kt{min-height:44px}
 }
 </style>
 </head>
@@ -196,6 +196,7 @@ body.off :is(main>.lever,main>.pad,.line,.trains){opacity:.3;pointer-events:none
           <button type="button" class="kt" data-view="driver" aria-pressed="false"><span class="ico">🧑‍✈️</span><span class="lab" data-i18n="v_driver">Conducteur</span></button>
           <button type="button" class="kt" data-view="pax" aria-pressed="false"><span class="ico">💺</span><span class="lab" data-i18n="v_pax">Passager</span></button>
           <button type="button" class="kt" data-view="out" aria-pressed="false"><span class="ico">📷</span><span class="lab" data-i18n="v_out">Dehors</span></button>
+          <button type="button" class="kt" data-view="cine" aria-pressed="false"><span class="ico">🎬</span><span class="lab" data-i18n="v_cine">Cinéma</span></button>
         </div>
         <div class="angles" id="angles" role="group">
           <button type="button" class="kt" data-cam="overview" aria-pressed="false"><span class="ico">🚄</span><span class="lab" data-i18n="o_overview">Ensemble</span></button>
@@ -221,7 +222,7 @@ body.off :is(main>.lever,main>.pad,.line,.trains){opacity:.3;pointer-events:none
          snd:"🔈 Pour le son, clique une fois sur l'écran de la télé.",
          diesel:"Diesel", electric:"Électrique", tgv:"TGV", stop:"Stop", horn:"Klaxon", station:"Prochaine gare", service:"Toute la ligne", auto:"Pilote auto…", turn:"Demi-tour",
          dir_par:"Vers Paris", dir_tls:"Vers Toulouse", panto:"Pantographe", doors:"Portes", wx:"Météo", plan:"Météo programmée", tod:"Heure", xray:"Rayons X", lever:"Manette", terminus:"Terminus",
-         v_driver:"Conducteur", v_pax:"Passager", v_out:"Dehors", o_overview:"Ensemble", o_side:"Profil", o_train:"Tout le train", o_far:"Paysage", o_door:"Portes",
+         v_driver:"Conducteur", v_pax:"Passager", v_out:"Dehors", v_cine:"Cinéma", o_overview:"Ensemble", o_side:"Profil", o_train:"Tout le train", o_far:"Paysage", o_door:"Portes",
          gui:"Commandes sur la télé", sound:"Son de la télé", other:"Changer de télé" },
     en:{ title:"Remote · Train playground", h1:"Remote", lang:"Language", code:"The TV's code", go:"Connect",
          how_a:"On the TV, open", how_b:", then ⚙️ and 📱 Remote. Scan its QR code with the camera, or type its 4 letters here:",
@@ -230,7 +231,7 @@ body.off :is(main>.lever,main>.pad,.line,.trains){opacity:.3;pointer-events:none
          snd:"🔈 For sound, click the TV's screen once.",
          diesel:"Diesel", electric:"Electric", tgv:"TGV", stop:"Stop", horn:"Horn", station:"Next station", service:"Whole line", auto:"Autopilot…", turn:"Turn around",
          dir_par:"To Paris", dir_tls:"To Toulouse", panto:"Pantograph", doors:"Doors", wx:"Weather", plan:"Weather schedule", tod:"Time of day", xray:"X-ray", lever:"Lever", terminus:"Terminus",
-         v_driver:"Driver", v_pax:"Passenger", v_out:"Outside", o_overview:"Overview", o_side:"Side", o_train:"Whole train", o_far:"Landscape", o_door:"Doors",
+         v_driver:"Driver", v_pax:"Passenger", v_out:"Outside", v_cine:"Cinema", o_overview:"Overview", o_side:"Side", o_train:"Whole train", o_far:"Landscape", o_door:"Doors",
          gui:"Controls on the TV", sound:"TV sound", other:"Another TV" },
   };
   const $ = id => document.getElementById(id), root = document.documentElement, body = document.body;

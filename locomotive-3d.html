@@ -240,7 +240,7 @@ body.ui-idle :is(.dock,.infocard,.gauges,.hud,.compass,#labels,.cab-bar,.cab-dec
 .ng-ico{width:18px;height:18px;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 #btnNoGui{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
 body.nogui .topbar{display:none}
-body.nogui .stage>:not(#c3d,#guiBack,#cabSay,#walkBar,#kid),body.nogui :is(#walkBar,#kid)>:not(#walkSay,#barMenu,#kidToast){display:none!important}   /* left: the words a tap on the view brings, and the bar's menu the counter opens */
+body.nogui .stage>:not(#c3d,#guiBack,#cabSay,#walkBar,#kid),body.nogui :is(#walkBar,#kid)>:not(#walkSay,#barMenu,#kidToast,#kidFade){display:none!important}   /* left: the words a tap on the view brings, and the bar's menu the counter opens, the 🎬 view's cuts to black */
 body.nogui.ng-calm :is(#cabSay,#walkSay,#kidToast){visibility:hidden}   /* nobody at this screen: what the iPad's remote brings shows on the iPad */
 #guiBack{display:none;position:absolute;top:max(12px,env(safe-area-inset-top,0px));right:max(12px,env(safe-area-inset-right,0px));width:44px;height:44px;padding:0;border:0;border-radius:50%;place-items:center;background:rgba(16,20,26,.55);color:#fff;cursor:pointer;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);transition:opacity .3s}
 #guiBack .ng-ico{width:22px;height:22px}
@@ -6527,6 +6527,7 @@ function updateGauges(){
 const $ = id => document.getElementById(id);
 const t = key => T[S.lang][key] ?? key;
 let selected = null, focusId = null, stepIdx = 0, autoOn = false, autoT = 0, shellLevel = 0.18;
+let guideKeys = true;   // ← → step the guide; the kid build (03i) has none and turns them off
 let cutAxis = 'none', cutPos = 0, cutFlip = false, cutPlane = null, infoCollapsed = false;
 const HIL = new THREE.Color(0xf28c28);
 const kvLine = () => S.dc ? t('kv_dc') : '25';
@@ -6757,8 +6758,8 @@ window.addEventListener('keydown', e => {
     else if (sitKey && !barIsOpen()){ e.preventDefault(); walkSitNear(); }
     return;
   }
-  if (e.key === 'ArrowRight'){ stopAuto(); goStep(stepIdx + 1); }
-  else if (e.key === 'ArrowLeft'){ stopAuto(); goStep(stepIdx - 1); }
+  if (guideKeys && e.key === 'ArrowRight'){ stopAuto(); goStep(stepIdx + 1); }
+  else if (guideKeys && e.key === 'ArrowLeft'){ stopAuto(); goStep(stepIdx - 1); }
   else if (e.key === 'Escape'){ if (inCab) cabActions.leave(); else select(null); }
   else if (inCab && (e.key === 'ArrowUp' || e.key === 'ArrowDown')){ e.preventDefault(); cabLever.step(e.key === 'ArrowUp' ? 1 : -1); }   // the driver's lever
 });
@@ -7481,7 +7482,7 @@ $('timeSeg').addEventListener('click', e => { const b = e.target.closest('button
 const keys = new Set();
 const KEY_MOVE = { w:'fwd', s:'back', a:'left', d:'right', e:'up', r:'up', q:'down', f:'down' };
 const CODE_MOVE = { KeyW:'fwd', KeyS:'back', KeyA:'left', KeyD:'right', KeyE:'up', KeyQ:'down' };   // physical positions, so an AZERTY Z also goes forward
-const WALK_MOVE = { KeyW:'fwd', ArrowUp:'fwd', KeyS:'back', ArrowDown:'back', KeyA:'left', ArrowLeft:'left', KeyD:'right', ArrowRight:'right' };   // walking: by the key's place (an AZERTY's ZQSD) and the arrows; elsewhere ← → step the guide
+const WALK_MOVE = { KeyW:'fwd', ArrowUp:'fwd', KeyS:'back', ArrowDown:'back', KeyA:'left', ArrowLeft:'left', KeyD:'right', ArrowRight:'right' };   // walking: by the key's place (an AZERTY's ZQSD) and the arrows; elsewhere ← → step the explainer's guide (guideKeys)
 const moveOf = e => walking ? WALK_MOVE[e.code] || WALK_MOVE[e.key] || null : KEY_MOVE[e.key.toLowerCase()] || CODE_MOVE[e.code] || null;
 window.addEventListener('keydown', e => {
   if (e.target.matches('input,textarea,select') || e.metaKey || e.ctrlKey || e.altKey) return;
