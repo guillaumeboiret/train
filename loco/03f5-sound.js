@@ -8,12 +8,12 @@
    rolling once inside; a power car at a standstill (blowers, compressor, air dryer); the door beeps and lock. Synthesised: the inverters' whine, the
    transformer hum under 25 kV, the brake squeal and air, the doors opening, the two-tone air horn and the SNCF chime. Where a recording does not load,
    the synthesis stays. */
-const SND = { ctx:null, master:null, muted:false, v:null,
+const SND = { ctx:null, master:null, muted:false, v:null, off:false,   // off: a page that stays silent (the iPad's 3D cab, 03k: the TV plays the sound)
   setMuted(m){ SND.muted = m; if (SND.master) SND.master.gain.setTargetAtTime(m ? 0 : 0.9, SND.ctx.currentTime, 0.05); } };
 const _sc = (v, a, b) => Math.max(a, Math.min(b, v));
 const _sv1 = new THREE.Vector3(), _sv2 = new THREE.Vector3();
 function audioCtx(){
-  if (SND.ctx) return SND.ctx;
+  if (SND.ctx || SND.off) return SND.ctx;
   const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return null;
   const ctx = new AC(); SND.ctx = ctx;
   const master = ctx.createGain(); master.gain.value = SND.muted ? 0 : 0.9; master.connect(ctx.destination); SND.master = master;

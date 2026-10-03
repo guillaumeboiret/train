@@ -510,15 +510,18 @@ function pwrDrag(e, scr){   // the bar pressed: the lever to the notch under the
   at(e);
 }
 function cabRowTap(e){   // a tap on the line screen's row of stops: that station, as a tap on its dot on the line bar
-  deskRay(e);
-  const h = deskHit(CAB.scrs); if (h?.object.userData.cabScr !== 'line') return false;
-  const [x, y] = cellAt(h, 'line'), w = CAB.cell.line[2];
-  if (y < CAB_ROW_Y - 40) return false;   // the words above the row
-  let st = null, bd = 30;   // canvas px: the nearest dot, the stops being about 38 apart
-  for (const s of ROUTE.stations){ const d = Math.abs(cabRowX(s.s, w) - x); if (d < bd){ bd = d; st = s; } }
-  if (!st) return false;
+  const st = cabRowAt(e); if (!st) return false;
   jumpToStation(st); cabSay(st.name);
   return true;
+}
+function cabRowAt(e){   // the stop under a tap on the line screen's row, or null
+  deskRay(e);
+  const h = deskHit(CAB.scrs); if (h?.object.userData.cabScr !== 'line') return null;
+  const [x, y] = cellAt(h, 'line'), w = CAB.cell.line[2];
+  if (y < CAB_ROW_Y - 40) return null;   // the words above the row
+  let st = null, bd = 30;   // canvas px: the nearest dot, the stops being about 38 apart
+  for (const s of ROUTE.stations){ const d = Math.abs(cabRowX(s.s, w) - x); if (d < bd){ bd = d; st = s; } }
+  return st;
 }
 let inCab = false, cabDirMv = false;
 function keepDriver(){   // in the driver's place the page's controls step aside (🎛️ shows and hides them); the view moves to the other end when the train turns round
@@ -1100,8 +1103,10 @@ window.addEventListener('keydown', e => {   // ahead of the page's keys: this Es
   if (!e.repeat) setNoGui(!noGui);
 }, true);
 let frameHook = null;   // the kid build hangs its own rules here
+let followHook = null;   // the iPad's 3D cab (03k-desk.js): its train follows the TV's instead of running by itself
 function frame(dt){
-  simulate(dt); serviceTick(); animate(Math.min(dt * S.timeScale, 0.25)); updateFlows(dt); updateWeather(dt); panKeys(dt); if (frameHook) frameHook(dt);
+  if (followHook) followHook(dt); else { simulate(dt); serviceTick(); }
+  animate(Math.min(dt * S.timeScale, 0.25)); updateFlows(dt); updateWeather(dt); panKeys(dt); if (frameHook) frameHook(dt);
   keepDriver(); keepWalker(dt); updateIdle(dt);
   orbit.update(dt); updateLights(); stepAim(dt); updateCab(dt); updateCompass(); updateSound(dt);
 }

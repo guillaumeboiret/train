@@ -183,6 +183,22 @@ body.walk .pad{grid-template-rows:minmax(0,1fr) auto}
   .cam{grid-template-rows:none;grid-template-columns:minmax(0,4fr) minmax(0,5fr);gap:6px;padding:6px}.cam .kt{min-height:44px}
   body.walk .line,body.bar .cam{display:none}   /* walking, two thumbs on the sticks: the line and, at the bar, the cameras give them their room */
 }
+/* the 3D cab, on a tablet (loco/03k-desk.js): the playground's own desk in a frame, its lever, buttons and screens under the finger; beside it
+   the buttons it has no twin of, the cameras in one row under both */
+.desk{position:relative;overflow:hidden;min-height:0}
+.desk iframe{position:absolute;inset:0;width:100%;height:100%;border:0;display:block}
+body.desk main{grid-template-columns:minmax(0,1fr)}
+body.desk :is(main>.lever,#bHorn,#bStation,#bPanto,#bDoors){display:none}
+body.desk .pad{grid-template-columns:minmax(0,1fr) clamp(96px,10vw,132px);grid-template-rows:minmax(0,1fr) auto;grid-template-areas:"desk btns" "cam cam"}
+body.desk .desk{grid-area:desk}
+body.desk .btns{grid-area:btns;grid-template-columns:minmax(0,1fr);grid-template-rows:repeat(5,minmax(0,1fr));gap:10px;padding:10px}
+body.desk #bStop{grid-row:auto}
+body.desk .cam{grid-area:cam;grid-template-rows:none;grid-template-columns:minmax(0,4fr) minmax(0,5fr);gap:8px;padding:8px}
+body.desk .cam .kt{min-height:60px}
+@media (orientation:portrait){
+  body.desk .pad{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr) 120px auto;grid-template-areas:"desk" "btns" "cam"}
+  body.desk .btns{grid-template-columns:repeat(5,minmax(0,1fr));grid-template-rows:minmax(0,1fr)}
+}
 </style>
 </head>
 <body>
@@ -213,6 +229,7 @@ body.walk .pad{grid-template-rows:minmax(0,1fr) auto}
       <div class="seg langSeg" role="group"><button type="button" data-lang="fr" aria-pressed="true">Français</button><button type="button" data-lang="en" aria-pressed="false">English</button></div>
       <button type="button" class="mi" id="mGui" aria-pressed="false"><span class="e">🖥️</span><span data-i18n="gui">Commandes sur la télé</span><b class="sw"></b></button>
       <button type="button" class="mi" id="mSnd" aria-pressed="true"><span class="e" id="mSndIco">🔊</span><span data-i18n="sound">Son de la télé</span><b class="sw"></b></button>
+      <button type="button" class="mi" id="mDesk" aria-pressed="true" hidden><span class="e">🧑‍✈️</span><span data-i18n="desk">Cabine 3D sur la tablette</span><b class="sw"></b></button>
       <span class="lab" data-i18n="plan">Météo programmée</span>
       <div class="wx-plan" id="mPlan" role="group"></div>
       <button type="button" class="mi" id="mOther"><span class="e">📺</span><span data-i18n="other">Changer de télé</span></button>
@@ -226,6 +243,7 @@ body.walk .pad{grid-template-rows:minmax(0,1fr) auto}
       <span class="end" aria-hidden="true">🐢</span>
     </div>
     <div class="pad">
+      <div class="panel desk" id="desk" hidden></div>
       <div class="panel btns">
         <button type="button" class="kb red" id="bStop"><span class="ico">🛑</span><span class="lab" data-i18n="stop">Stop</span></button>
         <button type="button" class="kb yellow" id="bHorn"><span class="ico">📣</span><span class="lab" data-i18n="horn">Klaxon</span></button>
@@ -281,7 +299,7 @@ body.walk .pad{grid-template-rows:minmax(0,1fr) auto}
          diesel:"Diesel", electric:"Électrique", tgv:"TGV", stop:"Stop", horn:"Klaxon", station:"Prochaine gare", service:"Toute la ligne", auto:"Pilote auto…", turn:"Demi-tour",
          dir_par:"Vers Paris", dir_tls:"Vers Toulouse", panto:"Pantographe", doors:"Portes", wx:"Météo", plan:"Météo programmée", tod:"Heure", xray:"Rayons X", lever:"Manette", terminus:"Terminus",
          v_driver:"Conducteur", v_pax:"Passager", v_out:"Dehors", v_cine:"Cinéma", o_overview:"Ensemble", o_side:"Profil", o_train:"Tout le train", o_far:"Paysage", o_door:"Portes",
-         gui:"Commandes sur la télé", sound:"Son de la télé", other:"Changer de télé",
+         gui:"Commandes sur la télé", sound:"Son de la télé", other:"Changer de télé", desk:"Cabine 3D sur la tablette",
          sit:"S'asseoir", stand:"Se lever", order:"Commander", pocket:"Argent de poche +10€", close:"Fermer", tray:"Touche pour déguster :", tray0:"Rien sur le plateau pour l'instant." },
     en:{ title:"Remote · Train playground", h1:"Remote", lang:"Language", code:"The TV's code", go:"Connect",
          how_a:"On the TV, open", how_b:", then ⚙️ and 📱 Remote. Scan its QR code with the camera, or type its 4 letters here:",
@@ -291,7 +309,7 @@ body.walk .pad{grid-template-rows:minmax(0,1fr) auto}
          diesel:"Diesel", electric:"Electric", tgv:"TGV", stop:"Stop", horn:"Horn", station:"Next station", service:"Whole line", auto:"Autopilot…", turn:"Turn around",
          dir_par:"To Paris", dir_tls:"To Toulouse", panto:"Pantograph", doors:"Doors", wx:"Weather", plan:"Weather schedule", tod:"Time of day", xray:"X-ray", lever:"Lever", terminus:"Terminus",
          v_driver:"Driver", v_pax:"Passenger", v_out:"Outside", v_cine:"Cinema", o_overview:"Overview", o_side:"Side", o_train:"Whole train", o_far:"Landscape", o_door:"Doors",
-         gui:"Controls on the TV", sound:"TV sound", other:"Another TV",
+         gui:"Controls on the TV", sound:"TV sound", other:"Another TV", desk:"3D cab on the tablet",
          sit:"Sit down", stand:"Stand up", order:"Order", pocket:"Pocket money +10€", close:"Close", tray:"Tap to enjoy:", tray0:"Nothing on the tray yet." },
   };
   const $ = id => document.getElementById(id), root = document.documentElement, body = document.body;
@@ -349,7 +367,7 @@ body.walk .pad{grid-template-rows:minmax(0,1fr) auto}
         if (Array.isArray(m.st)) buildLine(m.st);
         if (Array.isArray(m.bar)){ G.menu = m.bar.filter(x => Array.isArray(x) && typeof x[0] === 'string'); G.bar = ''; $('gbItems').textContent = ''; }   // the bar's menu: its ids and icons, once
         break;
-      case 'state': R.st = m; break;
+      case 'state': R.st = m; deskPost({ desk:'state', st:m }); break;
       case 'tv': R.tv = !!m.on; break;
       case 'toast': toast(String(m.text ?? ''), +m.ms || 0); return;
       default: return;   // pong, nope (its close follows)
@@ -382,6 +400,7 @@ body.walk .pad{grid-template-rows:minmax(0,1fr) auto}
     const up = R.ws?.readyState === 1 && R.hi, k = up ? (R.tv ? '' : 'tv_off') : R.lookT0 ? 'looking' : 'offline';
     body.classList.toggle('off', !!k); $('offMsg').hidden = !k; $('offMsg').textContent = k ? t(k) : '';
     $('tvCode').textContent = R.code; $('dot').className = 'dot ' + (!k ? 'on' : k === 'offline' ? 'bad' : 'wait');
+    deskSync();
     const s = R.st; if (!s) return;
     const tgv = s.mode === 'tgv';
     $('trains').querySelectorAll('[data-mode]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.mode === s.mode)));
@@ -586,6 +605,41 @@ body.walk .pad{grid-template-rows:minmax(0,1fr) auto}
     $('codeIn').value = ''; pairMsg(''); show('pair'); $('codeIn').focus();
   });
 
+  /* ---- the 3D cab on a tablet ("I would like to have the 3D version of the cockpit … when he's in the cockpit, he's able to control the train
+     from the iPad"): the playground's desk in a frame (loco/03k-desk.js) takes the place of the lever and of the buttons it has a twin of,
+     following the TV's train. Walking, or a loco backing its wagons (no cab at its head), the buttons come back; a phone keeps them; the menu
+     turns it off. Hidden, the frame draws nothing */
+  const DESK = { on:true, f:null, ready:false, shown:false, paused:null, horn:false, tab:matchMedia('(min-width:700px) and (min-height:640px)') };
+  const DESK_CMDS = ['lever', 'panto', 'doors', 'next', 'service', 'turn', 'station'];
+  try { DESK.on = localStorage.getItem('remote.desk') !== '0'; } catch (e) {}
+  function deskPost(m){ if (DESK.ready) DESK.f.contentWindow.postMessage(m, location.origin); }
+  function deskSync(){
+    const s = R.st, want = DESK.on && DESK.tab.matches && R.ws?.readyState === 1 && R.hi && R.tv && !!s && !s.walk && (s.mode === 'tgv' || s.dir > 0);
+    $('mDesk').hidden = !DESK.tab.matches; $('mDesk').setAttribute('aria-pressed', String(DESK.on));
+    if (want && !DESK.f){ DESK.f = document.createElement('iframe'); DESK.f.src = '/playground/?desk'; DESK.f.title = t('desk'); $('desk').append(DESK.f); }
+    const show = want && DESK.ready;
+    if (show !== DESK.shown){ DESK.shown = show; body.classList.toggle('desk', show); $('desk').hidden = !show; if (!show){ DESK.horn = false; hornUp(); } }
+    const pause = !show || document.visibilityState !== 'visible';
+    if (DESK.ready && pause !== DESK.paused){ DESK.paused = pause; deskPost({ desk:'pause', on:pause }); }
+  }
+  addEventListener('message', e => {
+    if (!DESK.f || e.source !== DESK.f.contentWindow || e.origin !== location.origin) return;
+    const m = e.data; if (!m || typeof m !== 'object') return;
+    if (m.desk === 'ready'){ DESK.ready = true; DESK.paused = null; deskPost({ desk:'lang', l:L }); if (R.st) deskPost({ desk:'state', st:R.st }); render(); return; }
+    if (!DESK.shown) return;
+    wake();
+    if (m.desk === 'cmd' && DESK_CMDS.includes(m.c)) send(m.c, m.v);
+    else if (m.desk === 'horn'){ DESK.horn = !!m.on; if (m.on) hornDown(); else hornUp(); }
+  });
+  addEventListener('pointerup', () => { if (DESK.horn){ DESK.horn = false; hornUp(); } });   // a finger let go out here, off the frame
+  document.addEventListener('visibilitychange', deskSync);
+  DESK.tab.addEventListener('change', render);
+  $('mDesk').addEventListener('click', () => {
+    DESK.on = !DESK.on; try { localStorage.setItem('remote.desk', DESK.on ? '1' : '0'); } catch (e) {}
+    if (!DESK.on && DESK.f){ DESK.f.remove(); Object.assign(DESK, { f:null, ready:false, paused:null }); }   // off: its memory back
+    render();
+  });
+
   /* ---- the code screen */
   $('codeIn').addEventListener('input', () => {
     const el = $('codeIn'), v = el.value.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4);
@@ -619,6 +673,7 @@ body.walk .pad{grid-template-rows:minmax(0,1fr) auto}
     document.querySelectorAll('.langSeg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.lang === l)));
     root.removeAttribute('data-i18n-wait');
     pairMsg(R.msg, R.msgBad); render(); requestAnimationFrame(fitLabels);
+    deskPost({ desk:'lang', l });
   }
   document.querySelectorAll('.langSeg').forEach(seg => seg.addEventListener('click', e => {
     const b = e.target.closest('button'); if (!b || b.dataset.lang === L) return;

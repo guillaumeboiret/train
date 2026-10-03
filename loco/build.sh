@@ -10,7 +10,7 @@ cat locomotive.html $SRC 04-end.html > ../locomotive-3d.html
 check ../locomotive-3d.html ../loco-check.mjs
 wrap ../locomotive-3d.html locomotive-test.html
 # kid mode: same engine, different title, kid layer appended
-{ sed '1s/.*/<title>Jouer au train<\/title>/' locomotive.html; cat $SRC 03i-kid.js 03i2-cine.js 03j-remote.js 04-end.html; } > ../locomotive-kid.html
+{ sed '1s/.*/<title>Jouer au train<\/title>/' locomotive.html; cat $SRC 03i-kid.js 03i2-cine.js 03j-remote.js 03k-desk.js 04-end.html; } > ../locomotive-kid.html
 check ../locomotive-kid.html ../kid-check.mjs
 wrap ../locomotive-kid.html kid-test.html
 ls -la ../locomotive-3d.html ../locomotive-kid.html

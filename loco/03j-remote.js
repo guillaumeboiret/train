@@ -196,7 +196,8 @@ async function rmWake(on){   // paired, the screen stays on: nobody touches the 
   } catch (e) { RM.locking = false; }
 }
 
-/* ---- what the iPad shows: the line once (and the bar's icons), the train's state whenever it changes (checked 8 times a second), the kid's messages */
+/* ---- what the iPad shows: the line once (and the bar's icons), the train's state whenever it changes (checked 8 times a second), the kid's messages.
+   Where the train is (s, v) changes at every check while it runs: a tablet's 3D cab (03k) follows it */
 const rmLine = () => {
   const st = ROUTE.stations, last = st.length - 1, order = Object.keys(ST_SHORT);
   return JSON.stringify({ t:'line', st:st.map((x, i) => ({ id:x.id, name:x.name, short:ST_SHORT[x.id] || x.name,
@@ -206,7 +207,7 @@ const rmBar = () => ({ w:money(BAR.wallet), pocket:!$('barPocket').hidden, tray:
   it:BAR_MENU.map(m => [barName(m.id), price(m.p), m.p > BAR.wallet ? 1 : 0]) });
 function rmState(){
   const st = nextStation(0), d = st ? (st.s - TGV.PLAT_FRONT - S.dist) * S.dir : 0;
-  return JSON.stringify({ t:'state', kmh:Math.round(S.speed * 3.6), notch:Math.round(S.notch), auto:S.autoStop, svc:S.service, mode:S.mode, dir:S.dir,
+  return JSON.stringify({ t:'state', kmh:Math.round(S.speed * 3.6), notch:Math.round(S.notch), brake:Math.round(S.brake), s:+S.dist.toFixed(1), v:+S.speed.toFixed(2), auto:S.autoStop, svc:S.service, mode:S.mode, dir:S.dir,
     panto:!!S.panto, doors:S.doorsF > 0.5, doorsOk:!(S.speed > 0.1 && S.doorsF < 0.02), horn:horn.active, view:kidWhere(), cam:kidOut,
     wx:wxPick(), plan:WX_PLAN.slots, tod:todPick(), todIco:todIcon(), clock:hhmm(CLOCK.min), xray:shellLevel < 1, nogui:noGui, mute:SND.muted, snd:SND.ctx?.state === 'running',
     next:st ? st.name : null, dist:st ? distText(d) : '', f:+RB.f(S.dist).toFixed(3),
