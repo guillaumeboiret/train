@@ -303,7 +303,7 @@ function updateSound(dt){
     if (!o.active){ set(vo.g.gain, 0); vo.horn = null; continue; }
     const a = o.s + TGV.TIP_F * o.dir, b = o.s + TGV.TIP_R * o.dir, ourS = S.dist + cam.x;   // the train is a 197 m segment: the nearest point speaks
     const sN = _sc(ourS, Math.min(a, b), Math.max(a, b));
-    curveLocal(sN - S.dist, 1.6, ROUTE.laneW(o.lane, sN) - laneMix(sN), _sv2);
+    routeLocal(sN, 1.6, ROUTE.laneW(o.lane, sN) - laneMix(sN), _sv2);
     const r = aim(vo, _sv2, r => 0.5 * Math.min(1, o.v / 60) / (1 + r / 15));
     const u = (sN - ourS) / r, dop = (340 + sp * S.dir * u) / Math.max(60, 340 + o.v * o.dir * u);   // Doppler: both trains move, only along the line of sight counts
     set(vo.f.frequency, 600 * dop);

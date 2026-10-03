@@ -32,7 +32,7 @@ function cnPassMake(sh){   // a spot beside the line ahead that the train reache
   if (sc < 200 || sc > ROUTE.L - 200 || cnStation(sc - 20, sc + 20) || cnKd(h, sc + d * 60, k => k === 2) || cnRoof(h, sc + d * 60)) return false;
   if (S.autoStop && (S.stopS + e.head - sc) * d < 30) return false;   // the autopilot stops it short of the spot
   for (const k of [sh.sd, -sh.sd]){
-    if (!camPlace(curveLocal(sc - S.dist, 0, k * (14 + 6 * Math.random()), _cnV)) || Math.abs(CP.yG - cnRail()) > 6) continue;
+    if (!camPlace(routeLocal(sc, 0, k * (14 + 6 * Math.random()), _cnV)) || Math.abs(CP.yG - cnRail()) > 6) continue;
     sh.P = _fx.clone(); sh.P.y = CP.yG + 1.8; sh.sc = sc; sh.xs = NaN;   // standing there, the eye 1.8 m over the ground
     return true;
   }
@@ -48,7 +48,7 @@ const cnPlatSt = () => S.autoStop && ROUTE.stations.find(st => Math.abs(st.s - T
 function cnPlatOk(){ const r = tgvRemaining(); return S.speed > 3 && S.stopS !== CINE.platS && r > 40 && r < 350 && !!cnPlatSt(); }   // pulling in: once a stop
 function cnPlatMake(sh){   // on the platform's edge 18 m past where the head will stop (at a buffer stop, short of it), looking down the line at the train coming in over the heads of those waiting
   const st = cnPlatSt(), d = S.dir, hx = S.stopS + cnEnds().head, sc = hx + d * Math.min(18, (d > 0 ? ROUTE.L - hx : hx) - 1);
-  sh.P = curveLocal(sc - S.dist, 3.6, st.side * 3.6, new THREE.Vector3()).applyQuaternion(F0.q).add(P_loco); CINE.platS = S.stopS;
+  sh.P = routeLocal(sc, 3.6, st.side * 3.6, new THREE.Vector3()).applyQuaternion(F0.q).add(P_loco); CINE.platS = S.stopS;
   return true;
 }
 function cnPlatPose(sh, u, E, T, dt){   // the nose followed in; the shot ends 4 s after the train stands

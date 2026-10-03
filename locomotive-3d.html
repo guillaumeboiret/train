@@ -2353,7 +2353,7 @@ scene.add(wagons);
   let x = -9.6 - 1.25;
   for (const w of [coach(0x33659f), coach(0x33659f), tankCar()]){
     const len = (w.children[0].geometry.parameters.width);
-    w.position.x = x - len / 2; x -= len + 1.25;
+    w.position.x = x - len / 2; w.userData.j = [x + 0.625, x - len - 0.625]; x -= len + 1.25;   // its joints (03f4-route.js): halfway across the couplings
     wagons.add(w);
   }
   wagons.traverse(o => { if (o.isMesh){ o.castShadow = true; o.receiveShadow = true; } });
@@ -4754,6 +4754,11 @@ const ROUTE = (() => {
     _rm.makeBasis(out.t, _ru, out.r); out.q.setFromRotationMatrix(_rm);
     return out;
   };
+  const pointAt = (s, w, out) => {   // frameAt's p + r w without its turn: the point w m to the right of the line at s
+    const f = Math.max(0, Math.min(N - 1.0001, s / DS)), i = Math.floor(f), t = f - i, i1 = Math.min(N - 1, i + 1);
+    const tx = TX[i] + (TX[i1] - TX[i]) * t, tz = TZ[i] + (TZ[i1] - TZ[i]) * t, l = Math.hypot(tx, tz) || 1;
+    return out.set(X[i] + (X[i1] - X[i]) * t - tz / l * w, Y[i] + (Y[i1] - Y[i]) * t, Z[i] + (Z[i1] - Z[i]) * t + tx / l * w);
+  };
   const stationU = s => { const f = Math.max(0, Math.min(N - 1.0001, s / DS)), i = Math.floor(f), t = f - i; return SU[i] + (SU[Math.min(N - 1, i + 1)] - SU[i]) * t; };
   // lanes: 0 = ours (left, "voie 2"), 1 = opposite direction (right), 2k/2k+1 further out; 'B' = the other face of the island platform.
   // At side-platform stations 'B' is our direction's through track and 'C' the other direction's platform track.
@@ -4784,7 +4789,7 @@ const ROUTE = (() => {
   const voltAt = s => { let v = VOLT[0][1]; for (const [a, k] of VOLT){ if (a > s) break; v = k; } return v; };
   const lanes = [0, 1, 2, 3, 4, 5, 6, 7, 'B', 'C', ...Object.keys(LADDER)];
   const tracksAt = s => lanes.filter(k => laneE(k, s) > 0.5).length;   // the tracks drawn here, as the chunks lay them: a lane more than half there, the island's far face ('B') and the ladder tracks with them
-  return { L, N, DS, X, Y, Z, NT, VM, KD, SU, SS, SD, stations, frameAt, laneW, laneE, stationU, gradeAt, terAt, elAt, sstep, idx, voltAt, lanes, tracksAt,
+  return { L, N, DS, X, Y, Z, NT, VM, KD, SU, SS, SD, stations, frameAt, pointAt, laneW, laneE, stationU, gradeAt, terAt, elAt, sstep, idx, voltAt, lanes, tracksAt,
     vmax:D.vmax, lineLimit: s => VM[idx(s)], kindAt: s => KD[idx(s)], altAt: s => Y[idx(s)], src:D.src, name:D.name };
 })();
 
@@ -5290,7 +5295,43 @@ function ensureChunks(s){
 /* ---- placing things on the line: the loco is the origin; every other car, the station and the other trains get their own frame */
 const F0 = mkFrame(), Fc = mkFrame(), P_loco = new THREE.Vector3(), qInv = new THREE.Quaternion(), Q_FLIP = new THREE.Quaternion().setFromAxisAngle(Y_UP, Math.PI);
 const _pv = new THREE.Vector3(), _pb = new THREE.Box3();
-const cars = [];                                  // {xc, pv, tag}: tag 0 wagons, 1 TGV set 1, 2 TGV set 2
+const cars = [];                                  // {xc, jF, jR, pv, tag}: tag 0 wagons, 1 TGV set 1, 2 TGV set 2
+const coaches = [];                               // the same by car: {tag, xc, jF, jR, pvs}
+const byCar = (list, out) => { for (const c of list){ let k = out.find(q => q.tag === c.tag && q.xc === c.xc); if (!k) out.push(k = { tag:c.tag, xc:c.xc, jF:c.jF, jR:c.jR, pvs:[] }); k.pvs.push(c.pv); } return out; };
+/* A train is rigid: its cars keep their real lengths along their track, each on the chord between its joints (the gangways or couplings,
+   halfway between two cars' ends, mirrored at a train's ends), which sit on the track: two neighbours share theirs. The line's s is not the distance along a track everywhere: the lanes spread
+   apart at stations and cross over, and where a station's straight platform is blended into the curved trace s runs up to a quarter off.
+   Cars set at s + x and turned with the line parted at their joints, by 1 m sideways and 5 m lengthways at worst. A chain maps a train's
+   x to s every CH_DX m of real distance along its own lane ('mix': ours, changing tracks). */
+const CH_DX = 10, _chA = new THREE.Vector3(), _chB = new THREE.Vector3(), _chD = new THREE.Vector3(), _chU = new THREE.Vector3(), _chR = new THREE.Vector3(), _chM = new THREE.Matrix4();
+const _chP = new THREE.Vector3(), _chQ = new THREE.Quaternion();
+const mkChain = () => ({ lane:'mix', dir:1, k0:0, n:0, s:new Float64Array(128) });
+const chainPt = (ch, s, out) => ROUTE.pointAt(s, ch.lane === 'mix' ? laneMix(s) : ROUTE.laneW(ch.lane, s), out);
+function chainBuild(ch, lane, s0, dir, xMax, xMin){   // x = 0 at s0, the train's +x toward s growing when dir > 0
+  const k0 = Math.floor(xMin / CH_DX), n = Math.ceil(xMax / CH_DX) - k0 + 1;
+  if (ch.s.length < n) ch.s = new Float64Array(n + 32);
+  ch.lane = lane; ch.dir = dir; ch.k0 = k0; ch.n = n; ch.s[-k0] = s0;
+  for (const st of [1, -1]){
+    let s = s0; chainPt(ch, s, _chA);
+    for (let i = -k0 + st; i >= 0 && i < n; i += st){
+      let sn = s + dir * st * CH_DX; const d = chainPt(ch, sn, _chB).distanceTo(_chA);
+      if (d > 1e-6) sn = s + (sn - s) * CH_DX / d;   // stretched to CH_DX m of real distance (at the line's ends the point stops: s runs on)
+      ch.s[i] = sn; chainPt(ch, sn, _chA); s = sn;
+    }
+  }
+}
+function chainS(ch, x){   // s at the train's x; beyond the nodes it runs on at the last ones' pace
+  if (ch.n < 2) return S.dist + x;   // ours before its first frame
+  const f = x / CH_DX - ch.k0, i = Math.max(0, Math.min(ch.n - 2, Math.floor(f)));
+  return ch.s[i] + (ch.s[i + 1] - ch.s[i]) * (f - i);
+}
+function chainPose(ch, jF, jR, xc, P, Q){   // a car on the chord between its joints (on a curve its middle sits a little inside); P, Q in the route's frame
+  chainPt(ch, chainS(ch, jF), _chA); chainPt(ch, chainS(ch, jR), _chB);
+  _chD.subVectors(_chA, _chB).normalize(); _chR.crossVectors(_chD, Y_UP).normalize(); _chU.crossVectors(_chR, _chD);
+  Q.setFromRotationMatrix(_chM.makeBasis(_chD, _chU, _chR));
+  return P.copy(_chB).addScaledVector(_chD, xc - jR);
+}
+const OUR = mkChain(), LEAD_J = {};               // ours; the leading car's rear joint by mode (its frame is the scene's)
 /* ---- the outside camera's fence (Orbit.fence, 03b-scene.js): never under the ground or the rails, nor inside a hill. A camera in a tunnel's
    rock is drawn into the tube. While the train it looks at is in a tunnel or 40 m from one, it keeps to the tube's shape, in the tube and
    before its mouths, so the hill never stands between them; anywhere else the lowest height it may take is returned, 0.6 m over the ground,
@@ -5462,6 +5503,8 @@ function tgvRanges(){
   const r = [{ xc:0, a:-9.9, b:11.4 }];
   for (const [xr, L] of TGV.TRAILERS) r.push({ xc:xr + L / 2, a:xr - 0.3, b:xr + L + 0.3 });
   r.push({ xc:TGV.REAR_PC, a:-185.6, b:-164.3 });
+  r.forEach((q, i) => { q.jF = i ? (r[i - 1].a + q.b) / 2 : NaN; q.jR = i < r.length - 1 ? (q.a + r[i + 1].b) / 2 : NaN; });   // the joints, halfway between two cars' ends
+  for (const q of r){ if (isNaN(q.jF)) q.jF = 2 * q.xc - q.jR; if (isNaN(q.jR)) q.jR = 2 * q.xc - q.jF; }   // mirrored at the set's ends
   return r;
 }
 function carify(group, ranges, tag, out){          // regroup a part's meshes per car so each car can sit on its own bit of curve
@@ -5472,22 +5515,20 @@ function carify(group, ranges, tag, out){          // regroup a part's meshes pe
     let r = ranges.find(q => _pv.x >= q.a && _pv.x <= q.b);
     if (!r){ let best = 1e9; for (const q of ranges){ const d = Math.abs(_pv.x - q.xc); if (d < best){ best = d; r = q; } } }
     let pv = pivots.get(r);
-    if (!pv){ pv = new THREE.Group(); pv.name = 'car'; group.add(pv); pivots.set(r, pv); out.push({ xc:r.xc, pv, tag }); }
+    if (!pv){ pv = new THREE.Group(); pv.name = 'car'; group.add(pv); pivots.set(r, pv); out.push({ xc:r.xc, jF:r.jF, jR:r.jR, pv, tag }); }
     pv.add(o); o.position.x -= r.xc;
   }
-}
-function poseScene(obj, s, w, flip){               // for objects living in the scene (loco frame)
-  ROUTE.frameAt(s, Fc);
-  obj.position.copy(Fc.p).addScaledVector(Fc.r, w).sub(P_loco).applyQuaternion(qInv);
-  obj.quaternion.copy(qInv).multiply(Fc.q); if (flip) obj.quaternion.multiply(Q_FLIP);
 }
 function poseWorld(obj, s, w, flip){               // for objects living in `world` (route frame, translated to the loco)
   ROUTE.frameAt(s, Fc);
   obj.position.copy(Fc.p).addScaledVector(Fc.r, w).sub(P_loco);
   obj.quaternion.copy(Fc.q); if (flip) obj.quaternion.multiply(Q_FLIP);
 }
-function curveLocal(x, y, z, out){                 // a point given in straight loco coordinates → where it really is on the curve
-  const s = S.dist + x; ROUTE.frameAt(s, Fc);
+function curveLocal(x, y, z, out){                 // a point given in straight loco coordinates → where it really is on the curve (x in real metres along our track)
+  return routeLocal(chainS(OUR, x), y, z, out);
+}
+function routeLocal(s, y, z, out){                 // the point y m over our track and z m right of it at s, in the scene
+  ROUTE.frameAt(s, Fc);
   _pv.set(0, y, z).applyQuaternion(Fc.q);
   return out.copy(Fc.p).addScaledVector(Fc.r, laneMix(s)).add(_pv).sub(P_loco).applyQuaternion(qInv);
 }
@@ -5546,8 +5587,10 @@ for (const n of [31, 41]){ const g = new THREE.Group(); g.visible = false; world
   for (const id of ['powerCars', 'roofLine', 'trailers', 'jacobs', 'doors']) carify(parts[id].group, R, 1, cars);
   for (const g of tgvSets[1].group.children) carify(g, R, 2, cars);
   for (const set of tgvSets) for (const d of set.doors){ d.x0 = d.g.position.x; d.z0 = d.g.position.z; }
-  for (const w of wagons.children) cars.push({ xc:w.position.x, pv:w, tag:0 });
+  for (const w of wagons.children) cars.push({ xc:w.position.x, jF:w.userData.j[0], jR:w.userData.j[1], pv:w, tag:0 });
   for (const o of [parked, ...opp]) for (const g of Object.values(o.G)) carify(g, R, 'x', o.cars);
+  byCar(cars, coaches); for (const o of opp){ o.coaches = byCar(o.cars, []); o.ch = mkChain(); }
+  LEAD_J.tgv = R[0].jR; LEAD_J.loco = wagons.children[0].userData.j[0];
   for (const d of parked.set.doors){ d.x0 = d.g.position.x; d.z0 = d.g.position.z; }
   parked.side = 0;
   parked.set.lamps.rear.tl.emissiveIntensity = 1.4;
@@ -5580,24 +5623,27 @@ function updateOpposing(dt){
     const away = o.v < 0.1 || (lo > camS) === (o.dir > 0);   // standing, or running away from the camera
     if ((Math.max(lo - camS, camS - hi) > gone && away) || Math.abs(o.s - camS) > reach + 1000){ o.active = false; o.group.visible = false; continue; }
     for (const ax of o.ax) ax.rotation.z -= (o.v / (ax.userData.r || WHEEL_R)) * dt;
-    for (const c of o.cars){ const s = o.s + c.xc * o.dir; poseWorld(c.pv, s, ROUTE.laneW(o.lane, s), o.dir < 0); }
+    chainBuild(o.ch, o.lane, o.s, o.dir, TGV.TIP_F + 10, TGV.TIP_R - 10);
+    for (const k of o.coaches){ chainPose(o.ch, k.jF, k.jR, k.xc, _chP, _chQ).sub(P_loco); for (const pv of k.pvs){ pv.position.copy(_chP); pv.quaternion.copy(_chQ); } }
   }
 }
 function updateRoute(dt){
   S.track = trk.to; S.trackF = trackFAt(S.dist);
   ROUTE.frameAt(S.dist, F0);
-  P_loco.copy(F0.p).addScaledVector(F0.r, laneMix(S.dist));
+  const tgv = S.mode === 'tgv', wide2 = tgv && tgvSets[1].group.visible, base2 = TGV.SET2_X + S.set2Off, jl = tgv ? LEAD_J.tgv : LEAD_J.loco;
+  chainBuild(OUR, 'mix', S.dist, 1, 110, -tailLen() - 110);   // 110 m beyond both ends for the cameras aimed off the train
+  chainPose(OUR, -jl, jl, 0, P_loco, F0.q);   // the scene's frame is the leading car's
   qInv.copy(F0.q).invert();
   world.quaternion.copy(qInv);
   ensureChunks(S.dist);
   const catOn = parts.catenary.group.visible;
   for (const ch of chunks.values()){ ch.group.position.copy(ch.origin).sub(P_loco); ch.cat.visible = catOn; }
-  const tgv = S.mode === 'tgv', wide2 = tgv && tgvSets[1].group.visible, base2 = TGV.SET2_X + S.set2Off;
-  for (const c of cars){
-    if (c.tag === 0 ? tgv : !tgv) continue;
-    if (c.tag === 2 && !wide2) continue;
-    const s = S.dist + c.xc + (c.tag === 2 ? base2 : 0);
-    poseScene(c.pv, s, laneMix(s), false);
+  for (const k of coaches){
+    if (k.tag === 0 ? tgv : !tgv) continue;
+    if (k.tag === 2 && !wide2) continue;
+    const o = k.tag === 2 ? base2 : 0;
+    chainPose(OUR, k.jF + o, k.jR + o, k.xc + o, _chP, _chQ).sub(P_loco).applyQuaternion(qInv); _chQ.premultiply(qInv);
+    for (const pv of k.pvs){ pv.position.copy(_chP); pv.quaternion.copy(_chQ); }
   }
   poseStation(); fitShadow();
   parkedG.visible = S.mode === 'tgv';   // the train on the other face of the platform belongs to the TGV scene
@@ -6286,7 +6332,7 @@ function updateSound(dt){
     if (!o.active){ set(vo.g.gain, 0); vo.horn = null; continue; }
     const a = o.s + TGV.TIP_F * o.dir, b = o.s + TGV.TIP_R * o.dir, ourS = S.dist + cam.x;   // the train is a 197 m segment: the nearest point speaks
     const sN = _sc(ourS, Math.min(a, b), Math.max(a, b));
-    curveLocal(sN - S.dist, 1.6, ROUTE.laneW(o.lane, sN) - laneMix(sN), _sv2);
+    routeLocal(sN, 1.6, ROUTE.laneW(o.lane, sN) - laneMix(sN), _sv2);
     const r = aim(vo, _sv2, r => 0.5 * Math.min(1, o.v / 60) / (1 + r / 15));
     const u = (sN - ourS) / r, dop = (340 + sp * S.dir * u) / Math.max(60, 340 + o.v * o.dir * u);   // Doppler: both trains move, only along the line of sight counts
     set(vo.f.frequency, 600 * dop);

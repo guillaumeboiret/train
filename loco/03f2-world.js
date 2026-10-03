@@ -52,7 +52,7 @@ scene.add(wagons);
   let x = -9.6 - 1.25;
   for (const w of [coach(0x33659f), coach(0x33659f), tankCar()]){
     const len = (w.children[0].geometry.parameters.width);
-    w.position.x = x - len / 2; x -= len + 1.25;
+    w.position.x = x - len / 2; w.userData.j = [x + 0.625, x - len - 0.625]; x -= len + 1.25;   // its joints (03f4-route.js): halfway across the couplings
     wagons.add(w);
   }
   wagons.traverse(o => { if (o.isMesh){ o.castShadow = true; o.receiveShadow = true; } });
