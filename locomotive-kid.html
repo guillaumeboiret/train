@@ -5269,7 +5269,9 @@ const F0 = mkFrame(), Fc = mkFrame(), P_loco = new THREE.Vector3(), qInv = new T
 const _pv = new THREE.Vector3(), _pb = new THREE.Box3();
 const cars = [];                                  // {xc, pv, tag}: tag 0 wagons, 1 TGV set 1, 2 TGV set 2
 /* ---- the outside camera's fence (Orbit.fence, 03b-scene.js): never under the ground or the rails, nor inside a hill. A camera in a tunnel's
-   rock is drawn into the tube; anywhere else the lowest height it may take is returned, 0.6 m over the ground, the bed or a bridge deck */
+   rock is drawn into the tube. While the train it looks at is in a tunnel or 40 m from one, it keeps to the tube's shape, in the tube and
+   before its mouths, so the hill never stands between them; anywhere else the lowest height it may take is returned, 0.6 m over the ground,
+   the bed or a bridge deck */
 const _fx = new THREE.Vector3(), _ff = mkFrame();
 function groundRow(G, k, w){   // the ground's height (absolute) at w across row k
   const o = k * G.nc; let c = 0;
@@ -5293,15 +5295,18 @@ function camPlace(p){   // p in scene coordinates: _fx gets it in route coordina
   CP.s = s; CP.w = w; CP.G = G; CP.lo = lo; CP.hi = hi; CP.t = t; CP.yG = a + (groundRow(G, hi, w) - a) * t;
   return true;
 }
+function tunnelNear(s, d){ const i1 = ROUTE.idx(Math.min(ROUTE.L, s + d)); for (let i = ROUTE.idx(Math.max(0, s - d)); i <= i1; i++) if (ROUTE.KD[i] === 2) return true; return false; }
 function camFence(p){   // p: the camera in scene coordinates
+  const near = camPlace(orbit.target) && tunnelNear(CP.s, 40);   // what it looks at is in a tunnel or 40 m from one
   if (!camPlace(p)) return null;
-  const { s, w, G, lo, hi, t, yG } = CP, lerp = (A, B) => A + (B - A) * t;
-  if (ROUTE.kindAt(s) === 2 && _fx.y < yG){   // under the hill: inside the tube, or drawn into it
+  const { w, G, lo, hi, t, yG } = CP, lerp = (A, B) => A + (B - A) * t, inT = G.kind[lo] === 2 || G.kind[hi] === 2;   // in the tube, its lining one sample past the tagged tunnel, or in its mouth
+  if ((inT && _fx.y < yG) || near){   // in the tube or drawn into it; out of a tunnel, the same shape before its mouth
     const k = t < 0.5 ? lo : hi, u = w - G.wc[k], R = G.rr[k] - 0.7, yc = lerp(G.rail[lo], G.rail[hi]) + 0.3;   // the arch's centre, 0.3 m over the rails
     let v = Math.max(_fx.y - yc, -0.1), du = u;   // no lower than 0.2 m over the rails
     const d = Math.hypot(u, Math.max(v, 0));
     if (d > R){ du = u * R / d; if (v > 0) v *= R / d; }
-    _fx.copy(_ff.p).addScaledVector(_ff.r, G.wc[k] + du); _fx.y = yc + v;
+    const w2 = G.wc[k] + du, gy = inT ? -1e9 : lerp(groundRow(G, lo, w2), groundRow(G, hi, w2)) + 0.6;   // out in the open, still over the ground
+    _fx.copy(_ff.p).addScaledVector(_ff.r, w2); _fx.y = Math.max(yc + v, gy);
     p.copy(_fx).sub(P_loco).applyQuaternion(qInv);
     return null;
   }
