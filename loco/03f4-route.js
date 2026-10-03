@@ -839,4 +839,4 @@ function updateRoute(dt){
     if (parked.set.pantos[1].f !== dcUp(so)) posePanto(parked.set.pantos[1], dcUp(so)); }
   updateOpposing(dt); updateWind(dt); updateSights(dt);
 }
-scene.remove(sky); world.add(sky);                 // the sky turns with the world so its horizon stays level
+scene.remove(sky, stars); world.add(sky, stars);   // the sky and the stars turn with the world so its horizon stays level

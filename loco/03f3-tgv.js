@@ -1707,7 +1707,8 @@ function walkView(){   // the passenger: first seated by the window on coach 1's
 }
 
 /* ---- the sun's shadow box: over the train (a long one takes a bigger map), stretched over a station's slab near it so the slab shades the
-   tracks under it. Rounded to 20 m so it moves in steps, not every frame */
+   tracks under it, and away from a low sun as far as the train's shadow falls (60 m at most). Rounded to 20 m so it moves in steps, not every
+   frame; it turns with the light (03b-scene.js), a tenth of a degree at a time */
 let shadowKey = '';
 function fitShadow(){
   const tgv = S.mode === 'tgv', d = stationDeck(), near = d && d[1] > -600 && d[0] < 600;
@@ -1716,7 +1717,11 @@ function fitShadow(){
     x0 = Math.min(x0, Math.floor(Math.max(d[0], -600) / 20) * 20); x1 = Math.max(x1, Math.ceil(Math.min(d[1], 600) / 20) * 20);
     z0 = Math.min(z0, Math.floor(Math.max(d[2], -64) / 2) * 2); z1 = Math.max(z1, Math.ceil(Math.min(d[3], 64) / 2) * 2);
   }
-  const size = Math.min(tgv || near ? 4096 : 2048, renderer.capabilities.maxTextureSize), key = [x0, x1, z0, z1, size].join();
+  const L = LIGHT_DIR, k = Math.min(60, 5 / Math.max(0.05, L.y)), sx = Math.round(-L.x * k / 20) * 20, sz = Math.round(-L.z * k / 2) * 2;   // where a 5 m high shadow ends
+  if (sx < 0) x0 += sx; else x1 += sx;
+  if (sz < 0) z0 += sz; else z1 += sz;
+  const size = Math.min(tgv || near ? 4096 : 2048, renderer.capabilities.maxTextureSize);
+  const key = [x0, x1, z0, z1, size, Math.round(L.x * 600), Math.round(L.y * 600), Math.round(L.z * 600)].join();
   if (key !== shadowKey){ setShadowBox(x0, x1, size, z0, z1); shadowKey = key; }
 }
 
