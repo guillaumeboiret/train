@@ -692,8 +692,9 @@ function chainPose(ch, jF, jR, xc, P, Q){   // a car on the chord between its jo
 const OUR = mkChain(), LEAD_J = {};               // ours; the leading car's rear joint by mode (its frame is the scene's)
 /* ---- the outside camera's fence (Orbit.fence, 03b-scene.js): never under the ground or the rails, nor inside a hill. A camera in a tunnel's
    rock is drawn into the tube. While the train it looks at is in a tunnel or 40 m from one, it keeps to the tube's shape, in the tube and
-   before its mouths, so the hill never stands between them; anywhere else the lowest height it may take is returned, 0.6 m over the ground,
-   the bed or a bridge deck */
+   before its mouths, so the hill never stands between them. It eases into that shape over the 2 s before (80 m at least), so it never jumps
+   there at speed: from where the open camera would be, lifts and all, round what it looks at (camEase). Anywhere else the lowest height it
+   may take is returned, 0.6 m over the ground, the bed or a bridge deck */
 const _fx = new THREE.Vector3(), _ff = mkFrame();
 function groundRow(G, k, w){   // the ground's height (absolute) at w across row k
   const o = k * G.nc; let c = 0;
@@ -717,21 +718,25 @@ function camPlace(p){   // p in scene coordinates: _fx gets it in route coordina
   CP.s = s; CP.w = w; CP.G = G; CP.lo = lo; CP.hi = hi; CP.t = t; CP.yG = a + (groundRow(G, hi, w) - a) * t;
   return true;
 }
-function tunnelNear(s, d){ const i1 = ROUTE.idx(Math.min(ROUTE.L, s + d)); for (let i = ROUTE.idx(Math.max(0, s - d)); i <= i1; i++) if (ROUTE.KD[i] === 2) return true; return false; }
+function tunnelGap(s, d){ const i1 = ROUTE.idx(Math.min(ROUTE.L, s + d)); let g = d; for (let i = ROUTE.idx(Math.max(0, s - d)); i <= i1; i++) if (ROUTE.KD[i] === 2) g = Math.min(g, Math.abs(i * ROUTE.DS - s)); return g; }   // m to the nearest tunnel sample, d at most
+const inTube = () => CP.G.kind[CP.lo] === 2 || CP.G.kind[CP.hi] === 2;   // after camPlace: in the tube, its lining one sample past the tagged tunnel, or in its mouth
+function tubeShape(){   // after camPlace: _fx drawn into the tube's shape there; out of a tunnel, the same shape before its mouth, still over the ground
+  const { w, G, lo, hi, t } = CP, lerp = (A, B) => A + (B - A) * t;
+  const k = t < 0.5 ? lo : hi, u = w - G.wc[k], R = G.rr[k] - 0.7, yc = lerp(G.rail[lo], G.rail[hi]) + 0.3;   // the arch's centre, 0.3 m over the rails
+  let v = Math.max(_fx.y - yc, -0.1), du = u;   // no lower than 0.2 m over the rails
+  const d = Math.hypot(u, Math.max(v, 0));
+  if (d > R){ du = u * R / d; if (v > 0) v *= R / d; }
+  const w2 = G.wc[k] + du, gy = inTube() ? -1e9 : lerp(groundRow(G, lo, w2), groundRow(G, hi, w2)) + 0.6;   // out in the open, still over the ground
+  _fx.copy(_ff.p).addScaledVector(_ff.r, w2); _fx.y = Math.max(yc + v, gy);
+}
+const CAM_TUBE = { w:0, p:new THREE.Vector3() };   // how far the camera has eased into the tube's shape before a mouth, and where that shape puts it (camEase)
 function camFence(p){   // p: the camera in scene coordinates
-  const near = camPlace(orbit.target) && tunnelNear(CP.s, 40);   // what it looks at is in a tunnel or 40 m from one
+  const e = Math.max(80, 2 * S.speed), near = camPlace(orbit.target) ? ROUTE.sstep((40 + e - tunnelGap(CP.s, 40 + e)) / e) : 0;   // what it looks at: 1 in a tunnel or 40 m from one, 0 from 2 s further
+  CAM_TUBE.w = 0;
   if (!camPlace(p)) return null;
-  const { w, G, lo, hi, t, yG } = CP, lerp = (A, B) => A + (B - A) * t, inT = G.kind[lo] === 2 || G.kind[hi] === 2;   // in the tube, its lining one sample past the tagged tunnel, or in its mouth
-  if ((inT && _fx.y < yG) || near){   // in the tube or drawn into it; out of a tunnel, the same shape before its mouth
-    const k = t < 0.5 ? lo : hi, u = w - G.wc[k], R = G.rr[k] - 0.7, yc = lerp(G.rail[lo], G.rail[hi]) + 0.3;   // the arch's centre, 0.3 m over the rails
-    let v = Math.max(_fx.y - yc, -0.1), du = u;   // no lower than 0.2 m over the rails
-    const d = Math.hypot(u, Math.max(v, 0));
-    if (d > R){ du = u * R / d; if (v > 0) v *= R / d; }
-    const w2 = G.wc[k] + du, gy = inT ? -1e9 : lerp(groundRow(G, lo, w2), groundRow(G, hi, w2)) + 0.6;   // out in the open, still over the ground
-    _fx.copy(_ff.p).addScaledVector(_ff.r, w2); _fx.y = Math.max(yc + v, gy);
-    p.copy(_fx).sub(P_loco).applyQuaternion(qInv);
-    return null;
-  }
+  const yG = CP.yG;
+  if ((inTube() && _fx.y < yG && !near) || near >= 1){ tubeShape(); p.copy(_fx).sub(P_loco).applyQuaternion(qInv); return null; }   // in the tube or drawn into it
+  if (near > 0){ tubeShape(); CAM_TUBE.p.copy(_fx).sub(P_loco).applyQuaternion(qInv); CAM_TUBE.w = near; camPlace(p); }   // on its way there: the open camera first
   _fx.y = yG + 0.6;
   return _fx.sub(P_loco).applyQuaternion(qInv).y;
 }
@@ -804,7 +809,17 @@ function camOver(p, dt, open){   // p: the camera in scene coordinates, after th
   if (OVER.lift > 1e-3){ _op.set(_ot.x + ux * hc, _ot.y + r * Math.sin(e), _ot.z + uz * hc); p.copy(_op).sub(P_loco).applyQuaternion(qInv); }
   camTrees(r, ux, uz, e);
 }
-orbit.over = camOver;
+const _fe = new THREE.Spherical(), _fe2 = new THREE.Spherical(), _fv = new THREE.Vector3();
+function camEase(p){   // after the fence and the lifts: on its way into the tube's shape (CAM_TUBE), round what it looks at, the distance, height and bearing eased apart
+  if (!p || !CAM_TUBE.w) return;
+  const T = orbit.target, b = CAM_TUBE.w;
+  _fe.setFromVector3(_fv.subVectors(p, T)); _fe2.setFromVector3(_fv.subVectors(CAM_TUBE.p, T));
+  let dth = _fe2.theta - _fe.theta; dth -= Math.round(dth / (2 * Math.PI)) * 2 * Math.PI;
+  _fe.radius *= (_fe2.radius / _fe.radius) ** b; _fe.phi += (_fe2.phi - _fe.phi) * b; _fe.theta += dth * b;
+  p.setFromSpherical(_fe).add(T);
+  if (camPlace(p) && !inTube()){ _fx.y = CP.yG + 0.6; p.y = Math.max(p.y, _fx.sub(P_loco).applyQuaternion(qInv).y); }   // over the ground; over a tunnel, on its way into it
+}
+orbit.over = (p, dt, open) => { camOver(p, dt, open); camEase(p); };
 /* ---- the train's lights ("add lights on the train when it's dark or in the tunnels"). As it gets dark around the camera, at night or deep in a
    tunnel, the lamps glow (halos, 03c-common.js) and the coaches' windows light up; the leading lamps throw a beam down the line at night and
    once the head of the train is in a tunnel. Deep in a tunnel the daylight fades out (DARK.cam, updateWeather), and the tube's own glow with it */
