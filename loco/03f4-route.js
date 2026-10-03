@@ -100,6 +100,9 @@ const ROUTE = (() => {
     }
     st.nLeft = Math.ceil(NT[idx(st.s)] / 2);
   }
+  // a tunnel goes on into a station's zone as far as the station's own ground: its platforms' reach (SU) and side platforms' loops (SS). Angoulême's ends where the real one does
+  for (const [s0, s1, k] of D.structs) if (k === 't')
+    for (let i = Math.max(0, Math.ceil(s0 / DS)); i <= Math.min(N - 1, Math.floor(s1 / DS)); i++) if (SU[i] === 0 && !SS[i]) KD[i] = 2;
   const frameAt = (s, out) => {
     const f = Math.max(0, Math.min(N - 1.0001, s / DS)), i = Math.floor(f), t = f - i, i1 = Math.min(N - 1, i + 1);
     out.p.set(X[i] + (X[i1] - X[i]) * t, Y[i] + (Y[i1] - Y[i]) * t, Z[i] + (Z[i1] - Z[i]) * t);
