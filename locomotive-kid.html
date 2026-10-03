@@ -927,15 +927,28 @@ fill.position.set(-16, 9, -14);
 scene.add(fill);
 
 /* sky dome: gradient from the horizon colour (shared with the fog) up to the zenith's, with the sun and the moon on it. It turns with the
-   route (03f4-route.js), so vR, the way the camera looks through each pixel, is in the route frame (x east, y up, z south) like sunR */
+   route (03f4-route.js), so vR, the way the camera looks through each pixel, is in the route frame (x east, y up, z south) like sunR.
+   In fine weather, a few small clouds: a layer 1.5 km up, puffs a few hundred metres across where a noise peaks, in patches with clear sky
+   between; the train runs under them and the wind takes them east (updateWeather sets cOff, the layer's point over the train, in km) */
 const skyMat = new THREE.ShaderMaterial({
   side:THREE.BackSide, depthWrite:false, fog:false,
   uniforms:{ horizon:{ value:new THREE.Color(0x4a5b70) }, zenith:{ value:new THREE.Color(0x1a2330) }, sunR:{ value:new THREE.Vector3(0, 1, 0) },
-    sunC:{ value:new THREE.Color(0, 0, 0) }, moonC:{ value:new THREE.Color(0, 0, 0) }, glow:{ value:0 } },
+    sunC:{ value:new THREE.Color(0, 0, 0) }, moonC:{ value:new THREE.Color(0, 0, 0) }, glow:{ value:0 },
+    cloudA:{ value:0 }, cOff:{ value:new THREE.Vector2() }, cLit:{ value:new THREE.Color() } },
   vertexShader:`varying vec3 vR; void main(){ vec4 w = modelMatrix * vec4(position, 1.0); vR = (vec4(w.xyz - cameraPosition, 0.0) * modelMatrix).xyz;
     gl_Position = projectionMatrix * viewMatrix * w; }`,
-  fragmentShader:`uniform vec3 horizon, zenith, sunR, sunC, moonC; uniform float glow; varying vec3 vR;
+  fragmentShader:`uniform vec3 horizon, zenith, sunR, sunC, moonC, cLit; uniform float glow, cloudA; uniform vec2 cOff; varying vec3 vR;
+    float h21(vec2 p){ p = fract(mod(p, 256.0) * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }   // cells taken mod 256, exactly, so the hash keeps its precision hundreds of km out
+    float vn(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+      return mix(mix(h21(i), h21(i + vec2(1.0, 0.0)), f.x), mix(h21(i + vec2(0.0, 1.0)), h21(i + vec2(1.0, 1.0)), f.x), f.y); }
     void main(){ vec3 r = normalize(vR); vec3 c = mix(horizon, zenith, smoothstep(0.0, 0.42, r.y));
+      if (cloudA > 0.003){
+        vec2 p = r.xz / max(r.y, 0.03) * 1.5 + cOff;   // where this pixel's line of sight meets the layer, km
+        float cover = 0.33 * smoothstep(0.4, 0.75, vn(p / 6.0 + 31.7));   // patches of a few puffs, clear sky between
+        float d = 0.65 * vn(p * 2.6) + 0.25 * vn(p * 5.3 + 5.1) + 0.1 * vn(p * 10.7 + 9.3), t = d - (1.0 - cover), w = fwidth(t);
+        float a = cloudA * smoothstep(-w, 0.05 + w, t) * smoothstep(0.08, 0.3, r.y);   // soft edges; faded out low over the horizon, where they would shimmer
+        c = mix(c, cLit * (1.0 - 0.3 * smoothstep(0.03, 0.2, t)), a);   // white edges, a greyer heart where the cloud is thickest
+      }
       float a = length(r - sunR), m = length(r + sunR), fa = fwidth(a), fm = fwidth(m);   // the angles to the sun and to the moon (radians, near them)
       c += sunC * (glow * (0.1 * exp(-a * 2.5) + 0.3 * exp(-a * 14.0)) + 8.0 * (1.0 - smoothstep(0.0105 - fa, 0.0105 + fa, a)));   // a disc of 1.2 degrees, twice the real one
       c += moonC * (0.05 * exp(-m * 12.0) + 1.5 * (1.0 - smoothstep(0.0085 - fm, 0.0085 + fm, m)));
@@ -1090,7 +1103,7 @@ const stars = (() => {
   const m = new THREE.Points(g, starMat); m.frustumCulled = false; m.visible = false; m.renderOrder = -1;
   scene.add(m); return m;
 })();
-let rainT = 0;
+let rainT = 0, cloudT = 0;
 const _fillD = new THREE.Vector3();
 function updateWeather(dt){
   CLOCK.min = CLOCK.live ? liveMin() : (CLOCK.min + dt * S.timeScale / 60) % 1440;
@@ -1129,6 +1142,11 @@ function updateWeather(dt){
   skyMat.uniforms.moonC.value.setRGB(0.8, 0.85, 1).multiplyScalar(moonVis);
   skyMat.uniforms.glow.value = 0.6 + 0.8 * Math.max(0, Math.min(1, 1 - sunH / 20));
   starMat.uniforms.night.value = clear * Math.max(0, Math.min(1, (-sunH - 4) / 7)); starMat.uniforms.px.value = renderer.getPixelRatio();
+  // fine weather's small clouds: lit by the sun (orange at sunset); at night the colour of the sky overhead, a shade lighter under the moon; gone with the sun's share of the weather
+  cloudT += dt; skyMat.uniforms.cloudA.value = clear;
+  skyMat.uniforms.cOff.value.set(P_loco.x / 1000 - 0.008 * cloudT, P_loco.z / 1000 + 0.002 * cloudT);   // a wind of 8 m/s from the west south west
+  const up = Math.max(0, Math.min(1, (sunH + 3) / 6)), nt = 1 - up;
+  skyMat.uniforms.cLit.value.setRGB(up * (0.5 * P[0] + 0.85 * P[9]) + nt * (0.9 * P[3] + 0.012 * moonVis), up * (0.5 * P[1] + 0.85 * P[10]) + nt * (0.9 * P[4] + 0.013 * moonVis), up * (0.5 * P[2] + 0.85 * P[11]) + nt * (0.9 * P[5] + 0.015 * moonVis));
   stars.visible = starMat.uniforms.night.value > 0.005;
   // the light comes from the sun, or from the moon opposite it; the sky's fill from the other side, low
   LIGHT_DIR.copy(SUN_R); if (moon) LIGHT_DIR.negate();
