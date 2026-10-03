@@ -768,7 +768,7 @@ function cabSpeed(c){   // 512 × 320: speed dial with the line's limit, what is
 const CAB_ROW_Y = 262, cabRowX = (s, w) => 30 + RB.f(s) * (w - 60);   // the line screen's row of stops, Toulouse on the left as on the line bar
 function cabLine(c, w){   // 512 × 320: where the train is going, the next stop, the line with its stops
   const list = ROUTE.stations, st = nextStation(0), d = st ? (st.s - TGV.PLAT_FRONT - S.dist) * S.dir : 0, end = S.dir > 0 ? list[list.length - 1] : list[0];
-  const now = new Date(), hm = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+  const hm = hhmm(CLOCK.min);   // the world's time of day, the one the sky shows, not the device's
   c.fillStyle = '#0f2236'; c.fillRect(0, 0, w, 56);
   c.fillStyle = '#dce8f5'; c.font = `600 28px ${CAB_FONT}`; c.textBaseline = 'middle';
   c.textAlign = 'left'; c.fillText(`→ ${end.name}`, 18, 29, w - 130); c.textAlign = 'right'; c.fillText(hm, w - 18, 29);
