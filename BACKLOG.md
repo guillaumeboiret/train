@@ -32,6 +32,7 @@ Nothing open: the film, outside only, is under Done.
 
 ## Known bugs, found while testing
 - In the 🎬 film the shot riding along the train's side can sink behind a dark wall beside the line, which then fills half the view (found 2026-10-03, 2.2 km before Poitiers).
+- In the 🎬 film the shot passing the train can be hidden by something light grey (9a9da1, 1.4 to 1.9 m up) 400 to 800 m past Bordeaux Saint-Jean: 12 frames of 528 in the sweep, there before the dark wall fix too (found 2026-10-03).
 - Railway reads none of railway.json's deploy settings for this service: the /version.txt healthcheck of 964d84b never ran, so a deploy switches without waiting for it. Config as code (railway.json) is deprecated and stops being read on 2026-12-01; Railway now wants .railway/railway.ts, applied with its CLI.
 - The Garonne is dry land: water is drawn only under bridges of 550 m or more.
 - Right after pairing, the iPad's 3D desk boots inside the iPad's own page and holds it about 1.4 s (two long tasks, 0.45 and 0.9 s, in headless Chrome on the Mac): a tap then waits, and in the test a synthetic tap sent then could vanish (found 2026-10-03). Not seen on the real iPad yet.
@@ -41,6 +42,7 @@ Nothing open: the film, outside only, is under Done.
 ## Done
 
 ### 2026-10-03
+- [x] The game loads without a first look that then changes ("when loading, there is a page that is loaded then the design changes. Can you load the game properly?", 2026-10-03): the playground now opens on its own loading screen, then the game as it stays, never the explainer's panels, and its camera no longer glides in: 5e73fd5
 - [x] The tests run in a muted browser, so they no longer sound the horn on the Mac ("Can you start in mute, pls the tests make the train to horn all the time", 2026-10-03): the test harness only, outside this repo, no commit.
 - [x] Known bug fixed: on the playground at 1366 × 1024 (an iPad), looking down at the driver's desk, the speed lever's panel covered the left edge of the cab's line screen (found 2026-10-03). The driver's lens now fits the whole desk between the lever and the views: 793063d
 - [x] Known bugs fixed: under Massy's slab and Montparnasse's garden the far, overview and train angles showed the slab, not the train, and leaving the tunnel into Massy's trench the outside camera turned 8 to 12 degrees in one frame (found 2026-10-03). Near a trench or a slab the camera now keeps to the tube's shape as at a tunnel mouth, under the soffit, short of Massy's far track, and Massy's walls between the tracks are hidden while it looks across one; the train shows in all four angles under both, and past all 54 tunnel mouths and the trench's ends the view turns 2.6 degrees a frame at most (Massy's ends 0.93, was 11.9): 3f91801
